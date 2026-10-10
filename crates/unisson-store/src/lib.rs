@@ -1,8 +1,17 @@
 //! Local storage of Unisson.
 //!
 //! Everything the application must remember between two runs lives in one
-//! SQLite database file, opened through a [`Store`]. For now it keeps the
-//! favorite radio stations.
+//! SQLite database file, opened through a [`Store`]:
+//!
+//! - the favorite radio stations;
+//! - the library: the tags of the local audio files, so they can be searched
+//!   at once without reading the files again;
+//! - the listening history;
+//! - the favorite media;
+//! - the playlists, which can mix media from every source.
+//!
+//! [`LocalSource`] plugs the library into the application through the
+//! [`Source`](unisson_core::Source) trait.
 //!
 //! # Where the data lives
 //!
@@ -26,9 +35,17 @@
 //! ```
 
 mod error;
+mod favorites;
+mod history;
+mod library;
+mod local_source;
+mod media;
 mod paths;
+mod playlists;
 mod store;
 
 pub use error::StoreError;
+pub use local_source::LocalSource;
 pub use paths::default_database_path;
+pub use playlists::Playlist;
 pub use store::Store;

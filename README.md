@@ -18,7 +18,9 @@ The project is under construction. Current target: Ubuntu 22.04.
 - `crates/unisson-local`: local audio files. It scans a music folder and reads
   the tags of each file (title, artist, album, duration, cover).
 - `crates/unisson-store`: the local storage, an SQLite database kept in
-  `~/.local/share/unisson/`. For now it holds the favorite stations.
+  `~/.local/share/unisson/`. It holds the favorite stations, the library
+  (tags of the local files, with a fast search), the listening history, the
+  favorite media and the playlists.
 - The desktop application will be added as a separate crate.
 
 ## Requirements
@@ -70,6 +72,17 @@ cargo run -p unisson-local --example scan -- ~/Music/Jazz
 ```
 
 Without a folder, the user's music folder is scanned.
+
+## Try the library
+
+```sh
+cargo run -p unisson-store --example library -- scan
+cargo run -p unisson-store --example library -- search miles blue
+cargo run -p unisson-store --example library -- list
+```
+
+`scan` saves the tags in the database. `search` then answers from the
+database: it ignores case and accents, and accepts incomplete words.
 
 ## Try the favorite stations
 

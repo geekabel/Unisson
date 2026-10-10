@@ -10,8 +10,7 @@ description = "Local storage of Unisson: keeps the user's data in an SQLite data
 workspace = true
 
 [dependencies]
+unisson-core.workspace = true
+unisson-local.workspace = true
 unisson-radio.workspace = true
 rusqlite.workspace = true
-
-[dev-dependencies]
-unisson-core.workspace = true

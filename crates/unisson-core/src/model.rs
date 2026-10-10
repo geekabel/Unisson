@@ -6,6 +6,8 @@
 //! because it may expire.
 
 use std::fmt;
+use std::os::unix::ffi::OsStrExt;
+use std::path::Path;
 use std::time::Duration;
 
 use crate::error::SourceError;
@@ -30,6 +32,27 @@ impl SourceKind {
             Self::Local => "Local",
             Self::YouTube => "YouTube",
         }
+    }
+}
+
+impl SourceKind {
+    /// Returns the stable identifier of the source, such as `radio`.
+    ///
+    /// Unlike [`label`](Self::label), it never changes: it is what gets
+    /// written to disk.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Radio => "radio",
+            Self::Local => "local",
+            Self::YouTube => "youtube",
+        }
+    }
+
+    /// Returns the source with the given [`id`](Self::id), if there is one.
+    pub fn from_id(id: &str) -> Option<Self> {
+        [Self::Radio, Self::Local, Self::YouTube]
+            .into_iter()
+            .find(|kind| kind.id() == id)
     }
 }
 
@@ -68,6 +91,25 @@ pub enum MediaKind {
     Track,
     /// A live station, with no end.
     Station,
+}
+
+impl MediaKind {
+    /// Returns the stable identifier of the kind, such as `track`.
+    ///
+    /// It never changes: it is what gets written to disk.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Track => "track",
+            Self::Station => "station",
+        }
+    }
+
+    /// Returns the kind with the given [`id`](Self::id), if there is one.
+    pub fn from_id(id: &str) -> Option<Self> {
+        [Self::Track, Self::Station]
+            .into_iter()
+            .find(|kind| kind.id() == id)
+    }
 }
 
 /// Something that can be put in the play queue.
@@ -198,6 +240,45 @@ impl StreamUri {
         }
     }
 
+    /// Builds the `file://` address of a local file.
+    ///
+    /// The path is not checked on disk. Characters that are not allowed in
+    /// an address, such as spaces and accents, are percent-encoded.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SourceError::Invalid`] if the path is not absolute.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use unisson_core::StreamUri;
+    ///
+    /// let uri = StreamUri::from_file_path("/home/me/Music/été 2010.mp3")?;
+    /// assert_eq!(uri.as_str(), "file:///home/me/Music/%C3%A9t%C3%A9%202010.mp3");
+    /// # Ok::<(), unisson_core::SourceError>(())
+    /// ```
+    pub fn from_file_path(path: impl AsRef<Path>) -> Result<Self, SourceError> {
+        let path = path.as_ref();
+        if !path.is_absolute() {
+            return Err(SourceError::Invalid(format!(
+                "a file address needs an absolute path: {}",
+                path.display()
+            )));
+        }
+        let mut uri = String::from("file://");
+        for byte in path.as_os_str().as_bytes() {
+            // RFC 3986 allows these characters as they are. `/` is kept
+            // too, since it separates the folders.
+            if byte.is_ascii_alphanumeric() || b"-._~/".contains(byte) {
+                uri.push(char::from(*byte));
+            } else {
+                uri.push_str(&format!("%{byte:02X}"));
+            }
+        }
+        Ok(Self(uri))
+    }
+
     /// Returns the address as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
@@ -249,6 +330,38 @@ mod tests {
                 "{bad}"
             );
         }
+    }
+
+    #[test]
+    fn a_file_path_becomes_an_escaped_address() {
+        let uri = StreamUri::from_file_path("/music/AC DC/100% rock & roll #1?.mp3").unwrap();
+        assert_eq!(
+            uri.as_str(),
+            "file:///music/AC%20DC/100%25%20rock%20%26%20roll%20%231%3F.mp3"
+        );
+        assert_eq!(
+            StreamUri::from_file_path("/a-b_c.d~e/f").unwrap().as_str(),
+            "file:///a-b_c.d~e/f"
+        );
+        assert!(matches!(
+            StreamUri::from_file_path("music/a.mp3"),
+            Err(SourceError::Invalid(_))
+        ));
+    }
+
+    #[test]
+    fn identifiers_are_stable_and_reversible() {
+        for kind in [SourceKind::Radio, SourceKind::Local, SourceKind::YouTube] {
+            assert_eq!(SourceKind::from_id(kind.id()), Some(kind));
+        }
+        for kind in [MediaKind::Track, MediaKind::Station] {
+            assert_eq!(MediaKind::from_id(kind.id()), Some(kind));
+        }
+        // These values are stored on disk: they must never change.
+        assert_eq!(SourceKind::YouTube.id(), "youtube");
+        assert_eq!(MediaKind::Station.id(), "station");
+        assert_eq!(SourceKind::from_id("spotify"), None);
+        assert_eq!(MediaKind::from_id("Track"), None);
     }
 
     #[test]

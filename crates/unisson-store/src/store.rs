@@ -16,7 +16,8 @@ use crate::paths::default_database_path;
 /// Each entry upgrades the database by one version. To change the layout,
 /// append an entry: never edit one that was released, since existing
 /// databases have already applied it.
-const MIGRATIONS: [&str; 1] = ["
+const MIGRATIONS: [&str; 2] = [
+    "
     CREATE TABLE favorite_stations (
         position     INTEGER NOT NULL,
         uuid         TEXT    NOT NULL PRIMARY KEY,
@@ -30,7 +31,68 @@ const MIGRATIONS: [&str; 1] = ["
         bitrate      INTEGER,
         hls          INTEGER NOT NULL
     );
-"];
+",
+    // The eight columns from `source` to `artwork` describe a media. They are
+    // the same in every table that stores one: see the `media` module.
+    "
+    CREATE TABLE tracks (
+        path         BLOB    NOT NULL PRIMARY KEY,
+        title        TEXT    NOT NULL,
+        artist       TEXT,
+        album        TEXT,
+        track_number INTEGER,
+        duration_ms  INTEGER,
+        has_cover    INTEGER NOT NULL,
+        search_key   TEXT    NOT NULL
+    );
+
+    CREATE TABLE history (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        played_at   INTEGER NOT NULL,
+        source      TEXT    NOT NULL,
+        key         TEXT    NOT NULL,
+        kind        TEXT    NOT NULL,
+        title       TEXT    NOT NULL,
+        artist      TEXT,
+        album       TEXT,
+        duration_ms INTEGER,
+        artwork     TEXT
+    );
+    CREATE INDEX history_by_media ON history (source, key);
+
+    CREATE TABLE favorite_media (
+        id          INTEGER PRIMARY KEY AUTOINCREMENT,
+        source      TEXT    NOT NULL,
+        key         TEXT    NOT NULL,
+        kind        TEXT    NOT NULL,
+        title       TEXT    NOT NULL,
+        artist      TEXT,
+        album       TEXT,
+        duration_ms INTEGER,
+        artwork     TEXT,
+        UNIQUE (source, key)
+    );
+
+    CREATE TABLE playlists (
+        id   INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT    NOT NULL
+    );
+
+    CREATE TABLE playlist_items (
+        playlist_id INTEGER NOT NULL REFERENCES playlists (id) ON DELETE CASCADE,
+        position    INTEGER NOT NULL,
+        source      TEXT    NOT NULL,
+        key         TEXT    NOT NULL,
+        kind        TEXT    NOT NULL,
+        title       TEXT    NOT NULL,
+        artist      TEXT,
+        album       TEXT,
+        duration_ms INTEGER,
+        artwork     TEXT,
+        PRIMARY KEY (playlist_id, position)
+    );
+",
+];
 
 /// The local database of the application.
 ///
@@ -91,6 +153,9 @@ impl Store {
 
     /// Brings the layout of a database up to date, and wraps it.
     fn prepare(mut connection: Connection) -> Result<Self, StoreError> {
+        // SQLite only enforces links between tables when asked, and the
+        // setting is per connection. Deleting a playlist relies on it.
+        connection.pragma_update(None, "foreign_keys", true)?;
         // SQLite keeps this number in the file for exactly that purpose.
         let version: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
         let latest = MIGRATIONS.len() as i64;
@@ -188,7 +253,7 @@ impl Store {
         Ok(())
     }
 
-    fn connection(&self) -> MutexGuard<'_, Connection> {
+    pub(crate) fn connection(&self) -> MutexGuard<'_, Connection> {
         // A panic in another thread cannot leave the connection half-used:
         // an unfinished transaction is rolled back when it is dropped.
         self.connection
@@ -316,6 +381,38 @@ mod tests {
         }
         let error = Store::open(&path).unwrap_err();
         assert!(matches!(error, StoreError::Database(_)), "{error}");
+    }
+
+    #[test]
+    fn a_database_from_an_older_version_is_upgraded_and_keeps_its_data() {
+        let path = temporary_path("older");
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        let station = custom_station("nova");
+        {
+            // Build a database as the first released layout made it.
+            let connection = Connection::open(&path).unwrap();
+            connection.execute_batch(MIGRATIONS[0]).unwrap();
+            connection.pragma_update(None, "user_version", 1).unwrap();
+            connection
+                .execute(
+                    "INSERT INTO favorite_stations (position, uuid, name, stream_url, tags, hls)
+                     VALUES (0, ?1, ?2, ?3, '', 0)",
+                    (&station.uuid, &station.name, &station.stream_url),
+                )
+                .unwrap();
+        }
+
+        let store = Store::open(&path).unwrap();
+
+        assert_eq!(store.favorite_stations().unwrap(), [station]);
+        // The tables added since then are there and usable.
+        assert_eq!(store.library_len().unwrap(), 0);
+        assert!(store.playlists().unwrap().is_empty());
+        let version: i64 = store
+            .connection()
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, MIGRATIONS.len() as i64);
     }
 
     #[test]

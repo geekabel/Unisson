@@ -26,11 +26,13 @@ pub mod error;
 pub mod model;
 pub mod queue;
 pub mod source;
+pub mod text;
 
 pub use error::SourceError;
 pub use model::{Media, MediaId, MediaKind, SourceKind, StreamUri};
 pub use queue::PlayQueue;
 pub use source::{SearchQuery, Source, SourceRegistry, SourceResults};
+pub use text::search_key;
 
 /// Version of this crate, read from `Cargo.toml` at compile time.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

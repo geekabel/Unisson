@@ -10,6 +10,8 @@ pub enum StoreError {
     Location(String),
     /// The database refused an operation, or its content is damaged.
     Database(String),
+    /// A value given by the caller cannot be stored.
+    Invalid(String),
 }
 
 impl fmt::Display for StoreError {
@@ -17,6 +19,7 @@ impl fmt::Display for StoreError {
         match self {
             Self::Location(detail) => write!(f, "cannot use the data location: {detail}"),
             Self::Database(detail) => write!(f, "database error: {detail}"),
+            Self::Invalid(detail) => write!(f, "invalid value: {detail}"),
         }
     }
 }
