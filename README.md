@@ -10,8 +10,8 @@ The project is under construction. Current target: Ubuntu 22.04.
 - `crates/unisson-core`: the core library, with no user interface
   (common model, source contract, source registry, play queue).
 - `crates/unisson-audio`: the audio engine, built on GStreamer. `Player` plays
-  one address (load, play, pause, stop, volume). `Engine` runs it on its own
-  thread and reports events (state, position, title on air, end of stream,
+  one address (load, play, pause, stop, seek, volume). `Engine` runs it on its
+  own thread and reports events (state, position, title on air, end of stream,
   errors). It also reconnects live streams that drop.
 - `crates/unisson-radio`: the internet radio source, backed by the free
   [Radio Browser](https://www.radio-browser.info) directory.
@@ -22,7 +22,13 @@ The project is under construction. Current target: Ubuntu 22.04.
   `~/.local/share/unisson/`. It holds the favorite stations, the library
   (tags of the local files, with a fast search), the listening history, the
   favorite media and the playlists.
-- The desktop application will be added as a separate crate.
+- `crates/unisson-playback`: the playback session. It drives the audio engine
+  from the play queue, asks the sources for addresses in the background, and
+  reports one state (what plays, where, how loud) through events.
+- `crates/unisson-app`: the desktop application, built with
+  [Tauri 2](https://v2.tauri.app). The Rust side (`src`) exposes commands and
+  events. The interface (`ui`) is plain HTML, CSS and JavaScript modules, with
+  no build step, embedded in the program at build time.
 
 ## Requirements
 
@@ -34,6 +40,33 @@ The project is under construction. Current target: Ubuntu 22.04.
       gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
       gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav
   ```
+
+- For the desktop application, the
+  [system libraries of Tauri](https://v2.tauri.app/start/prerequisites/).
+  On Ubuntu:
+
+  ```sh
+  sudo apt install libwebkit2gtk-4.1-dev build-essential curl wget file \
+      libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
+  ```
+
+## Run the application
+
+```sh
+cargo run -p unisson-app
+```
+
+The first build takes a few minutes. The window then shows the tracks of the
+music folder and the favorite radio stations: one click plays. The field at
+the top also plays a stream address or the full path of a file, with Enter.
+Space pauses and resumes, and Ctrl+K goes to the field.
+
+No Node.js is needed to build or run. It is only used to test the pure
+JavaScript helpers of the interface:
+
+```sh
+node --test crates/unisson-app/ui-tests/*.test.mjs
+```
 
 ## Try the audio engine
 
