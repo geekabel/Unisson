@@ -19,3 +19,9 @@ missing_docs = "warn"
 
 [workspace.lints.clippy]
 all = { level = "warn", priority = -1 }
+
+[workspace.dependencies]
+unisson-core = { path = "crates/unisson-core", version = "0.1.0" }
+# GStreamer bindings. Default features target the GStreamer 1.14 API, which
+# keeps the build compatible with Ubuntu 22.04 (GStreamer 1.20).
+gst = { package = "gstreamer", version = "0.25" }
