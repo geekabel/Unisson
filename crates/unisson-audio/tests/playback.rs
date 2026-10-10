@@ -136,6 +136,10 @@ fn commands_need_a_loaded_address() {
     let player = silent_player(false);
     assert_eq!(player.play(), Err(AudioError::NothingLoaded));
     assert_eq!(player.pause(), Err(AudioError::NothingLoaded));
+    assert_eq!(
+        player.seek(Duration::from_secs(1)),
+        Err(AudioError::NothingLoaded)
+    );
     assert_eq!(player.stop(), Ok(()));
 }
 

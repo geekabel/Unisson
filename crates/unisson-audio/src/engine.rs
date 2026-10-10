@@ -68,6 +68,11 @@ impl Default for EngineConfig {
 /// Something the engine reports to the application.
 #[derive(Debug, Clone, PartialEq)]
 pub enum EngineEvent {
+    /// The engine switched to this address, after [`Engine::load`],
+    /// [`Engine::play_uri`] or [`Engine::play_live`].
+    ///
+    /// Every event received before this one is about the previous address.
+    Loaded(StreamUri),
     /// The playback state changed.
     StateChanged(PlaybackState),
     /// Where playback is. Sent a few times per second while playing.
@@ -109,6 +114,7 @@ enum Command {
     Pause,
     Stop,
     SetVolume(f64),
+    Seek(Duration),
     Shutdown,
 }
 
@@ -312,6 +318,18 @@ impl Engine {
         self.send(Command::SetVolume(volume))
     }
 
+    /// Moves playback to `position`, counted from the start of the media.
+    ///
+    /// The engine answers with an [`EngineEvent::Position`]. A live stream
+    /// cannot be moved: the request is ignored.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AudioError::EngineStopped`] if the audio thread is gone.
+    pub fn seek(&self, position: Duration) -> Result<(), AudioError> {
+        self.send(Command::Seek(position))
+    }
+
     fn send(&self, command: Command) -> Result<(), AudioError> {
         self.commands
             .send(command)
@@ -391,6 +409,7 @@ impl Worker {
                 self.wants_playing = false;
                 self.last_title = None;
                 let result = self.player.load(&uri);
+                self.emit(EngineEvent::Loaded(uri.clone()));
                 self.live = live.then_some(LiveStream {
                     uri,
                     connected: false,
@@ -426,6 +445,17 @@ impl Worker {
                 self.emit(EngineEvent::VolumeChanged(self.player.volume()));
                 Ok(())
             }
+            // There is nowhere to jump to in a live stream.
+            Command::Seek(_) if self.live.is_some() => Ok(()),
+            Command::Seek(position) => self.player.seek(position).map(|()| {
+                // The player needs a moment to know its new position:
+                // report the requested one, so the listener moves at once.
+                self.last_position_at = Some(Instant::now());
+                self.emit(EngineEvent::Position {
+                    position,
+                    duration: self.player.duration(),
+                });
+            }),
             // Handled by `run`, which stops the loop.
             Command::Shutdown => Ok(()),
         };

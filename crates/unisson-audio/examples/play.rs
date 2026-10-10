@@ -67,6 +67,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     loop {
         match events.recv_timeout(Duration::from_millis(50)) {
+            Ok(EngineEvent::Loaded(uri)) => println!("Loaded {uri}"),
             Ok(EngineEvent::StateChanged(new_state)) => {
                 state = new_state;
                 println!("State: {state:?}");

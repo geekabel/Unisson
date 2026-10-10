@@ -162,6 +162,30 @@ impl Player {
         self.set_state(gst::State::Null)
     }
 
+    /// Moves playback to `position`, counted from the start of the media.
+    ///
+    /// Playback goes on, or stays paused, from the nearest point GStreamer
+    /// can jump to quickly. A position past the end finishes the media.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AudioError::NothingLoaded`] if no address was loaded, or
+    /// [`AudioError::Seek`] if the position cannot be changed: playback is
+    /// stopped, or the media is a live stream.
+    pub fn seek(&self, position: Duration) -> Result<(), AudioError> {
+        self.loaded_uri()?;
+        if self.state() == PlaybackState::Stopped {
+            return Err(AudioError::Seek("playback is stopped".into()));
+        }
+        let position = gst::ClockTime::try_from(position)
+            .map_err(|_| AudioError::Seek("the position is too large".into()))?;
+        // FLUSH drops the audio already queued, so the jump is heard at
+        // once. KEY_UNIT jumps to a point that needs no extra decoding.
+        self.playbin
+            .seek_simple(gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT, position)
+            .map_err(|_| AudioError::Seek("the media does not allow it".into()))
+    }
+
     /// Sets the volume, from `0.0` (silent) to `1.0` (full).
     ///
     /// Values outside that range are clamped. The scale is linear.

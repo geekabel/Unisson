@@ -109,6 +109,48 @@ fn reports_positions_while_playing_and_none_while_paused() {
 }
 
 #[test]
+fn seeking_jumps_to_the_requested_position() {
+    let (engine, events) = silent_engine(true);
+    engine
+        .play_uri(file_uri(make_wav("engine-seek.wav", 10)).unwrap())
+        .unwrap();
+    wait_for(&events, |event| {
+        position_of(event).is_some_and(|at| at >= Duration::from_millis(300))
+    });
+
+    // The engine answers at once with the requested position.
+    let target = Duration::from_secs(8);
+    engine.seek(target).unwrap();
+    let seen = wait_for(&events, |event| position_of(event) >= Some(target));
+    assert_eq!(position_of(seen.last().unwrap()), Some(target));
+
+    // Playback then goes on from there: the end comes after 2 seconds, not 10.
+    let start = Instant::now();
+    let seen = wait_for(&events, |event| *event == EngineEvent::EndOfStream);
+    assert!(start.elapsed() < Duration::from_secs(5), "{seen:?}");
+    let before_target = seen
+        .iter()
+        .filter_map(position_of)
+        .filter(|position| *position + Duration::from_millis(500) < target)
+        .count();
+    assert_eq!(before_target, 0, "{seen:?}");
+}
+
+#[test]
+fn seeking_while_stopped_is_an_error_event() {
+    let (engine, events) = silent_engine(false);
+    engine
+        .load(file_uri(make_wav("engine-seek-stopped.wav", 1)).unwrap())
+        .unwrap();
+    engine.seek(Duration::from_secs(1)).unwrap();
+    let seen = wait_for(&events, |event| matches!(event, EngineEvent::Error(_)));
+    assert!(
+        matches!(seen.last(), Some(EngineEvent::Error(message)) if message.contains("position")),
+        "{seen:?}"
+    );
+}
+
+#[test]
 fn reports_the_volume_actually_applied() {
     let (engine, events) = silent_engine(false);
     engine.set_volume(0.4).unwrap();
