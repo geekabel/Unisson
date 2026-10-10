@@ -9,11 +9,30 @@ The project is under construction. Current target: Ubuntu 22.04.
 
 - `crates/unisson-core`: the core library, with no user interface
   (common model, source contract, source registry).
-- The audio engine and the desktop application will be added as separate crates.
+- `crates/unisson-audio`: the audio engine, built on GStreamer
+  (load, play, pause, stop, volume).
+- The desktop application will be added as a separate crate.
 
 ## Requirements
 
 - Rust 1.90 or newer (install it with [rustup](https://www.rust-lang.org/tools/install)).
+- GStreamer 1.14 or newer with its plugins. On Ubuntu:
+
+  ```sh
+  sudo apt install libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+      gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+      gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav
+  ```
+
+## Try the audio engine
+
+```sh
+cargo run -p unisson-audio --example play -- ~/Music/song.mp3
+```
+
+Then type a command and press Enter:
+`p` pause or resume, `s` stop, `+` or `-` volume, `q` quit.
+An `http(s)://` stream address works too.
 
 ## Useful commands
 

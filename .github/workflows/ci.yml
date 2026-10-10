@@ -1,13 +1,20 @@
 name: CI
 on:
   push:
-    branches: [main, develop]
+    branches: [main, develop, "feature/**"]
   pull_request:
 jobs:
   check:
+    # Same release as the target machine, so GStreamer 1.20 is what gets tested.
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+      - name: Install GStreamer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
