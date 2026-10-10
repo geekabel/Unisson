@@ -15,8 +15,9 @@ The project is under construction. Current target: Ubuntu 22.04.
   errors). It also reconnects live streams that drop.
 - `crates/unisson-radio`: the internet radio source, backed by the free
   [Radio Browser](https://www.radio-browser.info) directory.
-- `crates/unisson-local`: local audio files. It scans a music folder and reads
-  the tags of each file (title, artist, album, duration, cover).
+- `crates/unisson-local`: local audio files. It scans a music folder, reads
+  the tags of each file (title, artist, album, duration, cover), and watches
+  the folder for files that appear, change or disappear.
 - `crates/unisson-store`: the local storage, an SQLite database kept in
   `~/.local/share/unisson/`. It holds the favorite stations, the library
   (tags of the local files, with a fast search), the listening history, the
@@ -79,10 +80,14 @@ Without a folder, the user's music folder is scanned.
 cargo run -p unisson-store --example library -- scan
 cargo run -p unisson-store --example library -- search miles blue
 cargo run -p unisson-store --example library -- list
+cargo run -p unisson-store --example library -- watch
 ```
 
 `scan` saves the tags in the database. `search` then answers from the
 database: it ignores case and accents, and accepts incomplete words.
+
+`watch` scans the music folder, then follows it until Ctrl+C: copy, rename or
+delete an audio file, and the library changes about one second later.
 
 ## Try the favorite stations
 
@@ -98,11 +103,10 @@ real database, so they are still there on the next run.
 ## Branches
 
 - `main`: stable state.
-- `develop`: integration branch. Each task is done on a `feature/...` branch,
-  then merged into `develop`.
+- `develop`: integration branch, and the only work branch on the remote.
+  Each task is done on a local `feature/...` branch, checked locally, then
+  merged into `develop`. The CI runs on every push to `develop`.
 - `develop` is merged into `main` when a coherent set of tasks is ready.
-- Only the three most recent `feature/...` branches are kept on the remote.
-  Older ones are deleted once merged.
 
 ## Working method
 
