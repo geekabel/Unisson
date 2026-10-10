@@ -1220,6 +1220,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "unisson-playback"
+version = "0.1.0"
+dependencies = [
+ "unisson-audio",
+ "unisson-core",
+]
+
+[[package]]
 name = "unisson-radio"
 version = "0.1.0"
 dependencies = [
