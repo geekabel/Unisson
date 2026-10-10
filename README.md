@@ -64,6 +64,8 @@ cargo doc --no-deps --workspace --open                  # read the API docs
 - `develop`: integration branch. Each task is done on a `feature/...` branch,
   then merged into `develop`.
 - `develop` is merged into `main` when a coherent set of tasks is ready.
+- Only the three most recent `feature/...` branches are kept on the remote.
+  Older ones are deleted once merged.
 
 ## Working method
 
