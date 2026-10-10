@@ -214,6 +214,36 @@ impl Player {
             .map(Duration::from)
     }
 
+    /// Returns the title a radio stream is announcing right now, if any.
+    ///
+    /// This reads the last title received from the stream, wherever it is
+    /// in the pipeline. It complements [`PlayerEvent::Title`]: GStreamer
+    /// never reports as an event a title that arrives within the very first
+    /// kilobytes of a stream, before the audio format is known. That is
+    /// usually the case of the title on air when tuning in.
+    ///
+    /// Returns `None` for anything but a radio stream with titles.
+    pub fn stream_title(&self) -> Option<String> {
+        let bin = self.playbin.downcast_ref::<gst::Bin>()?;
+        bin.iterate_recurse()
+            .into_iter()
+            .flatten()
+            // `icydemux` is the element that extracts titles from radio streams.
+            .filter(|element| {
+                element
+                    .factory()
+                    .is_some_and(|factory| factory.name() == "icydemux")
+            })
+            .flat_map(|element| element.src_pads())
+            .find_map(|pad| {
+                // A pad remembers the last tags that went through it.
+                let event = pad.sticky_event::<gst::event::Tag>(0)?;
+                let title = event.tag().get::<gst::tags::Title>()?;
+                let title = title.get().trim();
+                (!title.is_empty()).then(|| title.to_owned())
+            })
+    }
+
     /// Waits up to `timeout` for the next playback event.
     ///
     /// Returns `None` if nothing happened in that time. A zero timeout checks

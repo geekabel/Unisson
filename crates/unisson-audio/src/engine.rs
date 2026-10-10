@@ -39,6 +39,9 @@ const TICK: Duration = Duration::from_millis(50);
 /// Minimum delay between two [`EngineEvent::Position`] events.
 const POSITION_INTERVAL: Duration = Duration::from_millis(250);
 
+/// Delay between two looks at the title announced by a live stream.
+const TITLE_CHECK_INTERVAL: Duration = Duration::from_secs(1);
+
 /// How much of a live stream must play before it counts as connected.
 const CONNECTED_AFTER: Duration = Duration::from_millis(300);
 
@@ -81,8 +84,8 @@ pub enum EngineEvent {
     /// A radio stream sends one each time a new song starts, usually as
     /// `Artist - Song`. Stations that send no title never trigger this event.
     ///
-    /// GStreamer can miss a title announced within the very first kilobytes
-    /// of a stream. The title then only shows up when the next song starts.
+    /// The title on air when tuning in is reported too, within about a
+    /// second.
     TitleChanged(String),
     /// The current media reached its end.
     EndOfStream,
@@ -351,6 +354,8 @@ struct Worker {
     last_title: Option<String>,
     /// When the last position was reported.
     last_position_at: Option<Instant>,
+    /// When the title of the live stream was last looked up.
+    last_title_check_at: Option<Instant>,
 }
 
 impl Worker {
@@ -364,6 +369,7 @@ impl Worker {
             last_state: PlaybackState::Stopped,
             last_title: None,
             last_position_at: None,
+            last_title_check_at: None,
         }
     }
 
@@ -439,13 +445,7 @@ impl Worker {
                 }
                 PlayerEvent::EndOfStream => self.emit(EngineEvent::EndOfStream),
                 PlayerEvent::Error(message) => self.playback_failed(message),
-                PlayerEvent::Title(title) => {
-                    // Streams repeat their title: report real changes only.
-                    if self.last_title.as_deref() != Some(title.as_str()) {
-                        self.last_title = Some(title.clone());
-                        self.emit(EngineEvent::TitleChanged(title));
-                    }
-                }
+                PlayerEvent::Title(title) => self.report_title(title),
             }
         }
 
@@ -473,6 +473,18 @@ impl Worker {
             .is_none_or(|at| at.elapsed() >= POSITION_INTERVAL);
         if state == PlaybackState::Playing && due {
             self.emit_position();
+        }
+
+        // GStreamer does not report as an event the title on air when tuning
+        // in: look it up from time to time.
+        let title_due = self
+            .last_title_check_at
+            .is_none_or(|at| at.elapsed() >= TITLE_CHECK_INTERVAL);
+        if self.live.is_some() && state == PlaybackState::Playing && title_due {
+            self.last_title_check_at = Some(Instant::now());
+            if let Some(title) = self.player.stream_title() {
+                self.report_title(title);
+            }
         }
 
         // Remember that the live stream played, so a later loss is retried.
@@ -553,6 +565,17 @@ impl Worker {
         if let Some(live) = &mut self.live {
             live.attempts = 0;
             live.retry_at = None;
+        }
+    }
+
+    /// Reports a title, unless it is the one already reported.
+    ///
+    /// Streams repeat their title, and the same title can come both as an
+    /// event and from a lookup: only real changes are worth reporting.
+    fn report_title(&mut self, title: String) {
+        if self.last_title.as_deref() != Some(title.as_str()) {
+            self.last_title = Some(title.clone());
+            self.emit(EngineEvent::TitleChanged(title));
         }
     }
 

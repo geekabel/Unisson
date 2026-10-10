@@ -196,29 +196,24 @@ pub fn noisy_ogg_clip(name: &str, seconds: u32) -> Vec<u8> {
 /// A local HTTP server that behaves like a radio announcing its songs.
 ///
 /// It speaks the ICY protocol used by internet radios: the audio is cut in
-/// blocks of [`IcyServer::BLOCK`] bytes, and a small text block announcing the
-/// current title is inserted between them.
+/// blocks of a fixed size, and a small text block announcing the current
+/// title is inserted between them. Like a real radio, it sends the stream at
+/// about the speed it is listened to, not all at once.
 pub struct IcyServer {
     /// Address of the stream, such as `http://127.0.0.1:40123/stream`.
     pub url: String,
 }
 
 impl IcyServer {
-    /// Number of audio bytes between two title blocks.
-    ///
-    /// This is a value real radios commonly use. It also matters for the
-    /// tests: GStreamer misses a title that comes within the very first
-    /// kilobytes, before it has worked out the audio format.
-    pub const BLOCK: usize = 16000;
-
     /// Starts the server on a free local port.
     ///
-    /// Each connection receives the whole clip. The titles are spread evenly
-    /// over it, in order.
-    pub fn start(clip: Vec<u8>, titles: &[&str]) -> Self {
+    /// Each connection receives the whole clip, with a title block every
+    /// `block_size` bytes of audio. The titles are spread evenly over the
+    /// clip, in order.
+    pub fn start(clip: Vec<u8>, titles: &[&str], block_size: usize) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         let url = format!("http://{}/stream", listener.local_addr().unwrap());
-        let body = Self::interleave(&clip, titles);
+        let parts = Self::interleave(&clip, titles, block_size);
         // The thread lives until the test process exits.
         thread::spawn(move || {
             for stream in listener.incoming().flatten() {
@@ -229,43 +224,51 @@ impl IcyServer {
                 }
                 let header = format!(
                     "HTTP/1.0 200 OK\r\nContent-Type: application/ogg\r\n\
-                     icy-name: Test Radio\r\nicy-metaint: {}\r\n\r\n",
-                    Self::BLOCK
+                     icy-name: Test Radio\r\nicy-metaint: {block_size}\r\n\r\n"
                 );
                 let stream = reader.get_mut();
-                let _ = stream
-                    .write_all(header.as_bytes())
-                    .and_then(|()| stream.write_all(&body));
+                if stream.write_all(header.as_bytes()).is_err() {
+                    continue;
+                }
+                for part in &parts {
+                    if stream.write_all(part).is_err() {
+                        break;
+                    }
+                    // About 30 ms per kilobyte: a little faster than the clip plays.
+                    thread::sleep(Duration::from_micros(part.len() as u64 * 30));
+                }
             }
         });
         Self { url }
     }
 
-    /// Inserts the title blocks between the audio blocks.
-    fn interleave(clip: &[u8], titles: &[&str]) -> Vec<u8> {
-        let blocks: Vec<&[u8]> = clip.chunks(Self::BLOCK).collect();
-        let mut body = Vec::new();
+    /// Cuts the clip in audio blocks, each followed by its title block.
+    fn interleave(clip: &[u8], titles: &[&str], block_size: usize) -> Vec<Vec<u8>> {
+        let blocks: Vec<&[u8]> = clip.chunks(block_size).collect();
+        let mut parts = Vec::new();
         let mut announced = None;
         for (index, block) in blocks.iter().enumerate() {
-            body.extend_from_slice(block);
-            if block.len() < Self::BLOCK {
+            let mut part = block.to_vec();
+            if block.len() < block_size {
                 // A title block only follows a complete audio block.
+                parts.push(part);
                 break;
             }
             let title = titles.get(index * titles.len() / blocks.len()).copied();
             if title == announced || title.is_none() {
                 // A zero length means "no change".
-                body.push(0);
-                continue;
+                part.push(0);
+            } else {
+                announced = title;
+                // The block is a length byte counting 16-byte units, then
+                // the text, padded with zeros.
+                let mut text = format!("StreamTitle='{}';", title.unwrap_or_default()).into_bytes();
+                text.resize(text.len().div_ceil(16) * 16, 0);
+                part.push((text.len() / 16) as u8);
+                part.extend_from_slice(&text);
             }
-            announced = title;
-            // The block is a length byte counting 16-byte units, then the
-            // text, padded with zeros.
-            let mut text = format!("StreamTitle='{}';", title.unwrap_or_default()).into_bytes();
-            text.resize(text.len().div_ceil(16) * 16, 0);
-            body.push((text.len() / 16) as u8);
-            body.extend_from_slice(&text);
+            parts.push(part);
         }
-        body
+        parts
     }
 }

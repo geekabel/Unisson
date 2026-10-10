@@ -175,24 +175,40 @@ fn an_ordinary_address_is_never_reconnected() {
     });
 }
 
-#[test]
-fn a_radio_announces_each_new_title_once() {
-    let titles = ["Miles Davis - So What", "Dave Brubeck - Take Five"];
-    let server = IcyServer::start(noisy_ogg_clip("live-titles.ogg", 4), &titles);
+/// Plays a radio announcing `titles`, and returns the titles the engine
+/// reported, in order.
+fn titles_reported(clip_name: &str, titles: &[&str], block_size: usize) -> Vec<String> {
+    let server = IcyServer::start(noisy_ogg_clip(clip_name, 4), titles, block_size);
     // No reconnection, so the stream is heard exactly once.
     let (engine, events) = engine_retrying(&[]);
 
     engine.play_live(uri(&server.url)).unwrap();
 
-    let seen = wait_for(&events, |event| matches!(event, EngineEvent::Error(_)));
-    let announced: Vec<_> = seen
-        .iter()
+    wait_for(&events, |event| matches!(event, EngineEvent::Error(_)))
+        .into_iter()
         .filter_map(|event| match event {
-            EngineEvent::TitleChanged(title) => Some(title.as_str()),
+            EngineEvent::TitleChanged(title) => Some(title),
             _ => None,
         })
-        .collect();
-    assert_eq!(announced, titles, "{seen:?}");
+        .collect()
+}
+
+const TITLES: [&str; 2] = ["Miles Davis - So What", "Dave Brubeck - Take Five"];
+
+#[test]
+fn a_radio_announces_each_new_title_once() {
+    // 16000 bytes between two titles is a value real radios commonly use.
+    assert_eq!(titles_reported("live-titles.ogg", &TITLES, 16000), TITLES);
+}
+
+#[test]
+fn the_title_on_air_when_tuning_in_is_reported_too() {
+    // The first title comes after only one kilobyte, before GStreamer knows
+    // the audio format. It never becomes an event: the engine looks it up.
+    assert_eq!(
+        titles_reported("live-early-title.ogg", &TITLES, 1024),
+        TITLES
+    );
 }
 
 #[test]
