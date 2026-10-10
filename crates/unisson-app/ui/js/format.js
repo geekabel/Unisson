@@ -145,6 +145,29 @@ export function tileText(tile) {
 }
 
 /**
+ * Writes the line shown above the search results.
+ *
+ * @param {string} text What the user typed.
+ * @param {?import("./api.js").SearchUpdate} update The last update, if any.
+ * @param {number} shown Number of results on screen, after the filters.
+ * @param {number} minLength Shortest text that is searched.
+ */
+export function searchSummary(text, update, shown, minLength) {
+  if (text.length < minLength) {
+    return `Tapez au moins ${minLength} lettres.`;
+  }
+  if (!update) {
+    return "Recherche en cours…";
+  }
+  const sources = new Set(update.hits.map((hit) => hit.media.source)).size;
+  const waiting = update.done ? "" : " Recherche en cours…";
+  if (shown === 0) {
+    return update.done ? `Aucun résultat pour « ${text} ».` : "Recherche en cours…";
+  }
+  return `${countLabel(shown, "résultat")}, ${countLabel(sources, "source")}.${waiting}`;
+}
+
+/**
  * Writes a count with its noun: `1 titre`, `12 titres`.
  *
  * @param {number} count

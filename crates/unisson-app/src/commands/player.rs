@@ -35,6 +35,27 @@ pub fn player_play_list(
     Ok(())
 }
 
+/// Plays a media right away, and keeps the rest of the queue.
+#[tauri::command]
+pub fn player_play_now(state: State<'_, AppState>, media: MediaDto) -> Result<(), CommandError> {
+    state.session.play_now(Media::try_from(media)?);
+    Ok(())
+}
+
+/// Adds a media right after the current one.
+#[tauri::command]
+pub fn player_play_next(state: State<'_, AppState>, media: MediaDto) -> Result<(), CommandError> {
+    state.session.play_next(Media::try_from(media)?);
+    Ok(())
+}
+
+/// Adds a media at the end of the queue.
+#[tauri::command]
+pub fn player_enqueue(state: State<'_, AppState>, media: MediaDto) -> Result<(), CommandError> {
+    state.session.enqueue(Media::try_from(media)?);
+    Ok(())
+}
+
 /// Plays what the user typed or pasted: a stream address or a file path.
 #[tauri::command(async)]
 pub fn player_open(state: State<'_, AppState>, target: String) -> Result<(), CommandError> {

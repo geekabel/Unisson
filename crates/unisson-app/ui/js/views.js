@@ -9,6 +9,7 @@ import { byId, element } from "./dom.js";
 import { mediaKey } from "./format.js";
 import * as home from "./views/home.js";
 import * as radios from "./views/radios.js";
+import * as search from "./views/search.js";
 
 /** A view that is not built yet: it only says when it arrives. */
 function coming(title, text) {
@@ -23,6 +24,7 @@ function coming(title, text) {
 const VIEWS = {
   home,
   radios,
+  search,
   favorites: coming("Favoris", "Vos titres favoris arrivent avec la tâche T21."),
   history: coming("Historique", "L'historique d'écoute arrive avec la tâche T21. Il s'enregistre déjà."),
   sources: coming("Sources", "Le réglage des sources arrive avec la tâche T20."),
@@ -39,6 +41,16 @@ let lastSnapshot = null;
 /** Counts the renders, so that a slow answer never overwrites a newer view. */
 let renderCount = 0;
 let refreshTimer = null;
+const viewListeners = new Set();
+
+/**
+ * Calls `listener` with the name of the view each time the view changes.
+ *
+ * @param {(name: string) => void} listener
+ */
+export function onViewChange(listener) {
+  viewListeners.add(listener);
+}
 
 /**
  * Shows a view.
@@ -47,7 +59,12 @@ let refreshTimer = null;
  * @param {{keepScroll?: boolean}} [options]
  */
 export async function showView(name, { keepScroll = false } = {}) {
-  currentView = name;
+  if (name !== currentView) {
+    currentView = name;
+    for (const listener of viewListeners) {
+      listener(name);
+    }
+  }
   for (const item of navItems) {
     if (item.dataset.view === name) {
       item.setAttribute("aria-current", "page");

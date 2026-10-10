@@ -52,7 +52,7 @@ export async function render({ showView }) {
     sections.push(
       section("Écoutés récemment", [
         element("div", { class: "rows" }, home.recent.map((media) => {
-          return mediaRow(media, { onPlay: () => api.playList([media], 0) });
+          return mediaRow(media, { onPlay: () => api.playNow(media) });
         })),
       ]),
     );

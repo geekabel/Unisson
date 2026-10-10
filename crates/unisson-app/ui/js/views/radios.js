@@ -156,10 +156,20 @@ function drawLive() {
         ]),
         element("h1", { class: "live-card-title truncate" }, [live.media.title]),
         onAir ? element("p", { class: "live-card-air truncate" }, [onAir]) : null,
+        sounding && streamTitle ? findTitleButton(streamTitle) : null,
       ]),
       live.station ? favoriteButton(live.station) : null,
     ]),
   );
+}
+
+/** Builds the link that searches the title on air in every source. */
+function findTitleButton(title) {
+  const button = element("button", { class: "link-button", type: "button" }, ["Retrouver ce titre"]);
+  button.addEventListener("click", () => {
+    document.dispatchEvent(new CustomEvent("unisson:search", { detail: title }));
+  });
+  return button;
 }
 
 function drawFavorites() {

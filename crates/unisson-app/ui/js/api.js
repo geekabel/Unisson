@@ -55,12 +55,18 @@
  * @property {Media[]} library
  * @property {number} libraryTotal
  *
+ * @typedef {object} SearchUpdate
+ * @property {{media: Media, sources: string[]}[]} hits The best match first.
+ * @property {string[]} pending Sources still searching.
+ * @property {{source: string, kind: string}[]} errors Sources that failed.
+ * @property {boolean} done Whether every source has answered.
+ *
  * @typedef {object} Position
  * @property {number} positionMs
  * @property {?number} durationMs
  */
 
-const { invoke } = window.__TAURI__.core;
+const { invoke, Channel } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
 /**
@@ -85,6 +91,41 @@ export const playerState = () => invoke("player_state");
  * @param {number} start
  */
 export const playList = (items, start) => invoke("player_play_list", { items, start });
+
+/**
+ * Plays a media right away, and keeps the rest of the queue.
+ *
+ * @param {Media} media
+ */
+export const playNow = (media) => invoke("player_play_now", { media });
+
+/**
+ * Adds a media right after the current one.
+ *
+ * @param {Media} media
+ */
+export const playNext = (media) => invoke("player_play_next", { media });
+
+/**
+ * Adds a media at the end of the queue.
+ *
+ * @param {Media} media
+ */
+export const enqueue = (media) => invoke("player_enqueue", { media });
+
+/**
+ * Searches every active source.
+ *
+ * @param {string} text
+ * @param {(update: SearchUpdate) => void} onUpdate Called once at the
+ *   start, then each time a source answers, with the whole list so far.
+ * @returns {Promise<void>} Resolves when every source has answered.
+ */
+export function search(text, onUpdate) {
+  const channel = new Channel();
+  channel.onmessage = onUpdate;
+  return invoke("search", { text, onUpdate: channel });
+}
 
 /**
  * Plays a stream address or the full path of a file.

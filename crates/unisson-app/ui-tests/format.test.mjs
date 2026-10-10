@@ -18,6 +18,7 @@ import {
   mediaSubtitle,
   openErrorMessage,
   playbackErrorMessage,
+  searchSummary,
   sourceLabel,
   stationDescription,
   stationMedia,
@@ -158,4 +159,17 @@ test("stationQuality shows the format and the bitrate that are known", () => {
   assert.equal(stationQuality({ codec: "AAC", bitrate: 0 }), "AAC");
   assert.equal(stationQuality({ codec: null, bitrate: 96 }), "96 kb/s");
   assert.equal(stationQuality({ codec: null, bitrate: null }), "");
+});
+
+test("searchSummary follows the search from the first letter to the last answer", () => {
+  const hit = (source) => ({ media: { source }, sources: [source] });
+  assert.equal(searchSummary("m", null, 0, 2), "Tapez au moins 2 lettres.");
+  assert.equal(searchSummary("miles", null, 0, 2), "Recherche en cours…");
+  const partial = { hits: [hit("local")], pending: ["radio"], errors: [], done: false };
+  assert.equal(searchSummary("miles", partial, 1, 2), "1 résultat, 1 source. Recherche en cours…");
+  const full = { hits: [hit("local"), hit("local"), hit("radio")], pending: [], errors: [], done: true };
+  assert.equal(searchSummary("miles", full, 3, 2), "3 résultats, 2 sources.");
+  const none = { hits: [], pending: [], errors: [], done: true };
+  assert.equal(searchSummary("zzz", none, 0, 2), "Aucun résultat pour « zzz ».");
+  assert.equal(searchSummary("zzz", { ...none, done: false }, 0, 2), "Recherche en cours…");
 });
