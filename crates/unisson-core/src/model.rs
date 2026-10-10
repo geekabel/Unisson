@@ -1,28 +1,29 @@
-//! Modèle commun à toutes les sources.
+//! Common model shared by every source.
 //!
-//! Un [`Media`] décrit ce qu'on peut écouter : un titre ou une station de
-//! radio. Il ne contient pas l'adresse du flux. Cette adresse ([`StreamUri`])
-//! est demandée à la source au moment de lire, car elle peut expirer.
+//! A [`Media`] describes something that can be listened to: a track or a
+//! radio station. It does not hold the stream address. That address
+//! ([`StreamUri`]) is requested from the source right before playback,
+//! because it may expire.
 
 use std::fmt;
 use std::time::Duration;
 
 use crate::error::SourceError;
 
-/// Les sources connues d'Unisson.
+/// The sources Unisson knows about.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum SourceKind {
-    /// Radios en ligne.
+    /// Internet radio stations.
     Radio,
-    /// Fichiers audio du disque.
+    /// Audio files stored on disk.
     Local,
     /// YouTube.
     YouTube,
 }
 
 impl SourceKind {
-    /// Nom court affiché dans l'interface (la pastille de source).
+    /// Returns the short name shown in the interface (the source badge).
     pub fn label(self) -> &'static str {
         match self {
             Self::Radio => "Radio",
@@ -38,20 +39,20 @@ impl fmt::Display for SourceKind {
     }
 }
 
-/// Identifiant d'un média : sa source, plus une clé propre à cette source.
+/// Identifies a media: its source, plus a key that is unique in that source.
 ///
-/// La clé est par exemple l'identifiant d'une station, le chemin d'un
-/// fichier ou l'identifiant d'une vidéo.
+/// The key is, for instance, a station identifier, a file path or a video
+/// identifier.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MediaId {
-    /// La source qui connaît ce média.
+    /// The source that knows this media.
     pub source: SourceKind,
-    /// La clé du média dans cette source.
+    /// The key of the media within that source.
     pub key: String,
 }
 
 impl MediaId {
-    /// Crée un identifiant.
+    /// Creates an identifier.
     pub fn new(source: SourceKind, key: impl Into<String>) -> Self {
         Self {
             source,
@@ -60,42 +61,46 @@ impl MediaId {
     }
 }
 
-/// La nature d'un média.
+/// The nature of a media.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MediaKind {
-    /// Un titre avec un début et une fin.
+    /// A track with a beginning and an end.
     Track,
-    /// Une station en direct, sans fin.
+    /// A live station, with no end.
     Station,
 }
 
-/// Ce qu'on peut mettre dans la file d'attente.
+/// Something that can be put in the play queue.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Media {
-    /// Identifiant du média.
+    /// Identifier of the media.
     pub id: MediaId,
-    /// Titre ou station.
+    /// Whether this is a track or a live station.
     pub kind: MediaKind,
-    /// Titre du morceau, ou nom de la station.
+    /// Track title, or station name.
     pub title: String,
-    /// Artiste, si la source le connaît.
+    /// Artist, when the source knows it.
     pub artist: Option<String>,
-    /// Album, si la source le connaît.
+    /// Album, when the source knows it.
     pub album: Option<String>,
-    /// Durée. Toujours absente pour une station en direct.
+    /// Duration. Always `None` for a live station.
     pub duration: Option<Duration>,
-    /// Adresse ou chemin de l'image (pochette, logo de station).
+    /// URL or path of the picture (cover art, station logo).
     pub artwork: Option<String>,
 }
 
 impl Media {
-    /// Crée un titre. Les autres champs se règlent avec les méthodes `with_*`.
+    /// Creates a track.
+    ///
+    /// The optional fields are set with the `with_*` methods.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use std::time::Duration;
     /// use unisson_core::{Media, MediaId, SourceKind};
     ///
-    /// let media = Media::track(MediaId::new(SourceKind::Local, "/musique/a.flac"), "So What")
+    /// let media = Media::track(MediaId::new(SourceKind::Local, "/music/a.flac"), "So What")
     ///     .with_artist("Miles Davis")
     ///     .with_duration(Duration::from_secs(562));
     /// assert!(!media.is_live());
@@ -104,7 +109,7 @@ impl Media {
         Self::new(id, MediaKind::Track, title)
     }
 
-    /// Crée une station de radio en direct.
+    /// Creates a live radio station.
     pub fn station(id: MediaId, title: impl Into<String>) -> Self {
         Self::new(id, MediaKind::Station, title)
     }
@@ -121,19 +126,19 @@ impl Media {
         }
     }
 
-    /// Ajoute l'artiste.
+    /// Sets the artist.
     pub fn with_artist(mut self, artist: impl Into<String>) -> Self {
         self.artist = Some(artist.into());
         self
     }
 
-    /// Ajoute l'album.
+    /// Sets the album.
     pub fn with_album(mut self, album: impl Into<String>) -> Self {
         self.album = Some(album.into());
         self
     }
 
-    /// Ajoute la durée. Sans effet sur une station en direct.
+    /// Sets the duration. Has no effect on a live station.
     pub fn with_duration(mut self, duration: Duration) -> Self {
         if self.kind == MediaKind::Track {
             self.duration = Some(duration);
@@ -141,34 +146,43 @@ impl Media {
         self
     }
 
-    /// Ajoute l'image.
+    /// Sets the picture.
     pub fn with_artwork(mut self, artwork: impl Into<String>) -> Self {
         self.artwork = Some(artwork.into());
         self
     }
 
-    /// Vrai pour un direct : pas de durée, pas de barre de progression.
+    /// Returns `true` for a live stream: no duration and no progress bar.
     pub fn is_live(&self) -> bool {
         self.kind == MediaKind::Station
     }
 }
 
-/// Adresse absolue qu'un moteur audio peut lire.
+/// An absolute address that an audio engine can play.
 ///
-/// Seuls les schémas `file://`, `http://` et `https://` sont acceptés.
+/// Only the `file://`, `http://` and `https://` schemes are accepted.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StreamUri(String);
 
 impl StreamUri {
     const SCHEMES: [&'static str; 3] = ["file://", "http://", "https://"];
 
-    /// Vérifie puis enveloppe une adresse.
+    /// Validates then wraps an address.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SourceError::Invalid`] if the address does not start with a
+    /// supported scheme, or has nothing after the scheme.
+    ///
+    /// # Examples
     ///
     /// ```
     /// use unisson_core::StreamUri;
     ///
-    /// assert!(StreamUri::new("https://exemple.org/flux.mp3").is_ok());
-    /// assert!(StreamUri::new("flux.mp3").is_err());
+    /// let uri = StreamUri::new("https://example.org/stream.mp3")?;
+    /// assert_eq!(uri.as_str(), "https://example.org/stream.mp3");
+    /// assert!(StreamUri::new("stream.mp3").is_err());
+    /// # Ok::<(), unisson_core::SourceError>(())
     /// ```
     pub fn new(uri: impl Into<String>) -> Result<Self, SourceError> {
         let uri = uri.into();
@@ -179,12 +193,12 @@ impl StreamUri {
             Ok(Self(uri))
         } else {
             Err(SourceError::Invalid(format!(
-                "adresse de flux non reconnue : {uri}"
+                "unsupported stream URI: {uri}"
             )))
         }
     }
 
-    /// L'adresse sous forme de texte.
+    /// Returns the address as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -215,7 +229,7 @@ mod tests {
             .with_artist("The Dave Brubeck Quartet")
             .with_album("Time Out")
             .with_duration(Duration::from_secs(324))
-            .with_artwork("https://exemple.org/pochette.jpg");
+            .with_artwork("https://example.org/cover.jpg");
         assert_eq!(track.id, id);
         assert!(!track.is_live());
         assert_eq!(track.artist.as_deref(), Some("The Dave Brubeck Quartet"));

@@ -1,12 +1,25 @@
-//! Cœur d'Unisson.
+//! Core library of Unisson, a unified audio player for Linux.
 //!
-//! Cette bibliothèque ne dépend d'aucune interface graphique. Elle contient
-//! le modèle commun ([`Media`], [`MediaId`]), le contrat que chaque source
-//! respecte ([`Source`]) et le registre qui interroge toutes les sources
-//! ([`SourceRegistry`]). L'application graphique vit dans une autre crate.
+//! This crate has no dependency on any user interface. It provides:
 //!
-//! Convention : les noms dans le code sont en anglais, les commentaires en
-//! français.
+//! - the common model shared by every source ([`Media`], [`MediaId`]);
+//! - the contract each source implements ([`Source`]);
+//! - the registry that queries all sources at once ([`SourceRegistry`]).
+//!
+//! The desktop application lives in a separate crate and calls into this one.
+//!
+//! # Examples
+//!
+//! Searching every registered source:
+//!
+//! ```
+//! use unisson_core::{SearchQuery, SourceRegistry};
+//!
+//! let registry = SourceRegistry::new();
+//! let results = registry.search_all(&SearchQuery::new("jazz"));
+//! // No source is registered yet, so there is nothing to report.
+//! assert!(results.is_empty());
+//! ```
 
 pub mod error;
 pub mod model;
@@ -16,10 +29,12 @@ pub use error::SourceError;
 pub use model::{Media, MediaId, MediaKind, SourceKind, StreamUri};
 pub use source::{SearchQuery, Source, SourceRegistry, SourceResults};
 
-/// Version de la bibliothèque, lue dans `Cargo.toml` à la compilation.
+/// Version of this crate, read from `Cargo.toml` at compile time.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// Renvoie le nom et la version du cœur, par exemple `unisson-core 0.1.0`.
+/// Returns the crate name followed by its version, such as `unisson-core 0.1.0`.
+///
+/// # Examples
 ///
 /// ```
 /// assert!(unisson_core::identity().starts_with("unisson-core "));

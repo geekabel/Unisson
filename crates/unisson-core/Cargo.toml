@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
-description = "Cœur d'Unisson : modèle commun, sources, file d'attente. Sans interface."
+description = "Core of Unisson: common model, source contract and source registry. No UI."
 
 [lints]
 workspace = true

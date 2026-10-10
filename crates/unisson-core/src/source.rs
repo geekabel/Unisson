@@ -1,17 +1,19 @@
-//! Le contrat d'une source, et le registre qui les interroge toutes.
+//! The contract of a source, and the registry that queries all of them.
 //!
-//! Les méthodes de [`Source`] sont bloquantes, et non `async`. La référence
-//! Rust dit qu'une méthode `async fn` ne peut pas être appelée à travers un
-//! objet-trait (`dyn Source`). Or le registre garde les sources dans un
-//! `Vec<Box<dyn Source>>`. Chaque source est donc appelée dans son propre
-//! fil d'exécution : une source lente ne bloque pas les autres.
+//! # Design
+//!
+//! The methods of [`Source`] are blocking rather than `async`. According to
+//! the Rust Reference, an `async fn` method cannot be called through a trait
+//! object (`dyn Source`), and the registry stores its sources in a
+//! `Vec<Box<dyn Source>>`. Each source is therefore called on its own thread,
+//! so a slow source never blocks the others.
 
 use std::thread;
 
 use crate::error::SourceError;
 use crate::model::{Media, MediaId, SourceKind, StreamUri};
 
-/// Une recherche tapée par l'utilisateur.
+/// A search typed by the user.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SearchQuery {
     text: String,
@@ -19,10 +21,10 @@ pub struct SearchQuery {
 }
 
 impl SearchQuery {
-    /// Nombre de résultats demandés à chaque source par défaut.
+    /// Number of results requested from each source by default.
     pub const DEFAULT_LIMIT: usize = 20;
 
-    /// Crée une recherche. Les espaces autour du texte sont retirés.
+    /// Creates a query. Leading and trailing whitespace is removed.
     pub fn new(text: impl AsRef<str>) -> Self {
         Self {
             text: text.as_ref().trim().to_owned(),
@@ -30,66 +32,82 @@ impl SearchQuery {
         }
     }
 
-    /// Change le nombre de résultats demandés à chaque source (au moins 1).
+    /// Sets the number of results requested from each source (at least 1).
     pub fn with_limit(mut self, limit: usize) -> Self {
         self.limit = limit.max(1);
         self
     }
 
-    /// Le texte recherché.
+    /// Returns the searched text.
     pub fn text(&self) -> &str {
         &self.text
     }
 
-    /// Le nombre maximal de résultats par source.
+    /// Returns the maximum number of results per source.
     pub fn limit(&self) -> usize {
         self.limit
     }
 
-    /// Vrai si le texte est vide.
+    /// Returns `true` if the text is empty.
     pub fn is_empty(&self) -> bool {
         self.text.is_empty()
     }
 }
 
-/// Ce que chaque source (radio, fichiers locaux, YouTube) sait faire.
+/// What every source (radio, local files, YouTube) can do.
 ///
-/// `Send + Sync` permet d'appeler une source depuis plusieurs fils.
+/// The `Send + Sync` bounds let the registry call a source from several
+/// threads.
 pub trait Source: Send + Sync {
-    /// Quelle source est-ce ?
+    /// Returns which source this is.
     fn kind(&self) -> SourceKind;
 
-    /// Cherche des médias. Appel bloquant, possiblement lent (réseau).
+    /// Searches for media.
+    ///
+    /// This call blocks and may be slow, since it can hit the network.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`SourceError`] if the source cannot be reached or sends an
+    /// answer that cannot be understood.
     fn search(&self, query: &SearchQuery) -> Result<Vec<Media>, SourceError>;
 
-    /// Donne l'adresse à lire pour un média. Appelée juste avant la lecture,
-    /// car certaines adresses expirent.
+    /// Returns the address to play for a media.
+    ///
+    /// Call it right before playback, because some addresses expire.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SourceError::NotFound`] if the media is unknown, or another
+    /// [`SourceError`] if the source cannot answer.
     fn resolve(&self, id: &MediaId) -> Result<StreamUri, SourceError>;
 }
 
-/// La réponse d'une source à une recherche.
+/// The answer of one source to a search.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SourceResults {
-    /// La source qui répond.
+    /// The source that answered.
     pub source: SourceKind,
-    /// Ses médias, ou son erreur.
+    /// Its media, or its error.
     pub result: Result<Vec<Media>, SourceError>,
 }
 
-/// L'ensemble des sources actives. Une seule source par [`SourceKind`].
+/// The set of active sources, with at most one source per [`SourceKind`].
 #[derive(Default)]
 pub struct SourceRegistry {
     sources: Vec<Box<dyn Source>>,
 }
 
 impl SourceRegistry {
-    /// Crée un registre vide.
+    /// Creates an empty registry.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Ajoute une source. Si une source du même genre existe, elle est remplacée
-    /// et garde sa place dans l'ordre.
+    /// Adds a source.
+    ///
+    /// If a source of the same kind is already registered, it is replaced and
+    /// keeps its position in the order.
     pub fn register(&mut self, source: Box<dyn Source>) {
         let kind = source.kind();
         match self
@@ -102,23 +120,23 @@ impl SourceRegistry {
         }
     }
 
-    /// Retire une source. Renvoie vrai si elle était présente.
+    /// Removes a source. Returns `true` if it was registered.
     pub fn unregister(&mut self, kind: SourceKind) -> bool {
         let before = self.sources.len();
         self.sources.retain(|source| source.kind() != kind);
         self.sources.len() != before
     }
 
-    /// Les sources actives, dans l'ordre d'enregistrement.
+    /// Returns the active sources, in registration order.
     pub fn kinds(&self) -> Vec<SourceKind> {
         self.sources.iter().map(|source| source.kind()).collect()
     }
 
-    /// Interroge toutes les sources en même temps.
+    /// Queries every source at the same time.
     ///
-    /// Il y a une réponse par source, dans l'ordre d'enregistrement. Une
-    /// source en erreur, ou qui plante, n'empêche pas les autres de répondre.
-    /// Une recherche vide ne contacte aucune source.
+    /// There is one answer per source, in registration order. A source that
+    /// fails, or even panics, does not prevent the others from answering: its
+    /// own entry carries the error. An empty query contacts no source.
     pub fn search_all(&self, query: &SearchQuery) -> Vec<SourceResults> {
         if query.is_empty() {
             return Vec::new();
@@ -132,10 +150,10 @@ impl SourceRegistry {
             handles
                 .into_iter()
                 .map(|(source, handle)| {
-                    // `join` renvoie `Err` si le fil a planté. On le transforme
-                    // en erreur ordinaire pour cette seule source.
+                    // `join` returns `Err` when the thread panicked. Turn that
+                    // into a regular error for this source only.
                     let result = handle.join().unwrap_or_else(|_| {
-                        Err(SourceError::Unavailable("la source a planté".into()))
+                        Err(SourceError::Unavailable("the source panicked".into()))
                     });
                     SourceResults { source, result }
                 })
@@ -143,12 +161,17 @@ impl SourceRegistry {
         })
     }
 
-    /// Demande l'adresse de lecture à la source du média.
+    /// Asks the source of a media for its playback address.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SourceError::Unavailable`] if the source of the media is not
+    /// registered. Otherwise, forwards the error of [`Source::resolve`].
     pub fn resolve(&self, id: &MediaId) -> Result<StreamUri, SourceError> {
         self.sources
             .iter()
             .find(|source| source.kind() == id.source)
-            .ok_or_else(|| SourceError::Unavailable(format!("{} n'est pas activée", id.source)))?
+            .ok_or_else(|| SourceError::Unavailable(format!("{} is not enabled", id.source)))?
             .resolve(id)
     }
 }
@@ -157,7 +180,7 @@ impl SourceRegistry {
 mod tests {
     use super::*;
 
-    /// Fausse source pour les tests : elle renvoie ce qu'on lui a donné.
+    /// Test double: a source that answers with what it was given.
     struct FakeSource {
         kind: SourceKind,
         behaviour: Behaviour,
@@ -189,18 +212,18 @@ mod tests {
                     .map(|title| Media::track(MediaId::new(self.kind, *title), *title))
                     .collect()),
                 Behaviour::Fails(error) => Err(error.clone()),
-                Behaviour::Panics => panic!("panne volontaire du test"),
+                Behaviour::Panics => panic!("deliberate test failure"),
             }
         }
 
         fn resolve(&self, id: &MediaId) -> Result<StreamUri, SourceError> {
             match &self.behaviour {
                 Behaviour::Titles(titles) if titles.contains(&id.key.as_str()) => {
-                    StreamUri::new(format!("https://exemple.org/{}", id.key.replace(' ', "-")))
+                    StreamUri::new(format!("https://example.org/{}", id.key.replace(' ', "-")))
                 }
                 Behaviour::Titles(_) => Err(SourceError::NotFound),
                 Behaviour::Fails(error) => Err(error.clone()),
-                Behaviour::Panics => panic!("panne volontaire du test"),
+                Behaviour::Panics => panic!("deliberate test failure"),
             }
         }
     }
@@ -233,7 +256,7 @@ mod tests {
         ));
         registry.register(FakeSource::boxed(
             SourceKind::YouTube,
-            Behaviour::Titles(vec!["Jazz pour travailler", "Lofi", "Smooth jazz"]),
+            Behaviour::Titles(vec!["Jazz for work", "Lofi", "Smooth jazz"]),
         ));
 
         let results = registry.search_all(&SearchQuery::new("jazz"));
@@ -242,7 +265,7 @@ mod tests {
         assert_eq!(results[0].source, SourceKind::Radio);
         assert_eq!(titles(&results[0]), ["TSF Jazz"]);
         assert_eq!(results[1].source, SourceKind::YouTube);
-        assert_eq!(titles(&results[1]), ["Jazz pour travailler", "Smooth jazz"]);
+        assert_eq!(titles(&results[1]), ["Jazz for work", "Smooth jazz"]);
     }
 
     #[test]
@@ -261,7 +284,7 @@ mod tests {
         let mut registry = SourceRegistry::new();
         registry.register(FakeSource::boxed(
             SourceKind::Radio,
-            Behaviour::Fails(SourceError::Network("hors ligne".into())),
+            Behaviour::Fails(SourceError::Network("offline".into())),
         ));
         registry.register(FakeSource::boxed(SourceKind::YouTube, Behaviour::Panics));
         registry.register(FakeSource::boxed(
@@ -273,7 +296,7 @@ mod tests {
 
         assert_eq!(
             results[0].result,
-            Err(SourceError::Network("hors ligne".into()))
+            Err(SourceError::Network("offline".into()))
         );
         assert!(matches!(
             results[1].result,
@@ -294,7 +317,7 @@ mod tests {
         let mut registry = SourceRegistry::new();
         registry.register(FakeSource::boxed(
             SourceKind::Radio,
-            Behaviour::Titles(vec!["ancienne"]),
+            Behaviour::Titles(vec!["old"]),
         ));
         registry.register(FakeSource::boxed(
             SourceKind::Local,
@@ -302,12 +325,12 @@ mod tests {
         ));
         registry.register(FakeSource::boxed(
             SourceKind::Radio,
-            Behaviour::Titles(vec!["nouvelle"]),
+            Behaviour::Titles(vec!["new"]),
         ));
 
         assert_eq!(registry.kinds(), [SourceKind::Radio, SourceKind::Local]);
-        let results = registry.search_all(&SearchQuery::new("n"));
-        assert_eq!(titles(&results[0]), ["nouvelle"]);
+        let results = registry.search_all(&SearchQuery::new("e"));
+        assert_eq!(titles(&results[0]), ["new"]);
 
         assert!(registry.unregister(SourceKind::Radio));
         assert!(!registry.unregister(SourceKind::Radio));
@@ -323,15 +346,15 @@ mod tests {
         ));
 
         let found = registry.resolve(&MediaId::new(SourceKind::Local, "So What"));
-        assert_eq!(found.unwrap().as_str(), "https://exemple.org/So-What");
+        assert_eq!(found.unwrap().as_str(), "https://example.org/So-What");
 
-        let missing = registry.resolve(&MediaId::new(SourceKind::Local, "inconnu"));
+        let missing = registry.resolve(&MediaId::new(SourceKind::Local, "unknown"));
         assert_eq!(missing, Err(SourceError::NotFound));
 
         let inactive = registry.resolve(&MediaId::new(SourceKind::YouTube, "abc"));
         assert_eq!(
             inactive,
-            Err(SourceError::Unavailable("YouTube n'est pas activée".into()))
+            Err(SourceError::Unavailable("YouTube is not enabled".into()))
         );
     }
 }
