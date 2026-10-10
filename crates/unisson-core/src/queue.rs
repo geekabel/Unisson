@@ -107,6 +107,26 @@ impl PlayQueue {
         self.current.insert(media)
     }
 
+    /// Replaces the whole queue with a list, and returns the media to play.
+    ///
+    /// This is what happens when a media is chosen inside a list, such as an
+    /// album: `items[start]` becomes the current media, the items after it
+    /// play next, and the items before it become the history, so going back
+    /// walks up the list. Only the last [`HISTORY_LIMIT`](Self::HISTORY_LIMIT)
+    /// items before `start` are kept.
+    ///
+    /// Returns `None`, and changes nothing, if `start` is out of range.
+    pub fn play_list(&mut self, mut items: Vec<Media>, start: usize) -> Option<&Media> {
+        if start >= items.len() {
+            return None;
+        }
+        self.upcoming = items.split_off(start + 1).into();
+        self.current = items.pop();
+        let skipped = items.len().saturating_sub(Self::HISTORY_LIMIT);
+        self.history = items.split_off(skipped);
+        self.current.as_ref()
+    }
+
     /// Moves to the next media, and returns it.
     ///
     /// The media that was playing goes to the history. Returns `None` when
@@ -197,6 +217,44 @@ mod tests {
 
     fn titles<'a>(media: impl Iterator<Item = &'a Media>) -> Vec<&'a str> {
         media.map(|media| media.title.as_str()).collect()
+    }
+
+    #[test]
+    fn play_list_splits_a_list_around_the_chosen_media() {
+        let mut queue = PlayQueue::new();
+        queue.play_now(local("old"));
+        queue.push_back(local("old next"));
+
+        let album = ["a", "b", "c", "d"].map(local).to_vec();
+        let playing = queue.play_list(album.clone(), 2);
+
+        assert_eq!(playing.map(|media| media.title.as_str()), Some("c"));
+        assert_eq!(titles(queue.history().iter()), ["a", "b"]);
+        assert_eq!(titles(queue.upcoming()), ["d"]);
+        // Going back walks up the list.
+        assert_eq!(queue.go_back().map(|media| media.title.as_str()), Some("b"));
+        assert_eq!(titles(queue.upcoming()), ["c", "d"]);
+
+        // An index out of range changes nothing.
+        let before = queue.clone();
+        assert!(queue.play_list(album, 4).is_none());
+        assert!(queue.play_list(Vec::new(), 0).is_none());
+        assert_eq!(queue, before);
+    }
+
+    #[test]
+    fn play_list_keeps_a_bounded_history() {
+        let mut queue = PlayQueue::new();
+        let many: Vec<Media> = (0..PlayQueue::HISTORY_LIMIT + 50)
+            .map(|index| local(&index.to_string()))
+            .collect();
+        let last = many.len() - 1;
+
+        queue.play_list(many, last);
+
+        assert_eq!(queue.history().len(), PlayQueue::HISTORY_LIMIT);
+        assert_eq!(queue.history()[0].title, "49");
+        assert_eq!(queue.upcoming().len(), 0);
     }
 
     fn title(media: Option<&Media>) -> Option<&str> {

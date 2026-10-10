@@ -8,6 +8,7 @@
 //! `Vec<Box<dyn Source>>`. Each source is therefore called on its own thread,
 //! so a slow source never blocks the others.
 
+use std::sync::Arc;
 use std::thread;
 
 use crate::error::SourceError;
@@ -81,6 +82,24 @@ pub trait Source: Send + Sync {
     /// Returns [`SourceError::NotFound`] if the media is unknown, or another
     /// [`SourceError`] if the source cannot answer.
     fn resolve(&self, id: &MediaId) -> Result<StreamUri, SourceError>;
+}
+
+/// A shared source is a source.
+///
+/// It lets the application keep a handle to a source it registered, for
+/// what only that source can do.
+impl<S: Source + ?Sized> Source for Arc<S> {
+    fn kind(&self) -> SourceKind {
+        (**self).kind()
+    }
+
+    fn search(&self, query: &SearchQuery) -> Result<Vec<Media>, SourceError> {
+        (**self).search(query)
+    }
+
+    fn resolve(&self, id: &MediaId) -> Result<StreamUri, SourceError> {
+        (**self).resolve(id)
+    }
 }
 
 /// The answer of one source to a search.
