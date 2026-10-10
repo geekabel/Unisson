@@ -62,6 +62,9 @@ enum Message {
         items: Vec<Media>,
         start: usize,
     },
+    PlayNow(Media),
+    PlayNext(Media),
+    Enqueue(Media),
     Pause,
     Resume,
     Toggle,
@@ -143,6 +146,7 @@ impl Session {
             expected: None,
             engine_is_current: false,
             started_reported: false,
+            at_end: false,
         };
         let session_thread = thread::Builder::new()
             .name("unisson-session".into())
@@ -184,6 +188,30 @@ impl Session {
     /// before it. Nothing happens if `start` is out of range.
     pub fn play_list(&self, items: Vec<Media>, start: usize) {
         self.send(Message::PlayList { items, start });
+    }
+
+    /// Plays a media right away, and keeps the rest of the queue.
+    ///
+    /// The media that was playing goes to the history, and the upcoming
+    /// media play after the new one.
+    pub fn play_now(&self, media: Media) {
+        self.send(Message::PlayNow(media));
+    }
+
+    /// Adds a media right after the current one.
+    ///
+    /// If nothing is selected, or if playback reached the end of the queue,
+    /// the media starts right away.
+    pub fn play_next(&self, media: Media) {
+        self.send(Message::PlayNext(media));
+    }
+
+    /// Adds a media at the end of the queue.
+    ///
+    /// If nothing is selected, or if playback reached the end of the queue,
+    /// the media starts right away.
+    pub fn enqueue(&self, media: Media) {
+        self.send(Message::Enqueue(media));
     }
 
     /// Suspends playback.
@@ -264,6 +292,8 @@ struct Worker {
     engine_is_current: bool,
     /// Whether [`SessionEvent::Started`] was sent for the current media.
     started_reported: bool,
+    /// Whether the last media of the queue played to its end.
+    at_end: bool,
 }
 
 impl Worker {
@@ -276,6 +306,18 @@ impl Worker {
                     if let Some(media) = self.queue.play_list(items, start).cloned() {
                         self.start(media);
                     }
+                }
+                Message::PlayNow(media) => {
+                    let media = self.queue.play_now(media).clone();
+                    self.start(media);
+                }
+                Message::PlayNext(media) => {
+                    self.queue.push_next(media);
+                    self.queue_grew();
+                }
+                Message::Enqueue(media) => {
+                    self.queue.push_back(media);
+                    self.queue_grew();
                 }
                 Message::Pause => self.pause(),
                 Message::Resume => self.resume(),
@@ -303,6 +345,7 @@ impl Worker {
         self.expected = None;
         self.engine_is_current = false;
         self.started_reported = false;
+        self.at_end = false;
         // Silence the previous media now, not when the address arrives.
         let _ = self.engine.stop();
 
@@ -329,6 +372,19 @@ impl Worker {
                 kind: ErrorKind::Unavailable,
                 detail: format!("cannot start a thread: {error}"),
             });
+        }
+    }
+
+    /// Reacts to a media added to the queue.
+    ///
+    /// When nothing was left to play, the new media starts by itself:
+    /// adding to an idle player means "play this".
+    fn queue_grew(&mut self) {
+        let idle = self.queue.current().is_none() || self.at_end;
+        if idle {
+            self.next();
+        } else {
+            self.publish();
         }
     }
 
@@ -437,6 +493,7 @@ impl Worker {
             return;
         }
         // Keep the last media selected, so "play" starts it again.
+        self.at_end = true;
         self.engine_is_current = false;
         let _ = self.engine.stop();
         self.snapshot.status = Status::Stopped;

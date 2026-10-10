@@ -358,6 +358,84 @@ fn the_end_of_a_media_the_user_left_does_not_skip_the_new_one() {
 }
 
 #[test]
+fn play_now_keeps_the_rest_of_the_queue() {
+    let fixture = Fixture::new(
+        true,
+        &[
+            ("a", make_wav("now-a.wav", 10)),
+            ("b", make_wav("now-b.wav", 10)),
+            ("x", make_wav("now-x.wav", 10)),
+        ],
+    );
+    fixture.session.play_list(vec![track("a"), track("b")], 0);
+    fixture.wait_for_state(playing("a"));
+
+    fixture.session.play_now(track("x"));
+    let on_x = fixture.wait_for_state(playing("x"));
+    assert!(
+        on_x.has_previous,
+        "the media that was playing is kept behind"
+    );
+    assert!(on_x.has_next, "the upcoming media still follow");
+
+    fixture.session.next();
+    fixture.wait_for_state(playing("b"));
+}
+
+#[test]
+fn added_media_wait_for_their_turn() {
+    let fixture = Fixture::new(
+        true,
+        &[
+            ("a", make_wav("add-a.wav", 10)),
+            ("last", make_wav("add-last.wav", 10)),
+            ("soon", make_wav("add-soon.wav", 10)),
+        ],
+    );
+    fixture.session.play_list(vec![track("a")], 0);
+    fixture.wait_for_state(playing("a"));
+
+    fixture.session.enqueue(track("last"));
+    let grown = fixture.wait_for_state(|snapshot| snapshot.has_next);
+    assert_eq!(title(&grown), Some("a"), "adding does not interrupt");
+    assert_eq!(grown.status, Status::Playing);
+    fixture.session.play_next(track("soon"));
+
+    fixture.session.next();
+    fixture.wait_for_state(playing("soon"));
+    fixture.session.next();
+    fixture.wait_for_state(playing("last"));
+}
+
+#[test]
+fn adding_to_an_idle_player_starts_playback() {
+    let fixture = Fixture::new(
+        false,
+        &[
+            ("a", make_wav("idle-a.wav", 1)),
+            ("b", make_wav("idle-b.wav", 1)),
+        ],
+    );
+    let ended = |key: &'static str| {
+        move |snapshot: &Snapshot| {
+            snapshot.status == Status::Stopped && title(snapshot) == Some(key)
+        }
+    };
+
+    // Nothing is selected: the first media added starts.
+    fixture.session.enqueue(track("a"));
+    let seen = fixture.wait_for(|event| matches!(event, SessionEvent::Started(_)));
+    assert_eq!(started_titles(&seen), ["a"]);
+    fixture.wait_for_state(ended("a"));
+
+    // The queue played to its end: a media added now starts as well.
+    fixture.session.play_next(track("b"));
+    let seen = fixture.wait_for(|event| matches!(event, SessionEvent::Started(_)));
+    assert_eq!(started_titles(&seen), ["b"]);
+    fixture.wait_for_state(ended("b"));
+}
+
+#[test]
 fn the_volume_is_reported() {
     let fixture = Fixture::new(false, &[]);
     fixture.session.set_volume(0.25);
