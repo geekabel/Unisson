@@ -211,13 +211,19 @@ impl Player {
 
     /// Waits up to `timeout` for the next playback event.
     ///
-    /// Returns `None` if nothing happened in that time. After either event,
-    /// the player is back in the [`PlaybackState::Stopped`] state.
+    /// Returns `None` if nothing happened in that time. A zero timeout checks
+    /// for a pending event without waiting. After either event, the player is
+    /// back in the [`PlaybackState::Stopped`] state.
     pub fn poll_event(&self, timeout: Duration) -> Option<PlayerEvent> {
-        let timeout = gst::ClockTime::try_from(timeout).unwrap_or(gst::ClockTime::MAX);
-        let message = self
-            .bus
-            .timed_pop_filtered(timeout, &[gst::MessageType::Eos, gst::MessageType::Error])?;
+        const WANTED: [gst::MessageType; 2] = [gst::MessageType::Eos, gst::MessageType::Error];
+        // With a zero timeout, `timed_pop_filtered` gives up before looking at
+        // the queue. `pop_filtered` is the non-blocking way to read it.
+        let message = if timeout.is_zero() {
+            self.bus.pop_filtered(&WANTED)?
+        } else {
+            let timeout = gst::ClockTime::try_from(timeout).unwrap_or(gst::ClockTime::MAX);
+            self.bus.timed_pop_filtered(timeout, &WANTED)?
+        };
         let event = match message.view() {
             gst::MessageView::Eos(_) => PlayerEvent::EndOfStream,
             gst::MessageView::Error(error) => PlayerEvent::Error(error.error().to_string()),

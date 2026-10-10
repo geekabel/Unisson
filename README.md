@@ -9,8 +9,9 @@ The project is under construction. Current target: Ubuntu 22.04.
 
 - `crates/unisson-core`: the core library, with no user interface
   (common model, source contract, source registry).
-- `crates/unisson-audio`: the audio engine, built on GStreamer
-  (load, play, pause, stop, volume).
+- `crates/unisson-audio`: the audio engine, built on GStreamer. `Player` plays
+  one address (load, play, pause, stop, volume). `Engine` runs it on its own
+  thread and reports events (state, position, end of stream, errors).
 - The desktop application will be added as a separate crate.
 
 ## Requirements
@@ -31,7 +32,7 @@ cargo run -p unisson-audio --example play -- ~/Music/song.mp3
 ```
 
 Then type a command and press Enter:
-`p` pause or resume, `s` stop, `+` or `-` volume, `q` quit.
+`p` pause or resume, `s` stop, `+` or `-` volume, `i` position, `q` quit.
 An `http(s)://` stream address works too.
 
 ## Useful commands

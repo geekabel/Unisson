@@ -16,6 +16,8 @@ pub enum AudioError {
     StateChange(String),
     /// The file path cannot be turned into a playable address.
     InvalidPath(String),
+    /// The audio thread of the [`Engine`](crate::Engine) is no longer running.
+    EngineStopped,
 }
 
 impl fmt::Display for AudioError {
@@ -26,6 +28,7 @@ impl fmt::Display for AudioError {
             Self::NothingLoaded => write!(f, "nothing is loaded"),
             Self::StateChange(detail) => write!(f, "cannot change playback state: {detail}"),
             Self::InvalidPath(detail) => write!(f, "invalid file path: {detail}"),
+            Self::EngineStopped => write!(f, "the audio engine has stopped"),
         }
     }
 }

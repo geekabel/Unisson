@@ -1,4 +1,4 @@
-//! Plays one audio file or stream from the command line.
+//! Plays one audio file or stream from the command line, through the engine.
 //!
 //! ```sh
 //! cargo run -p unisson-audio --example play -- ~/Music/song.mp3
@@ -6,15 +6,15 @@
 //! ```
 //!
 //! Then type a command and press Enter:
-//! `p` pause or resume, `s` stop, `+` or `-` volume, `q` quit.
+//! `p` pause or resume, `s` stop, `+` or `-` volume, `i` position, `q` quit.
 
 use std::error::Error;
 use std::io::BufRead;
-use std::sync::mpsc;
+use std::sync::mpsc::{self, RecvTimeoutError, TryRecvError};
 use std::thread;
 use std::time::Duration;
 
-use unisson_audio::{PlaybackState, Player, PlayerEvent, file_uri};
+use unisson_audio::{Engine, EngineEvent, PlaybackState, file_uri};
 use unisson_core::StreamUri;
 
 fn main() -> Result<(), Box<dyn Error>> {
@@ -29,14 +29,13 @@ fn main() -> Result<(), Box<dyn Error>> {
         file_uri(target)?
     };
 
-    let player = Player::new()?;
-    player.load(&uri)?;
-    player.play()?;
+    let (engine, events) = Engine::spawn()?;
     println!("Playing {uri}");
-    println!("Commands: p = pause/resume, s = stop, + / - = volume, q = quit");
+    println!("Commands: p = pause/resume, s = stop, + / - = volume, i = position, q = quit");
+    engine.play_uri(uri)?;
 
     // Read the keyboard on another thread so the main loop never blocks on it.
-    let (sender, commands) = mpsc::channel();
+    let (sender, keyboard) = mpsc::channel();
     thread::spawn(move || {
         for line in std::io::stdin().lock().lines().map_while(Result::ok) {
             if sender.send(line.trim().to_owned()).is_err() {
@@ -45,40 +44,54 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
+    // What the engine last reported. The interface will keep the same data.
+    let mut state = PlaybackState::Stopped;
+    let mut volume = 1.0;
+    let mut position = Duration::ZERO;
+    let mut duration = None;
+
     loop {
-        match player.poll_event(Duration::from_millis(100)) {
-            Some(PlayerEvent::EndOfStream) => {
+        match events.recv_timeout(Duration::from_millis(50)) {
+            Ok(EngineEvent::StateChanged(new_state)) => {
+                state = new_state;
+                println!("State: {state:?}");
+            }
+            Ok(EngineEvent::Position {
+                position: at,
+                duration: total,
+            }) => {
+                position = at;
+                duration = total;
+            }
+            Ok(EngineEvent::VolumeChanged(new_volume)) => {
+                volume = new_volume;
+                println!("Volume: {:.0} %", volume * 100.0);
+            }
+            Ok(EngineEvent::EndOfStream) => {
                 println!("End of stream");
                 return Ok(());
             }
-            Some(PlayerEvent::Error(message)) => return Err(message.into()),
-            None => {}
+            Ok(EngineEvent::Error(message)) => return Err(message.into()),
+            Err(RecvTimeoutError::Timeout) => {}
+            Err(RecvTimeoutError::Disconnected) => return Err("the audio engine stopped".into()),
         }
-        match commands.try_recv() {
+
+        match keyboard.try_recv() {
             Ok(command) => match command.as_str() {
-                "p" if player.state() == PlaybackState::Playing => {
-                    player.pause()?;
-                    println!("Paused at {:?}", player.position().unwrap_or_default());
-                }
-                "p" => {
-                    player.play()?;
-                    println!("Playing");
-                }
-                "s" => {
-                    player.stop()?;
-                    println!("Stopped (p starts again from the beginning)");
-                }
-                "+" | "-" => {
-                    let step = if command == "+" { 0.1 } else { -0.1 };
-                    player.set_volume(player.volume() + step);
-                    println!("Volume {:.0} %", player.volume() * 100.0);
-                }
+                "p" if state == PlaybackState::Playing => engine.pause()?,
+                "p" => engine.play()?,
+                "s" => engine.stop()?,
+                "+" => engine.set_volume(volume + 0.1)?,
+                "-" => engine.set_volume(volume - 0.1)?,
+                "i" => match duration {
+                    Some(total) => println!("Position: {position:.1?} of {total:.1?}"),
+                    None => println!("Position: {position:.1?} (live)"),
+                },
                 "q" => return Ok(()),
                 other => println!("Unknown command: {other}"),
             },
-            Err(mpsc::TryRecvError::Empty) => {}
-            // The keyboard is closed (Ctrl+D): keep playing until the end.
-            Err(mpsc::TryRecvError::Disconnected) => {}
+            // No command typed, or the keyboard is closed (Ctrl+D): keep playing.
+            Err(TryRecvError::Empty | TryRecvError::Disconnected) => {}
         }
     }
 }
