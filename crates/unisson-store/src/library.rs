@@ -20,7 +20,7 @@ use std::time::Duration;
 use rusqlite::types::Value;
 use rusqlite::{Connection, Row, params_from_iter};
 use unisson_core::search_key;
-use unisson_local::LocalTrack;
+use unisson_local::{LibraryChange, LocalTrack};
 
 use crate::error::StoreError;
 use crate::store::Store;
@@ -131,6 +131,45 @@ impl Store {
             [path.as_ref().as_os_str().as_bytes()],
         )?;
         Ok(removed > 0)
+    }
+
+    /// Removes a path from the library: a file, or a folder with every
+    /// track below it.
+    ///
+    /// Returns the number of tracks removed.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::Database`] if the tracks cannot be removed.
+    pub fn remove_tracks_under(&self, path: impl AsRef<Path>) -> Result<usize, StoreError> {
+        let path = path.as_ref().as_os_str().as_bytes();
+        // Paths are compared byte by byte. Everything inside the folder
+        // starts with "<path>/", so it sorts from "<path>/" up to, but not
+        // including, "<path>0": `0` is the character right after `/`.
+        // A neighbor such as "<path> (live)" is outside that range.
+        let first_inside = [path, b"/"].concat();
+        let after_inside = [path, b"0"].concat();
+        let removed = self.connection().execute(
+            "DELETE FROM tracks WHERE path = ?1 OR (path >= ?2 AND path < ?3)",
+            (path, first_inside, after_inside),
+        )?;
+        Ok(removed)
+    }
+
+    /// Applies a change reported by a
+    /// [`LibraryWatcher`](unisson_local::LibraryWatcher).
+    ///
+    /// Returns the number of tracks added, refreshed or removed. It is zero
+    /// when a removed path held no known track.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::Database`] if the library cannot be changed.
+    pub fn apply_library_change(&self, change: &LibraryChange) -> Result<usize, StoreError> {
+        match change {
+            LibraryChange::Updated(track) => self.save_track(track).map(|()| 1),
+            LibraryChange::Removed(path) => self.remove_tracks_under(path),
+        }
     }
 
     /// Returns the number of tracks in the library.
@@ -352,6 +391,49 @@ mod tests {
 
         assert!(store.remove_track("/m/new.mp3").unwrap());
         assert!(!store.remove_track("/m/new.mp3").unwrap());
+        assert_eq!(store.library_len().unwrap(), before);
+    }
+
+    #[test]
+    fn removing_a_folder_removes_what_is_below_it_and_nothing_else() {
+        let store = Store::open_in_memory().unwrap();
+        store
+            .replace_library(&[
+                track("/m/Album/1.mp3", "Inside", None, None),
+                track("/m/Album/CD 2/2.mp3", "Deep inside", None, None),
+                track("/m/Album (live)/3.mp3", "Neighbor folder", None, None),
+                track("/m/Album.mp3", "Neighbor file", None, None),
+                track("/m/Albu/4.mp3", "Shorter name", None, None),
+            ])
+            .unwrap();
+
+        assert_eq!(store.remove_tracks_under("/m/Album").unwrap(), 2);
+        assert_eq!(
+            titles(&store.library_tracks().unwrap()),
+            ["Neighbor file", "Neighbor folder", "Shorter name"]
+        );
+
+        // A single file is removed the same way.
+        assert_eq!(store.remove_tracks_under("/m/Album.mp3").unwrap(), 1);
+        assert_eq!(store.remove_tracks_under("/m/Album.mp3").unwrap(), 0);
+    }
+
+    #[test]
+    fn watcher_changes_are_applied() {
+        let store = sample_library();
+        let before = store.library_len().unwrap();
+        let new = track("/m/new/song.mp3", "Brand New", None, None);
+
+        let updated = LibraryChange::Updated(new.clone());
+        assert_eq!(store.apply_library_change(&updated).unwrap(), 1);
+        // The same change twice does not duplicate the track.
+        assert_eq!(store.apply_library_change(&updated).unwrap(), 1);
+        assert_eq!(store.library_len().unwrap(), before + 1);
+        assert_eq!(found(&store, "brand"), ["Brand New"]);
+
+        let removed = LibraryChange::Removed(PathBuf::from("/m/new"));
+        assert_eq!(store.apply_library_change(&removed).unwrap(), 1);
+        assert_eq!(store.apply_library_change(&removed).unwrap(), 0);
         assert_eq!(store.library_len().unwrap(), before);
     }
 
