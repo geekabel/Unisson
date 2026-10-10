@@ -9,19 +9,22 @@ use std::sync::mpsc::Receiver;
 use std::thread;
 use std::time::SystemTime;
 
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 use unisson_local::{LibraryWatcher, music_directory, scan};
 use unisson_playback::SessionEvent;
 use unisson_store::Store;
 
-use crate::dto::{PositionDto, SnapshotDto};
+use crate::dto::PositionDto;
+use crate::state::AppState;
 
-/// The playback state changed. Payload: [`SnapshotDto`].
+/// The playback state changed. Payload: [`SnapshotDto`](crate::dto::SnapshotDto).
 pub const PLAYER_CHANGED: &str = "player:changed";
 /// Playback moved on. Payload: [`PositionDto`].
 pub const PLAYER_POSITION: &str = "player:position";
 /// The library of local files changed. No payload.
 pub const LIBRARY_CHANGED: &str = "library:changed";
+/// The favorite stations changed. No payload.
+pub const STATIONS_CHANGED: &str = "stations:changed";
 /// A media was added to the listening history. No payload.
 pub const HISTORY_CHANGED: &str = "history:changed";
 
@@ -34,7 +37,8 @@ pub fn forward_session_events(app: AppHandle, store: Arc<Store>, events: Receive
             // A failed emit means the window is closing: nothing to do.
             let _ = match event {
                 SessionEvent::Changed(snapshot) => {
-                    app.emit(PLAYER_CHANGED, SnapshotDto::from(&snapshot))
+                    let state = app.state::<AppState>();
+                    app.emit(PLAYER_CHANGED, state.snapshot_dto(&snapshot))
                 }
                 SessionEvent::Position { position, duration } => {
                     app.emit(PLAYER_POSITION, PositionDto::new(position, duration))

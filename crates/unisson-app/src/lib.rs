@@ -43,15 +43,20 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            commands::player_state,
-            commands::player_play_list,
-            commands::player_open,
-            commands::player_toggle,
-            commands::player_next,
-            commands::player_previous,
-            commands::player_seek,
-            commands::player_set_volume,
-            commands::home,
+            commands::home::home,
+            commands::player::player_state,
+            commands::player::player_play_list,
+            commands::player::player_open,
+            commands::player::player_toggle,
+            commands::player::player_next,
+            commands::player::player_previous,
+            commands::player::player_seek,
+            commands::player::player_set_volume,
+            commands::radio::stations_favorites,
+            commands::radio::stations_search,
+            commands::radio::stations_play,
+            commands::radio::station_set_favorite,
+            commands::radio::station_add_custom,
         ])
         .run(tauri::generate_context!())
         .expect("cannot run Unisson");

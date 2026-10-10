@@ -7,7 +7,8 @@ import { byId } from "./dom.js";
 import { looksLikeTarget, openErrorMessage } from "./format.js";
 import { hideNotice, showNotice } from "./notice.js";
 import { renderPlayer, renderPosition } from "./player-bar.js";
-import { refreshView, setCurrentMedia, showView } from "./views.js";
+import { loadStations } from "./stations.js";
+import { refreshView, setPlayerState, showView } from "./views.js";
 
 const searchForm = byId("search-form");
 const searchInput = /** @type {HTMLInputElement} */ (byId("search-input"));
@@ -15,7 +16,7 @@ const searchInput = /** @type {HTMLInputElement} */ (byId("search-input"));
 /** @param {import("./api.js").Snapshot} snapshot */
 function onPlayerChanged(snapshot) {
   renderPlayer(snapshot);
-  setCurrentMedia(snapshot.current);
+  setPlayerState(snapshot);
 }
 
 searchForm.addEventListener("submit", async (event) => {
@@ -65,7 +66,12 @@ async function start() {
     api.onPlayerPosition(renderPosition),
     api.onLibraryChanged(() => refreshView("home")),
     api.onHistoryChanged(() => refreshView("home")),
+    api.onStationsChanged(async () => {
+      await loadStations();
+      refreshView("home");
+    }),
   ]);
+  await loadStations();
   onPlayerChanged(await api.playerState());
   await showView("home");
 }

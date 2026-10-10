@@ -8,6 +8,7 @@
 import { byId, element } from "./dom.js";
 import { mediaKey } from "./format.js";
 import * as home from "./views/home.js";
+import * as radios from "./views/radios.js";
 
 /** A view that is not built yet: it only says when it arrives. */
 function coming(title, text) {
@@ -21,7 +22,7 @@ function coming(title, text) {
 
 const VIEWS = {
   home,
-  radios: coming("Radios", "La recherche de radios par nom, genre et pays arrive avec la tâche T17."),
+  radios,
   favorites: coming("Favoris", "Vos titres favoris arrivent avec la tâche T21."),
   history: coming("Historique", "L'historique d'écoute arrive avec la tâche T21. Il s'enregistre déjà."),
   sources: coming("Sources", "Le réglage des sources arrive avec la tâche T20."),
@@ -33,6 +34,8 @@ const navItems = [...document.querySelectorAll(".nav-item[data-view]")];
 let currentView = "home";
 /** Key of the media selected in the player, to highlight it in lists. */
 let currentKey = "";
+/** The last playback state received, for the views that follow it. */
+let lastSnapshot = null;
 /** Counts the renders, so that a slow answer never overwrites a newer view. */
 let renderCount = 0;
 let refreshTimer = null;
@@ -69,6 +72,9 @@ export async function showView(name, { keepScroll = false } = {}) {
   container.replaceChildren(...content);
   container.scrollTop = keepScroll ? scroll : 0;
   highlightCurrent();
+  if (lastSnapshot) {
+    VIEWS[name].onPlayerChanged?.(lastSnapshot);
+  }
 }
 
 /** Returns the name of the view on screen. */
@@ -91,16 +97,18 @@ export function refreshView(...names) {
 }
 
 /**
- * Tells the views which media is selected in the player.
+ * Tells the views what the player is doing.
  *
- * @param {?import("./api.js").Media} media
+ * @param {import("./api.js").Snapshot} snapshot
  */
-export function setCurrentMedia(media) {
-  const key = mediaKey(media);
+export function setPlayerState(snapshot) {
+  lastSnapshot = snapshot;
+  const key = mediaKey(snapshot.current);
   if (key !== currentKey) {
     currentKey = key;
     highlightCurrent();
   }
+  VIEWS[currentView].onPlayerChanged?.(snapshot);
 }
 
 function highlightCurrent() {

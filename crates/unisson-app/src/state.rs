@@ -4,10 +4,21 @@ use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use unisson_audio::Engine;
-use unisson_core::{MediaId, SourceRegistry};
-use unisson_playback::{Session, SessionEvent};
-use unisson_radio::{Favorites, RadioBrowser, RadioSource};
-use unisson_store::{LocalSource, Store};
+use unisson_core::{Media, MediaId, SourceKind, SourceRegistry};
+use unisson_playback::{Session, SessionEvent, Snapshot};
+use unisson_radio::{Favorites, RadioBrowser, RadioSource, Station};
+use unisson_store::{LocalSource, Store, StoreError};
+
+use crate::dto::SnapshotDto;
+
+/// Which way "previous" and "next" go.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Direction {
+    /// Towards what was before.
+    Previous,
+    /// Towards what comes after.
+    Next,
+}
 
 /// The long-lived parts of the application, shared by every command.
 pub struct AppState {
@@ -76,5 +87,129 @@ impl AppState {
         self.stations
             .lock()
             .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
+    /// Changes the favorite stations, and saves them.
+    ///
+    /// The change is all or nothing: if the database refuses it, the list
+    /// in memory stays as it was.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::Database`] if the stations cannot be saved.
+    pub fn update_stations<T>(
+        &self,
+        change: impl FnOnce(&mut Favorites) -> T,
+    ) -> Result<T, StoreError> {
+        let mut stations = self.stations();
+        let mut changed = stations.clone();
+        let result = change(&mut changed);
+        self.store.save_favorite_stations(changed.stations())?;
+        *stations = changed;
+        Ok(result)
+    }
+
+    /// Describes a playback state for the interface.
+    ///
+    /// While a radio station plays, "previous" and "next" also walk the
+    /// favorite stations, so they are reported as available.
+    pub fn snapshot_dto(&self, snapshot: &Snapshot) -> SnapshotDto {
+        let mut dto = SnapshotDto::from(snapshot);
+        let stations = self.stations();
+        if let Some(current) = live_station(snapshot)
+            && neighbor(&stations, &current.id.key, Direction::Next).is_some()
+        {
+            dto.has_previous = true;
+            dto.has_next = true;
+        }
+        dto
+    }
+
+    /// Moves from the station that plays to its neighbor in the favorites.
+    ///
+    /// Returns `false`, and does nothing, if no station plays or if there
+    /// is no other favorite to go to.
+    pub fn switch_station(&self, snapshot: &Snapshot, direction: Direction) -> bool {
+        let Some(current) = live_station(snapshot) else {
+            return false;
+        };
+        let (media, start) = {
+            let stations = self.stations();
+            let Some(start) = neighbor(&stations, &current.id.key, direction) else {
+                return false;
+            };
+            let media = stations.stations().iter().map(Station::to_media).collect();
+            (media, start)
+        };
+        self.session.play_list(media, start);
+        true
+    }
+}
+
+/// Returns the radio station a snapshot is about, if any.
+fn live_station(snapshot: &Snapshot) -> Option<&Media> {
+    snapshot
+        .current
+        .as_ref()
+        .filter(|media| media.is_live() && media.id.source == SourceKind::Radio)
+}
+
+/// Returns the index of the favorite to go to from the station `uuid`.
+///
+/// The favorites form a loop. From a station that is not a favorite, "next"
+/// goes to the first favorite and "previous" to the last. Returns `None`
+/// when there is no other favorite.
+fn neighbor(stations: &Favorites, uuid: &str, direction: Direction) -> Option<usize> {
+    let count = stations.len();
+    let position = stations
+        .stations()
+        .iter()
+        .position(|station| station.uuid == uuid);
+    match (position, direction) {
+        (_, _) if count == 0 => None,
+        (Some(_), _) if count == 1 => None,
+        (Some(index), Direction::Next) => Some((index + 1) % count),
+        (Some(index), Direction::Previous) => Some((index + count - 1) % count),
+        (None, Direction::Next) => Some(0),
+        (None, Direction::Previous) => Some(count - 1),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn favorites(names: &[&str]) -> Favorites {
+        Favorites::from_stations(names.iter().map(|name| {
+            let mut station =
+                Station::custom(name, &format!("https://example.org/{name}")).unwrap();
+            station.uuid = (*name).to_owned();
+            station
+        }))
+    }
+
+    #[test]
+    fn the_favorites_form_a_loop() {
+        let stations = favorites(&["a", "b", "c"]);
+        assert_eq!(neighbor(&stations, "a", Direction::Next), Some(1));
+        assert_eq!(neighbor(&stations, "c", Direction::Next), Some(0));
+        assert_eq!(neighbor(&stations, "a", Direction::Previous), Some(2));
+        assert_eq!(neighbor(&stations, "b", Direction::Previous), Some(0));
+    }
+
+    #[test]
+    fn a_station_outside_the_favorites_enters_the_loop_by_its_ends() {
+        let stations = favorites(&["a", "b", "c"]);
+        assert_eq!(neighbor(&stations, "other", Direction::Next), Some(0));
+        assert_eq!(neighbor(&stations, "other", Direction::Previous), Some(2));
+        let single = favorites(&["a"]);
+        assert_eq!(neighbor(&single, "other", Direction::Next), Some(0));
+    }
+
+    #[test]
+    fn there_is_nowhere_to_go_without_another_favorite() {
+        assert_eq!(neighbor(&favorites(&[]), "a", Direction::Next), None);
+        assert_eq!(neighbor(&favorites(&["a"]), "a", Direction::Next), None);
+        assert_eq!(neighbor(&favorites(&["a"]), "a", Direction::Previous), None);
     }
 }

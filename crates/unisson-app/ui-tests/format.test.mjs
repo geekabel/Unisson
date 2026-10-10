@@ -21,6 +21,7 @@ import {
   sourceLabel,
   stationDescription,
   stationMedia,
+  stationQuality,
   tileText,
 } from "../ui/js/format.js";
 
@@ -150,4 +151,11 @@ test("tileText describes each kind of tile", () => {
   });
   assert.deepEqual(tileText({ kind: "album", source: "local", artist: null }), { badge: "Album", subtitle: "Album" });
   assert.deepEqual(tileText({ kind: "track", source: "youtube", artist: null }), { badge: "YouTube", subtitle: "Titre" });
+});
+
+test("stationQuality shows the format and the bitrate that are known", () => {
+  assert.equal(stationQuality({ codec: "MP3", bitrate: 128 }), "MP3 128 kb/s");
+  assert.equal(stationQuality({ codec: "AAC", bitrate: 0 }), "AAC");
+  assert.equal(stationQuality({ codec: null, bitrate: 96 }), "96 kb/s");
+  assert.equal(stationQuality({ codec: null, bitrate: null }), "");
 });

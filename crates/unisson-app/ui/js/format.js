@@ -108,6 +108,17 @@ export function stationDescription(station, tagCount = 1) {
 }
 
 /**
+ * Returns the audio quality of a station, such as `MP3 128 kb/s`.
+ *
+ * @param {import("./api.js").Station} station
+ * @returns {string} An empty string when nothing is known.
+ */
+export function stationQuality(station) {
+  const bitrate = station.bitrate > 0 ? `${station.bitrate} kb/s` : "";
+  return [station.codec, bitrate].filter(Boolean).join(" ");
+}
+
+/**
  * Puts the first letter of a text in upper case.
  *
  * @param {string} text

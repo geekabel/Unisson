@@ -1,12 +1,4 @@
-//! The commands the web interface can call.
-//!
-//! Each function here is one entry of the `invoke` API of Tauri. They are
-//! thin on purpose: they translate, and let the other crates do the work.
-//!
-//! A command that only passes an order to the playback session returns at
-//! once, and runs on the main thread. A command that reads the database or
-//! a file is marked `async`, so that Tauri runs it on another thread and
-//! the window never freezes.
+//! Commands of the player: what plays, and how.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -17,13 +9,12 @@ use unisson_local::{LocalError, LocalTrack};
 use unisson_radio::Station;
 
 use crate::dto::{CommandError, MediaDto, SnapshotDto};
-use crate::home::{self, HomeDto};
-use crate::state::AppState;
+use crate::state::{AppState, Direction};
 
 /// Returns the current playback state.
 #[tauri::command]
 pub fn player_state(state: State<'_, AppState>) -> SnapshotDto {
-    SnapshotDto::from(&state.session.snapshot())
+    state.snapshot_dto(&state.session.snapshot())
 }
 
 /// Replaces the queue with `items`, and plays `items[start]`.
@@ -73,15 +64,27 @@ pub fn player_toggle(state: State<'_, AppState>) {
 }
 
 /// Plays the next media of the queue.
+///
+/// On a radio station with nothing after it, this moves to the next
+/// favorite station instead.
 #[tauri::command]
 pub fn player_next(state: State<'_, AppState>) {
-    state.session.next();
+    let snapshot = state.session.snapshot();
+    if snapshot.has_next || !state.switch_station(&snapshot, Direction::Next) {
+        state.session.next();
+    }
 }
 
 /// Restarts the current track, or goes back to the previous media.
+///
+/// On a radio station with nothing before it, this moves to the previous
+/// favorite station instead.
 #[tauri::command]
 pub fn player_previous(state: State<'_, AppState>) {
-    state.session.previous();
+    let snapshot = state.session.snapshot();
+    if snapshot.has_previous || !state.switch_station(&snapshot, Direction::Previous) {
+        state.session.previous();
+    }
 }
 
 /// Moves playback to a position, in milliseconds.
@@ -94,14 +97,6 @@ pub fn player_seek(state: State<'_, AppState>, position_ms: u64) {
 #[tauri::command]
 pub fn player_set_volume(state: State<'_, AppState>, volume: f64) {
     state.session.set_volume(volume);
-}
-
-/// Returns what the home screen shows.
-#[tauri::command(async)]
-pub fn home(state: State<'_, AppState>) -> Result<HomeDto, CommandError> {
-    // Copy the favorites, so the lock is not held while the database works.
-    let favorites = state.stations().clone();
-    Ok(home::build(&state.store, &favorites)?)
 }
 
 /// What the user asked to open.

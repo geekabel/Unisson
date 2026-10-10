@@ -106,6 +106,45 @@ export const setVolume = (volume) => invoke("player_set_volume", { volume });
 /** @returns {Promise<Home>} */
 export const home = () => invoke("home");
 
+/** @returns {Promise<Station[]>} The favorite stations, in the user's order. */
+export const stationsFavorites = () => invoke("stations_favorites");
+
+/**
+ * Searches the directory of stations. Every criterion is optional.
+ *
+ * @param {{name?: string, tag?: ?string, countryCode?: string}} criteria
+ * @returns {Promise<Station[]>}
+ */
+export const stationsSearch = ({ name, tag, countryCode }) =>
+  invoke("stations_search", { name: name || null, tag: tag || null, countryCode: countryCode || null });
+
+/**
+ * Replaces the queue with `stations` and plays `stations[start]`.
+ *
+ * @param {Station[]} stations
+ * @param {number} start
+ */
+export const stationsPlay = (stations, start) => invoke("stations_play", { stations, start });
+
+/**
+ * Adds a station to the favorites, or removes it.
+ *
+ * @param {Station} station
+ * @param {boolean} favorite
+ */
+export const stationSetFavorite = (station, favorite) =>
+  invoke("station_set_favorite", { station, favorite });
+
+/**
+ * Adds to the favorites a station known only by the address of its stream.
+ *
+ * @param {string} name
+ * @param {string} streamUrl
+ * @returns {Promise<Station>}
+ */
+export const stationAddCustom = (name, streamUrl) =>
+  invoke("station_add_custom", { name, streamUrl });
+
 /** @param {(snapshot: Snapshot) => void} handler */
 export const onPlayerChanged = (handler) => on("player:changed", handler);
 
@@ -114,6 +153,9 @@ export const onPlayerPosition = (handler) => on("player:position", handler);
 
 /** @param {() => void} handler */
 export const onLibraryChanged = (handler) => on("library:changed", handler);
+
+/** @param {() => void} handler */
+export const onStationsChanged = (handler) => on("stations:changed", handler);
 
 /** @param {() => void} handler */
 export const onHistoryChanged = (handler) => on("history:changed", handler);
