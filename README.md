@@ -8,7 +8,7 @@ The project is under construction. Current target: Ubuntu 22.04.
 ## Repository layout
 
 - `crates/unisson-core`: the core library, with no user interface
-  (common model, source contract, source registry).
+  (common model, source contract, source registry, play queue).
 - `crates/unisson-audio`: the audio engine, built on GStreamer. `Player` plays
   one address (load, play, pause, stop, volume). `Engine` runs it on its own
   thread and reports events (state, position, end of stream, errors).

@@ -4,7 +4,7 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
-description = "Core of Unisson: common model, source contract and source registry. No UI."
+description = "Core of Unisson: common model, source contract, source registry and play queue. No UI."
 
 [lints]
 workspace = true

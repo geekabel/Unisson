@@ -4,7 +4,8 @@
 //!
 //! - the common model shared by every source ([`Media`], [`MediaId`]);
 //! - the contract each source implements ([`Source`]);
-//! - the registry that queries all sources at once ([`SourceRegistry`]).
+//! - the registry that queries all sources at once ([`SourceRegistry`]);
+//! - the play queue that orders media from every source ([`PlayQueue`]).
 //!
 //! The desktop application lives in a separate crate and calls into this one.
 //!
@@ -23,10 +24,12 @@
 
 pub mod error;
 pub mod model;
+pub mod queue;
 pub mod source;
 
 pub use error::SourceError;
 pub use model::{Media, MediaId, MediaKind, SourceKind, StreamUri};
+pub use queue::PlayQueue;
 pub use source::{SearchQuery, Source, SourceRegistry, SourceResults};
 
 /// Version of this crate, read from `Cargo.toml` at compile time.
