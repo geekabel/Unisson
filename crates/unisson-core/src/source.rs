@@ -8,7 +8,7 @@
 //! `Vec<Box<dyn Source>>`. Each source is therefore called on its own thread,
 //! so a slow source never blocks the others.
 
-use std::sync::Arc;
+use std::sync::{Arc, mpsc};
 use std::thread;
 
 use crate::error::SourceError;
@@ -180,6 +180,57 @@ impl SourceRegistry {
         })
     }
 
+    /// Searches every source at the same time, and hands over each answer
+    /// as soon as it arrives.
+    ///
+    /// A fast source, such as the local library, is not held back by a slow
+    /// one that waits for the network. `on_result` is called once per
+    /// source, on the calling thread, in the order the sources answer. The
+    /// call returns when every source has answered.
+    ///
+    /// An empty query contacts no source.
+    pub fn search_each(&self, query: &SearchQuery, mut on_result: impl FnMut(SourceResults)) {
+        if query.is_empty() {
+            return;
+        }
+        thread::scope(|scope| {
+            let (answers, inbox) = mpsc::channel();
+            let handles: Vec<_> = self
+                .sources
+                .iter()
+                .map(|source| {
+                    let answers = answers.clone();
+                    let handle = scope.spawn(move || {
+                        let result = source.search(query);
+                        let _ = answers.send(SourceResults {
+                            source: source.kind(),
+                            result,
+                        });
+                    });
+                    (source.kind(), handle)
+                })
+                .collect();
+            // Only the threads hold a sender now: the loop below ends when
+            // the last of them is done.
+            drop(answers);
+
+            let mut answered = Vec::new();
+            for results in inbox {
+                answered.push(results.source);
+                on_result(results);
+            }
+            // A source that panicked sent nothing: report it as unavailable.
+            for (source, handle) in handles {
+                if handle.join().is_err() && !answered.contains(&source) {
+                    on_result(SourceResults {
+                        source,
+                        result: Err(SourceError::Unavailable("the source panicked".into())),
+                    });
+                }
+            }
+        });
+    }
+
     /// Asks the source of a media for its playback address.
     ///
     /// # Errors
@@ -322,6 +373,97 @@ mod tests {
             Err(SourceError::Unavailable(_))
         ));
         assert_eq!(titles(&results[2]), ["So What"]);
+    }
+
+    /// A source that answers after a delay.
+    struct SlowSource {
+        kind: SourceKind,
+        delay: std::time::Duration,
+    }
+
+    impl Source for SlowSource {
+        fn kind(&self) -> SourceKind {
+            self.kind
+        }
+
+        fn search(&self, _: &SearchQuery) -> Result<Vec<Media>, SourceError> {
+            thread::sleep(self.delay);
+            Ok(Vec::new())
+        }
+
+        fn resolve(&self, _: &MediaId) -> Result<StreamUri, SourceError> {
+            Err(SourceError::NotFound)
+        }
+    }
+
+    #[test]
+    fn search_each_hands_over_answers_as_they_arrive() {
+        let mut registry = SourceRegistry::new();
+        registry.register(Box::new(SlowSource {
+            kind: SourceKind::Radio,
+            delay: std::time::Duration::from_millis(300),
+        }));
+        registry.register(FakeSource::boxed(
+            SourceKind::Local,
+            Behaviour::Titles(vec!["So What"]),
+        ));
+
+        let start = std::time::Instant::now();
+        let mut seen = Vec::new();
+        registry.search_each(&SearchQuery::new("so"), |results| {
+            seen.push((results.source, start.elapsed()));
+        });
+
+        // The fast source answers first, long before the slow one.
+        assert_eq!(seen[0].0, SourceKind::Local);
+        assert_eq!(seen[1].0, SourceKind::Radio);
+        assert!(
+            seen[0].1 < std::time::Duration::from_millis(200),
+            "{seen:?}"
+        );
+        assert!(
+            seen[1].1 >= std::time::Duration::from_millis(300),
+            "{seen:?}"
+        );
+    }
+
+    #[test]
+    fn search_each_reports_failures_and_crashes_per_source() {
+        let mut registry = SourceRegistry::new();
+        registry.register(FakeSource::boxed(SourceKind::Radio, Behaviour::Panics));
+        registry.register(FakeSource::boxed(
+            SourceKind::YouTube,
+            Behaviour::Fails(SourceError::Network("down".into())),
+        ));
+        registry.register(FakeSource::boxed(
+            SourceKind::Local,
+            Behaviour::Titles(vec!["So What"]),
+        ));
+
+        let mut seen = Vec::new();
+        registry.search_each(&SearchQuery::new("so"), |results| seen.push(results));
+
+        assert_eq!(seen.len(), 3);
+        let of = |kind| {
+            &seen
+                .iter()
+                .find(|results| results.source == kind)
+                .unwrap()
+                .result
+        };
+        assert_eq!(of(SourceKind::Local).as_ref().unwrap().len(), 1);
+        assert_eq!(
+            of(SourceKind::YouTube),
+            &Err(SourceError::Network("down".into()))
+        );
+        assert!(matches!(
+            of(SourceKind::Radio),
+            Err(SourceError::Unavailable(_))
+        ));
+
+        let mut called = false;
+        registry.search_each(&SearchQuery::new("  "), |_| called = true);
+        assert!(!called, "an empty query contacts no source");
     }
 
     #[test]

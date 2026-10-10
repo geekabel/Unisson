@@ -5,6 +5,7 @@
 //! - the common model shared by every source ([`Media`], [`MediaId`]);
 //! - the contract each source implements ([`Source`]);
 //! - the registry that queries all sources at once ([`SourceRegistry`]);
+//! - the merge of their answers into one ranked list ([`merge_results`]);
 //! - the play queue that orders media from every source ([`PlayQueue`]).
 //!
 //! The desktop application lives in a separate crate and calls into this one.
@@ -25,12 +26,14 @@
 pub mod error;
 pub mod model;
 pub mod queue;
+pub mod search;
 pub mod source;
 pub mod text;
 
 pub use error::SourceError;
 pub use model::{Media, MediaId, MediaKind, SourceKind, StreamUri};
 pub use queue::PlayQueue;
+pub use search::{SearchHit, merge_results};
 pub use source::{SearchQuery, Source, SourceRegistry, SourceResults};
 pub use text::search_key;
 
