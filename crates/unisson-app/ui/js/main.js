@@ -63,7 +63,8 @@ async function start() {
   await Promise.all([
     api.onPlayerChanged(onPlayerChanged),
     api.onPlayerPosition(renderPosition),
-    api.onLibraryChanged(refreshView),
+    api.onLibraryChanged(() => refreshView("home")),
+    api.onHistoryChanged(() => refreshView("home")),
   ]);
   onPlayerChanged(await api.playerState());
   await showView("home");

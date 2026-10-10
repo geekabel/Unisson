@@ -8,6 +8,9 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 import {
+  capitalize,
+  countLabel,
+  countryName,
   fillPercent,
   formatTime,
   looksLikeTarget,
@@ -16,6 +19,9 @@ import {
   openErrorMessage,
   playbackErrorMessage,
   sourceLabel,
+  stationDescription,
+  stationMedia,
+  tileText,
 } from "../ui/js/format.js";
 
 const track = {
@@ -89,4 +95,59 @@ test("every error has a sentence, even an unknown one", () => {
   for (const error of [{ kind: "invalid" }, { kind: "notFound" }, { kind: "unreadable" }, {}, null, "text"]) {
     assert.ok(openErrorMessage(error).length > 10);
   }
+});
+
+const fip = {
+  uuid: "fip",
+  name: "FIP",
+  streamUrl: "https://example.org/fip",
+  favicon: "https://example.org/fip.png",
+  tags: ["eclectic", " jazz ", ""],
+  countryCode: "fr",
+};
+
+test("stationMedia turns a station into a live media", () => {
+  assert.deepEqual(stationMedia(fip), {
+    source: "radio",
+    key: "fip",
+    kind: "station",
+    title: "FIP",
+    artist: null,
+    album: null,
+    durationMs: null,
+    artwork: "https://example.org/fip.png",
+  });
+});
+
+test("countryName gives the French name, or nothing", () => {
+  assert.equal(countryName("FR"), "France");
+  assert.equal(countryName("us"), "États-Unis");
+  for (const unknown of [null, undefined, "", "F", "FRA", "12"]) {
+    assert.equal(countryName(unknown), "");
+  }
+});
+
+test("stationDescription shows the first tags and the country", () => {
+  assert.equal(stationDescription(fip), "Eclectic, France");
+  assert.equal(stationDescription(fip, 2), "Eclectic, Jazz, France");
+  assert.equal(stationDescription({ ...fip, tags: [], countryCode: null }), "");
+});
+
+test("capitalize and countLabel", () => {
+  assert.equal(capitalize("électro"), "Électro");
+  assert.equal(capitalize(""), "");
+  assert.equal(countLabel(0, "titre"), "0 titre");
+  assert.equal(countLabel(1, "titre"), "1 titre");
+  assert.equal(countLabel(12, "titre"), "12 titres");
+  assert.equal(countLabel(2, "journal", "journaux"), "2 journaux");
+});
+
+test("tileText describes each kind of tile", () => {
+  assert.deepEqual(tileText({ kind: "station", source: "radio" }), { badge: "Radio", subtitle: "En direct" });
+  assert.deepEqual(tileText({ kind: "album", source: "local", artist: "Miles Davis" }), {
+    badge: "Album",
+    subtitle: "Album, Miles Davis",
+  });
+  assert.deepEqual(tileText({ kind: "album", source: "local", artist: null }), { badge: "Album", subtitle: "Album" });
+  assert.deepEqual(tileText({ kind: "track", source: "youtube", artist: null }), { badge: "YouTube", subtitle: "Titre" });
 });

@@ -17,6 +17,7 @@ use unisson_local::{LocalError, LocalTrack};
 use unisson_radio::Station;
 
 use crate::dto::{CommandError, MediaDto, SnapshotDto};
+use crate::home::{self, HomeDto};
 use crate::state::AppState;
 
 /// Returns the current playback state.
@@ -95,24 +96,12 @@ pub fn player_set_volume(state: State<'_, AppState>, volume: f64) {
     state.session.set_volume(volume);
 }
 
-/// Returns every track of the local library.
+/// Returns what the home screen shows.
 #[tauri::command(async)]
-pub fn library_tracks(state: State<'_, AppState>) -> Result<Vec<MediaDto>, CommandError> {
-    let tracks = state.store.library_tracks()?;
-    Ok(tracks
-        .iter()
-        .map(|track| MediaDto::from(&track.to_media()))
-        .collect())
-}
-
-/// Returns the favorite radio stations, in the order chosen by the user.
-#[tauri::command(async)]
-pub fn favorite_stations(state: State<'_, AppState>) -> Result<Vec<MediaDto>, CommandError> {
-    let stations = state.store.favorite_stations()?;
-    Ok(stations
-        .iter()
-        .map(|station| MediaDto::from(&station.to_media()))
-        .collect())
+pub fn home(state: State<'_, AppState>) -> Result<HomeDto, CommandError> {
+    // Copy the favorites, so the lock is not held while the database works.
+    let favorites = state.stations().clone();
+    Ok(home::build(&state.store, &favorites)?)
 }
 
 /// What the user asked to open.

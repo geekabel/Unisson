@@ -1,22 +1,30 @@
 /**
  * The central area of the window: one view per entry of the sidebar.
  *
- * Only the shell exists for now. The home view lists what can already be
- * played, and the other views say when they arrive.
+ * Each view is a module of the `views` folder with a `render` function
+ * that returns the elements to show. This module switches between them.
  */
 
-import * as api from "./api.js";
-import { byId, element, icon } from "./dom.js";
-import { formatTime, mediaKey, sourceLabel } from "./format.js";
+import { byId, element } from "./dom.js";
+import { mediaKey } from "./format.js";
+import * as home from "./views/home.js";
 
-/** How many tracks the temporary home list shows at most. */
-const HOME_TRACK_LIMIT = 200;
+/** A view that is not built yet: it only says when it arrives. */
+function coming(title, text) {
+  return {
+    render: async () => [
+      element("h1", { class: "view-title" }, [title]),
+      element("p", { class: "hint" }, [text]),
+    ],
+  };
+}
 
-const COMING_VIEWS = {
-  radios: { title: "Radios", text: "La recherche de radios par nom, genre et pays arrive avec la tâche T17." },
-  favorites: { title: "Favoris", text: "Vos titres favoris arrivent avec la tâche T21." },
-  history: { title: "Historique", text: "L'historique d'écoute arrive avec la tâche T21. Il s'enregistre déjà." },
-  sources: { title: "Sources", text: "Le réglage des sources arrive avec la tâche T20." },
+const VIEWS = {
+  home,
+  radios: coming("Radios", "La recherche de radios par nom, genre et pays arrive avec la tâche T17."),
+  favorites: coming("Favoris", "Vos titres favoris arrivent avec la tâche T21."),
+  history: coming("Historique", "L'historique d'écoute arrive avec la tâche T21. Il s'enregistre déjà."),
+  sources: coming("Sources", "Le réglage des sources arrive avec la tâche T20."),
 };
 
 const container = byId("view");
@@ -27,13 +35,15 @@ let currentView = "home";
 let currentKey = "";
 /** Counts the renders, so that a slow answer never overwrites a newer view. */
 let renderCount = 0;
+let refreshTimer = null;
 
 /**
  * Shows a view.
  *
  * @param {string} name One of the `data-view` values of the sidebar.
+ * @param {{keepScroll?: boolean}} [options]
  */
-export async function showView(name) {
+export async function showView(name, { keepScroll = false } = {}) {
   currentView = name;
   for (const item of navItems) {
     if (item.dataset.view === name) {
@@ -43,16 +53,41 @@ export async function showView(name) {
     }
   }
   const render = ++renderCount;
-  const content = name === "home" ? await homeView() : comingView(COMING_VIEWS[name]);
-  if (render === renderCount) {
-    container.replaceChildren(...content);
-    highlightCurrent();
+  let content;
+  try {
+    content = await VIEWS[name].render({ showView });
+  } catch (error) {
+    console.error(error);
+    content = [
+      element("p", { class: "hint" }, ["Cette page n'a pas pu s'afficher. Réessayez dans un instant."]),
+    ];
   }
+  if (render !== renderCount) {
+    return;
+  }
+  const scroll = container.scrollTop;
+  container.replaceChildren(...content);
+  container.scrollTop = keepScroll ? scroll : 0;
+  highlightCurrent();
 }
 
-/** Draws the current view again, after its data changed. */
-export function refreshView() {
-  return showView(currentView);
+/** Returns the name of the view on screen. */
+export function activeView() {
+  return currentView;
+}
+
+/**
+ * Draws the current view again after its data changed, if it is one of
+ * `names`. Several calls in a row give a single redraw.
+ *
+ * @param {...string} names
+ */
+export function refreshView(...names) {
+  if (!names.includes(currentView)) {
+    return;
+  }
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => showView(currentView, { keepScroll: true }), 150);
 }
 
 /**
@@ -76,90 +111,6 @@ function highlightCurrent() {
       node.removeAttribute("aria-current");
     }
   }
-}
-
-function comingView({ title, text }) {
-  return [
-    element("h1", { class: "view-title" }, [title]),
-    element("p", { class: "hint" }, [text]),
-  ];
-}
-
-async function homeView() {
-  const [stations, tracks] = await Promise.all([api.favoriteStations(), api.libraryTracks()]);
-  const sections = [];
-
-  if (stations.length > 0) {
-    sections.push(
-      element("section", { class: "section" }, [
-        element("h2", { class: "section-title" }, ["Radios favorites"]),
-        element("div", { class: "chips" }, stations.map((station, index) => {
-          const chip = element(
-            "button",
-            { class: "chip truncate", type: "button", "data-media-key": mediaKey(station) },
-            [station.title],
-          );
-          chip.addEventListener("click", () => api.playList(stations, index));
-          return chip;
-        })),
-      ]),
-    );
-  }
-
-  if (tracks.length > 0) {
-    const shown = tracks.slice(0, HOME_TRACK_LIMIT);
-    const count = tracks.length > shown.length
-      ? `${shown.length} premiers titres sur ${tracks.length}`
-      : `${tracks.length} titre${tracks.length > 1 ? "s" : ""}`;
-    sections.push(
-      element("section", { class: "section" }, [
-        element("h2", { class: "section-title" }, [`Bibliothèque locale, ${count}`]),
-        element("div", { class: "rows" }, shown.map((track, index) => trackRow(track, () => {
-          api.playList(shown, index);
-        }))),
-      ]),
-    );
-  }
-
-  if (sections.length === 0) {
-    sections.push(
-      element("h1", { class: "view-title" }, ["Bienvenue dans Unisson"]),
-      element("p", { class: "hint" }, [
-        "Votre dossier Musique est vide, et vous n'avez pas encore de radio favorite. " +
-          "Collez l'adresse d'un flux radio ou le chemin complet d'un fichier audio " +
-          "dans le champ ci-dessus, puis appuyez sur Entrée.",
-      ]),
-    );
-  }
-  return sections;
-}
-
-/**
- * Builds one line of a track list. The whole line is one button: a single
- * click plays the track.
- *
- * @param {import("./api.js").Media} track
- * @param {() => void} play
- */
-function trackRow(track, play) {
-  const row = element(
-    "button",
-    {
-      class: "row",
-      type: "button",
-      "data-media-key": mediaKey(track),
-      "aria-label": `Lire ${track.title}${track.artist ? `, ${track.artist}` : ""}`,
-    },
-    [
-      element("span", { class: "row-play" }, [icon("play", { filled: true })]),
-      element("span", { class: "row-title truncate" }, [track.title]),
-      element("span", { class: "row-artist truncate" }, [track.artist ?? ""]),
-      element("span", { class: "badge" }, [sourceLabel(track.source)]),
-      element("span", { class: "row-duration" }, [formatTime(track.durationMs)]),
-    ],
-  );
-  row.addEventListener("click", play);
-  return row;
 }
 
 for (const item of navItems) {

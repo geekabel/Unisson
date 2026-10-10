@@ -28,6 +28,33 @@
  * @property {boolean} hasNext
  * @property {?{kind: string, detail: string}} error
  *
+ * @typedef {object} Station
+ * @property {string} uuid
+ * @property {string} name
+ * @property {string} streamUrl
+ * @property {?string} homepage
+ * @property {?string} favicon
+ * @property {string[]} tags
+ * @property {?string} countryCode
+ * @property {?string} codec
+ * @property {?number} bitrate
+ * @property {boolean} hls
+ *
+ * @typedef {object} Tile
+ * @property {"station"|"album"|"track"} kind
+ * @property {string} title
+ * @property {?string} artist
+ * @property {string} source
+ * @property {Media[]} items What a click plays.
+ * @property {number} start Index in `items` where playback starts.
+ *
+ * @typedef {object} Home
+ * @property {Tile[]} resume
+ * @property {Station[]} stations
+ * @property {Media[]} recent
+ * @property {Media[]} library
+ * @property {number} libraryTotal
+ *
  * @typedef {object} Position
  * @property {number} positionMs
  * @property {?number} durationMs
@@ -76,11 +103,8 @@ export const seek = (positionMs) => invoke("player_seek", { positionMs: Math.rou
 /** @param {number} volume From 0 to 1. */
 export const setVolume = (volume) => invoke("player_set_volume", { volume });
 
-/** @returns {Promise<Media[]>} */
-export const libraryTracks = () => invoke("library_tracks");
-
-/** @returns {Promise<Media[]>} */
-export const favoriteStations = () => invoke("favorite_stations");
+/** @returns {Promise<Home>} */
+export const home = () => invoke("home");
 
 /** @param {(snapshot: Snapshot) => void} handler */
 export const onPlayerChanged = (handler) => on("player:changed", handler);
@@ -90,3 +114,6 @@ export const onPlayerPosition = (handler) => on("player:position", handler);
 
 /** @param {() => void} handler */
 export const onLibraryChanged = (handler) => on("library:changed", handler);
+
+/** @param {() => void} handler */
+export const onHistoryChanged = (handler) => on("history:changed", handler);

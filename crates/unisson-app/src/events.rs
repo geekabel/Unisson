@@ -22,6 +22,8 @@ pub const PLAYER_CHANGED: &str = "player:changed";
 pub const PLAYER_POSITION: &str = "player:position";
 /// The library of local files changed. No payload.
 pub const LIBRARY_CHANGED: &str = "library:changed";
+/// A media was added to the listening history. No payload.
+pub const HISTORY_CHANGED: &str = "history:changed";
 
 /// Forwards the session events to the interface, until the session ends.
 ///
@@ -38,10 +40,13 @@ pub fn forward_session_events(app: AppHandle, store: Arc<Store>, events: Receive
                     app.emit(PLAYER_POSITION, PositionDto::new(position, duration))
                 }
                 SessionEvent::Started(media) => {
-                    if let Err(error) = store.record_play(&media, SystemTime::now()) {
-                        eprintln!("unisson: cannot write the history: {error}");
+                    match store.record_play(&media, SystemTime::now()) {
+                        Ok(()) => app.emit(HISTORY_CHANGED, ()),
+                        Err(error) => {
+                            eprintln!("unisson: cannot write the history: {error}");
+                            Ok(())
+                        }
                     }
-                    Ok(())
                 }
             };
         }

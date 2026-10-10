@@ -15,6 +15,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use unisson_core::{Media, MediaId, MediaKind, SourceKind};
 use unisson_playback::{ErrorKind, PlaybackError, Snapshot, Status};
+use unisson_radio::Station;
 
 fn to_milliseconds(duration: Duration) -> u64 {
     u64::try_from(duration.as_millis()).unwrap_or(u64::MAX)
@@ -82,6 +83,69 @@ impl TryFrom<MediaDto> for Media {
             media = media.with_duration(Duration::from_millis(milliseconds));
         }
         Ok(media)
+    }
+}
+
+/// A radio [`Station`], as the interface sees it.
+///
+/// It carries more than a [`MediaDto`]: what the radio screen displays, and
+/// what is needed to save the station as a favorite.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StationDto {
+    /// The identifier of the station in the directory.
+    pub uuid: String,
+    /// The name to display.
+    pub name: String,
+    /// The address of the audio stream.
+    pub stream_url: String,
+    /// The web site of the station.
+    pub homepage: Option<String>,
+    /// The address of its logo.
+    pub favicon: Option<String>,
+    /// Its tags, such as `jazz`.
+    pub tags: Vec<String>,
+    /// Its country, as a two-letter code.
+    pub country_code: Option<String>,
+    /// The audio format, such as `MP3`.
+    pub codec: Option<String>,
+    /// The bitrate, in kilobits per second.
+    pub bitrate: Option<u32>,
+    /// Whether the stream uses the HLS protocol.
+    pub hls: bool,
+}
+
+impl From<&Station> for StationDto {
+    fn from(station: &Station) -> Self {
+        Self {
+            uuid: station.uuid.clone(),
+            name: station.name.clone(),
+            stream_url: station.stream_url.clone(),
+            homepage: station.homepage.clone(),
+            favicon: station.favicon.clone(),
+            tags: station.tags.clone(),
+            country_code: station.country_code.clone(),
+            codec: station.codec.clone(),
+            bitrate: station.bitrate,
+            hls: station.hls,
+        }
+    }
+}
+
+impl From<StationDto> for Station {
+    fn from(dto: StationDto) -> Self {
+        Self {
+            uuid: dto.uuid,
+            name: dto.name,
+            stream_url: dto.stream_url,
+            homepage: dto.homepage,
+            favicon: dto.favicon,
+            tags: dto.tags,
+            country_code: dto.country_code,
+            codec: dto.codec,
+            bitrate: dto.bitrate,
+            hls: dto.hls,
+        }
     }
 }
 
@@ -273,6 +337,22 @@ mod tests {
             let back: MediaDto = serde_json::from_str(&text).unwrap();
             assert_eq!(Media::try_from(back), Ok(media));
         }
+    }
+
+    #[test]
+    fn a_station_survives_the_round_trip_through_the_interface() {
+        let mut station = Station::custom("My radio", "https://example.org/live.mp3").unwrap();
+        station.tags = vec!["jazz".into(), "soul".into()];
+        station.country_code = Some("FR".into());
+        station.bitrate = Some(128);
+
+        let written = serde_json::to_value(StationDto::from(&station)).unwrap();
+        assert_eq!(written["streamUrl"], "https://example.org/live.mp3");
+        assert_eq!(written["countryCode"], "FR");
+        assert_eq!(written["tags"], json!(["jazz", "soul"]));
+
+        let back: StationDto = serde_json::from_value(written).unwrap();
+        assert_eq!(Station::from(back), station);
     }
 
     #[test]

@@ -9,11 +9,13 @@
 //! - the interface calls the [`commands`], to ask or to order something;
 //! - the application sends [`events`], to tell that something changed.
 //!
-//! The [`dto`] module holds the shapes they exchange.
+//! The [`dto`] module holds the shapes they exchange, and [`home`] builds
+//! what the home screen shows.
 
 pub mod commands;
 pub mod dto;
 pub mod events;
+pub mod home;
 pub mod state;
 
 use std::sync::Arc;
@@ -49,8 +51,7 @@ pub fn run() {
             commands::player_previous,
             commands::player_seek,
             commands::player_set_volume,
-            commands::library_tracks,
-            commands::favorite_stations,
+            commands::home,
         ])
         .run(tauri::generate_context!())
         .expect("cannot run Unisson");

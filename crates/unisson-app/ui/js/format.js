@@ -47,6 +47,104 @@ export function mediaSubtitle(media, streamTitle = null) {
 }
 
 /**
+ * Turns a station into the media the player understands.
+ *
+ * @param {import("./api.js").Station} station
+ * @returns {import("./api.js").Media}
+ */
+export function stationMedia(station) {
+  return {
+    source: "radio",
+    key: station.uuid,
+    kind: "station",
+    title: station.name,
+    artist: null,
+    album: null,
+    durationMs: null,
+    artwork: station.favicon ?? null,
+  };
+}
+
+// Missing from old web engines: country names are then left out.
+const COUNTRY_NAMES = (() => {
+  try {
+    return new Intl.DisplayNames(["fr"], { type: "region" });
+  } catch {
+    return null;
+  }
+})();
+
+/**
+ * Returns the French name of a country from its two-letter code.
+ *
+ * @param {?string} code
+ * @returns {string} An empty string when the code is missing or unknown.
+ */
+export function countryName(code) {
+  if (!/^[A-Za-z]{2}$/.test(code ?? "")) {
+    return "";
+  }
+  try {
+    const name = COUNTRY_NAMES?.of(code.toUpperCase());
+    return name && name !== code.toUpperCase() ? name : "";
+  } catch {
+    return "";
+  }
+}
+
+/**
+ * Returns the short description of a station: its first tags and its
+ * country, such as `Jazz, France`.
+ *
+ * @param {import("./api.js").Station} station
+ * @param {number} [tagCount] How many tags to show.
+ */
+export function stationDescription(station, tagCount = 1) {
+  const tags = station.tags
+    .filter((tag) => tag.trim())
+    .slice(0, tagCount)
+    .map((tag) => capitalize(tag.trim()));
+  return [...tags, countryName(station.countryCode)].filter(Boolean).join(", ");
+}
+
+/**
+ * Puts the first letter of a text in upper case.
+ *
+ * @param {string} text
+ */
+export function capitalize(text) {
+  return text.charAt(0).toLocaleUpperCase("fr") + text.slice(1);
+}
+
+/**
+ * Returns the two lines of a "resume" tile.
+ *
+ * @param {import("./api.js").Tile} tile
+ * @returns {{badge: string, subtitle: string}}
+ */
+export function tileText(tile) {
+  switch (tile.kind) {
+    case "station":
+      return { badge: "Radio", subtitle: "En direct" };
+    case "album":
+      return { badge: "Album", subtitle: ["Album", tile.artist].filter(Boolean).join(", ") };
+    default:
+      return { badge: sourceLabel(tile.source), subtitle: tile.artist || "Titre" };
+  }
+}
+
+/**
+ * Writes a count with its noun: `1 titre`, `12 titres`.
+ *
+ * @param {number} count
+ * @param {string} singular
+ * @param {string} [plural]
+ */
+export function countLabel(count, singular, plural = `${singular}s`) {
+  return `${count} ${count > 1 ? plural : singular}`;
+}
+
+/**
  * Tells whether a text is something to open rather than words to search:
  * a network address, or the full path of a file.
  *
