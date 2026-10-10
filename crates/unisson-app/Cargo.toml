@@ -1,0 +1,32 @@
+[package]
+name = "unisson-app"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Unisson desktop application: the window, built with Tauri."
+# The program that `cargo run -p unisson-app` starts.
+default-run = "unisson"
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "unisson"
+path = "src/main.rs"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+unisson-audio.workspace = true
+unisson-core.workspace = true
+unisson-local.workspace = true
+unisson-playback.workspace = true
+unisson-radio.workspace = true
+unisson-store.workspace = true
+serde.workspace = true
+tauri = { version = "2", features = [] }
+
+[dev-dependencies]
+serde_json = "1"
