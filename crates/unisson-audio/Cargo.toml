@@ -1,0 +1,14 @@
+[package]
+name = "unisson-audio"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Audio engine of Unisson: plays local files and network streams with GStreamer."
+
+[lints]
+workspace = true
+
+[dependencies]
+unisson-core.workspace = true
+gst.workspace = true

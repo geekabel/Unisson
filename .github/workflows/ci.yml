@@ -1,13 +1,23 @@
 name: CI
 on:
   push:
-    branches: [main]
+    branches: [main, develop, "feature/**"]
   pull_request:
 jobs:
-  verifier:
+  check:
+    # Same release as the target machine, so GStreamer 1.20 is what gets tested.
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+      - name: Install GStreamer
+        run: |
+          sudo apt-get update
+          # libunwind-dev is listed first on purpose: on the ubuntu-22.04
+          # runner image, apt cannot resolve it by itself as a dependency
+          # of libgstreamer1.0-dev.
+          sudo apt-get install -y --no-install-recommends libunwind-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            gstreamer1.0-plugins-base gstreamer1.0-plugins-good
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
