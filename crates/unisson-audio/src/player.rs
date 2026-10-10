@@ -2,7 +2,7 @@
 
 use std::path::Path;
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use gst::prelude::*;
 use unisson_core::StreamUri;
@@ -38,6 +38,11 @@ pub enum PlayerEvent {
     EndOfStream,
     /// Playback failed. The message comes from GStreamer.
     Error(String),
+    /// The media announced its title.
+    ///
+    /// A radio stream sends one each time a new song starts, usually as
+    /// `Artist - Song`. A file sends the title stored in its tags, if any.
+    Title(String),
 }
 
 /// Plays one address at a time.
@@ -212,25 +217,58 @@ impl Player {
     /// Waits up to `timeout` for the next playback event.
     ///
     /// Returns `None` if nothing happened in that time. A zero timeout checks
-    /// for a pending event without waiting. After either event, the player is
+    /// for a pending event without waiting. After a
+    /// [`PlayerEvent::EndOfStream`] or a [`PlayerEvent::Error`], the player is
     /// back in the [`PlaybackState::Stopped`] state.
     pub fn poll_event(&self, timeout: Duration) -> Option<PlayerEvent> {
-        const WANTED: [gst::MessageType; 2] = [gst::MessageType::Eos, gst::MessageType::Error];
+        // `None` stands for a deadline too far away to be represented.
+        let deadline = Instant::now().checked_add(timeout);
+        loop {
+            let remaining = match deadline {
+                Some(deadline) => deadline.saturating_duration_since(Instant::now()),
+                None => Duration::MAX,
+            };
+            let message = self.pop_message(remaining)?;
+            // Many messages carry nothing of interest: keep reading.
+            if let Some(event) = self.event_from(&message) {
+                return Some(event);
+            }
+        }
+    }
+
+    /// Takes the next relevant message off the bus, waiting up to `timeout`.
+    fn pop_message(&self, timeout: Duration) -> Option<gst::Message> {
+        const WANTED: [gst::MessageType; 3] = [
+            gst::MessageType::Eos,
+            gst::MessageType::Error,
+            gst::MessageType::Tag,
+        ];
         // With a zero timeout, `timed_pop_filtered` gives up before looking at
         // the queue. `pop_filtered` is the non-blocking way to read it.
-        let message = if timeout.is_zero() {
-            self.bus.pop_filtered(&WANTED)?
+        if timeout.is_zero() {
+            self.bus.pop_filtered(&WANTED)
         } else {
             let timeout = gst::ClockTime::try_from(timeout).unwrap_or(gst::ClockTime::MAX);
-            self.bus.timed_pop_filtered(timeout, &WANTED)?
-        };
+            self.bus.timed_pop_filtered(timeout, &WANTED)
+        }
+    }
+
+    /// Turns a bus message into an event, if it carries one.
+    fn event_from(&self, message: &gst::Message) -> Option<PlayerEvent> {
         let event = match message.view() {
             gst::MessageView::Eos(_) => PlayerEvent::EndOfStream,
             gst::MessageView::Error(error) => PlayerEvent::Error(error.error().to_string()),
-            // The filter above only lets the two kinds of messages through.
+            gst::MessageView::Tag(tag) => {
+                let tags = tag.tags();
+                let title = tags.get::<gst::tags::Title>()?;
+                let title = title.get().trim();
+                // Tags without a title (codec, bitrate) are of no interest here.
+                return (!title.is_empty()).then(|| PlayerEvent::Title(title.to_owned()));
+            }
             _ => return None,
         };
-        // Best effort: the event is reported even if stopping fails.
+        // Playback is over. Best effort: the event is reported even if
+        // stopping fails.
         let _ = self.playbin.set_state(gst::State::Null);
         Some(event)
     }

@@ -89,18 +89,30 @@ fn write_with_pipeline(description: &str) {
 /// Unlike WAV, this format can be streamed over HTTP without a known length,
 /// like a real radio stream.
 pub fn ogg_clip(name: &str, seconds: u32) -> Vec<u8> {
+    std::fs::read(ogg_file(name, seconds, None)).unwrap()
+}
+
+/// Writes `seconds` of a test tone as an Ogg Vorbis file, and returns its path.
+///
+/// With `title`, the file carries that title in its tags.
+pub fn ogg_file(name: &str, seconds: u32, title: Option<&str>) -> PathBuf {
     gst::init().unwrap();
     let dir = std::env::temp_dir().join(format!("unisson-audio-tests-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let path = dir.join(name);
+    // `taginject` adds tags to the stream, and the encoder writes them out.
+    let tagger = match title {
+        Some(title) => format!("! taginject tags=\"title=\\\"{title}\\\"\""),
+        None => String::new(),
+    };
     write_with_pipeline(&format!(
         "audiotestsrc num-buffers={} samplesperbuffer=4410 \
-         ! audio/x-raw,rate=44100,channels=1 ! audioconvert ! vorbisenc ! oggmux \
+         ! audio/x-raw,rate=44100,channels=1 ! audioconvert {tagger} ! vorbisenc ! oggmux \
          ! filesink location=\"{}\"",
         seconds * 10,
         path.display()
     ));
-    std::fs::read(path).unwrap()
+    path
 }
 
 /// A local HTTP server that behaves like an unreliable radio stream.
@@ -160,4 +172,100 @@ pub fn closed_port_url() -> String {
     let url = format!("http://{}/stream", listener.local_addr().unwrap());
     drop(listener);
     url
+}
+
+/// Returns `seconds` of stereo noise encoded as Ogg Vorbis.
+///
+/// Noise compresses badly, so the clip is large (about 20 kB per second),
+/// like a real radio stream. A test tone would fit in a few kilobytes.
+pub fn noisy_ogg_clip(name: &str, seconds: u32) -> Vec<u8> {
+    gst::init().unwrap();
+    let dir = std::env::temp_dir().join(format!("unisson-audio-tests-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let path = dir.join(name);
+    write_with_pipeline(&format!(
+        "audiotestsrc wave=pink-noise num-buffers={} samplesperbuffer=4410 \
+         ! audio/x-raw,rate=44100,channels=2 ! audioconvert ! vorbisenc quality=0.6 ! oggmux \
+         ! filesink location=\"{}\"",
+        seconds * 10,
+        path.display()
+    ));
+    std::fs::read(path).unwrap()
+}
+
+/// A local HTTP server that behaves like a radio announcing its songs.
+///
+/// It speaks the ICY protocol used by internet radios: the audio is cut in
+/// blocks of [`IcyServer::BLOCK`] bytes, and a small text block announcing the
+/// current title is inserted between them.
+pub struct IcyServer {
+    /// Address of the stream, such as `http://127.0.0.1:40123/stream`.
+    pub url: String,
+}
+
+impl IcyServer {
+    /// Number of audio bytes between two title blocks.
+    ///
+    /// This is a value real radios commonly use. It also matters for the
+    /// tests: GStreamer misses a title that comes within the very first
+    /// kilobytes, before it has worked out the audio format.
+    pub const BLOCK: usize = 16000;
+
+    /// Starts the server on a free local port.
+    ///
+    /// Each connection receives the whole clip. The titles are spread evenly
+    /// over it, in order.
+    pub fn start(clip: Vec<u8>, titles: &[&str]) -> Self {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/stream", listener.local_addr().unwrap());
+        let body = Self::interleave(&clip, titles);
+        // The thread lives until the test process exits.
+        thread::spawn(move || {
+            for stream in listener.incoming().flatten() {
+                let mut reader = BufReader::new(stream);
+                let mut line = String::new();
+                while reader.read_line(&mut line).is_ok_and(|read| read > 0) && line.trim() != "" {
+                    line.clear();
+                }
+                let header = format!(
+                    "HTTP/1.0 200 OK\r\nContent-Type: application/ogg\r\n\
+                     icy-name: Test Radio\r\nicy-metaint: {}\r\n\r\n",
+                    Self::BLOCK
+                );
+                let stream = reader.get_mut();
+                let _ = stream
+                    .write_all(header.as_bytes())
+                    .and_then(|()| stream.write_all(&body));
+            }
+        });
+        Self { url }
+    }
+
+    /// Inserts the title blocks between the audio blocks.
+    fn interleave(clip: &[u8], titles: &[&str]) -> Vec<u8> {
+        let blocks: Vec<&[u8]> = clip.chunks(Self::BLOCK).collect();
+        let mut body = Vec::new();
+        let mut announced = None;
+        for (index, block) in blocks.iter().enumerate() {
+            body.extend_from_slice(block);
+            if block.len() < Self::BLOCK {
+                // A title block only follows a complete audio block.
+                break;
+            }
+            let title = titles.get(index * titles.len() / blocks.len()).copied();
+            if title == announced || title.is_none() {
+                // A zero length means "no change".
+                body.push(0);
+                continue;
+            }
+            announced = title;
+            // The block is a length byte counting 16-byte units, then the
+            // text, padded with zeros.
+            let mut text = format!("StreamTitle='{}';", title.unwrap_or_default()).into_bytes();
+            text.resize(text.len().div_ceil(16) * 16, 0);
+            body.push((text.len() / 16) as u8);
+            body.extend_from_slice(&text);
+        }
+        body
+    }
 }

@@ -8,7 +8,9 @@ mod common;
 use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
-use common::{StreamServer, WAIT, closed_port_url, ogg_clip, silent_player};
+use common::{
+    IcyServer, StreamServer, WAIT, closed_port_url, noisy_ogg_clip, ogg_clip, silent_player,
+};
 use unisson_audio::{Engine, EngineConfig, EngineEvent, PlaybackState};
 use unisson_core::StreamUri;
 
@@ -171,6 +173,26 @@ fn an_ordinary_address_is_never_reconnected() {
     wait_for(&events, |event| {
         *event == EngineEvent::StateChanged(PlaybackState::Stopped)
     });
+}
+
+#[test]
+fn a_radio_announces_each_new_title_once() {
+    let titles = ["Miles Davis - So What", "Dave Brubeck - Take Five"];
+    let server = IcyServer::start(noisy_ogg_clip("live-titles.ogg", 4), &titles);
+    // No reconnection, so the stream is heard exactly once.
+    let (engine, events) = engine_retrying(&[]);
+
+    engine.play_live(uri(&server.url)).unwrap();
+
+    let seen = wait_for(&events, |event| matches!(event, EngineEvent::Error(_)));
+    let announced: Vec<_> = seen
+        .iter()
+        .filter_map(|event| match event {
+            EngineEvent::TitleChanged(title) => Some(title.as_str()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(announced, titles, "{seen:?}");
 }
 
 #[test]

@@ -76,6 +76,14 @@ pub enum EngineEvent {
     },
     /// The volume changed. The value is between `0.0` and `1.0`.
     VolumeChanged(f64),
+    /// The media announced a new title.
+    ///
+    /// A radio stream sends one each time a new song starts, usually as
+    /// `Artist - Song`. Stations that send no title never trigger this event.
+    ///
+    /// GStreamer can miss a title announced within the very first kilobytes
+    /// of a stream. The title then only shows up when the next song starts.
+    TitleChanged(String),
     /// The current media reached its end.
     EndOfStream,
     /// A live stream was lost, and the engine is about to connect again.
@@ -339,6 +347,8 @@ struct Worker {
     wants_playing: bool,
     /// Last state reported, to report changes only.
     last_state: PlaybackState,
+    /// Last title reported, to report changes only.
+    last_title: Option<String>,
     /// When the last position was reported.
     last_position_at: Option<Instant>,
 }
@@ -352,6 +362,7 @@ impl Worker {
             live: None,
             wants_playing: false,
             last_state: PlaybackState::Stopped,
+            last_title: None,
             last_position_at: None,
         }
     }
@@ -372,6 +383,7 @@ impl Worker {
         let result = match command {
             Command::Load { uri, live } => {
                 self.wants_playing = false;
+                self.last_title = None;
                 let result = self.player.load(&uri);
                 self.live = live.then_some(LiveStream {
                     uri,
@@ -418,14 +430,23 @@ impl Worker {
 
     /// Reports what happened since the last call: end, error, state, position.
     fn check_playback(&mut self) {
-        match self.player.poll_event(Duration::ZERO) {
-            // A live stream has no end: reaching it means the connection dropped.
-            Some(PlayerEvent::EndOfStream) if self.live.is_some() => {
-                self.playback_failed("the live stream ended".into());
+        // Several events may be waiting: handle them all now.
+        while let Some(event) = self.player.poll_event(Duration::ZERO) {
+            match event {
+                // A live stream has no end: reaching it means the connection dropped.
+                PlayerEvent::EndOfStream if self.live.is_some() => {
+                    self.playback_failed("the live stream ended".into());
+                }
+                PlayerEvent::EndOfStream => self.emit(EngineEvent::EndOfStream),
+                PlayerEvent::Error(message) => self.playback_failed(message),
+                PlayerEvent::Title(title) => {
+                    // Streams repeat their title: report real changes only.
+                    if self.last_title.as_deref() != Some(title.as_str()) {
+                        self.last_title = Some(title.clone());
+                        self.emit(EngineEvent::TitleChanged(title));
+                    }
+                }
             }
-            Some(PlayerEvent::EndOfStream) => self.emit(EngineEvent::EndOfStream),
-            Some(PlayerEvent::Error(message)) => self.playback_failed(message),
-            None => {}
         }
 
         self.reconnect_if_due();

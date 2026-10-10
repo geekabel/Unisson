@@ -34,6 +34,7 @@
 //!     match player.poll_event(Duration::from_millis(200)) {
 //!         Some(PlayerEvent::EndOfStream) => break,
 //!         Some(PlayerEvent::Error(message)) => return Err(message.into()),
+//!         Some(PlayerEvent::Title(title)) => println!("Now playing: {title}"),
 //!         None => {}
 //!     }
 //! }

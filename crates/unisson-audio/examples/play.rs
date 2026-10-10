@@ -82,6 +82,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 volume = new_volume;
                 println!("Volume: {:.0} %", volume * 100.0);
             }
+            Ok(EngineEvent::TitleChanged(title)) => println!("Now playing: {title}"),
             Ok(EngineEvent::Reconnecting {
                 attempt,
                 max_attempts,

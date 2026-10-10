@@ -11,8 +11,8 @@ The project is under construction. Current target: Ubuntu 22.04.
   (common model, source contract, source registry, play queue).
 - `crates/unisson-audio`: the audio engine, built on GStreamer. `Player` plays
   one address (load, play, pause, stop, volume). `Engine` runs it on its own
-  thread and reports events (state, position, end of stream, errors). It
-  also reconnects live streams that drop.
+  thread and reports events (state, position, title on air, end of stream,
+  errors). It also reconnects live streams that drop.
 - `crates/unisson-radio`: the internet radio source, backed by the free
   [Radio Browser](https://www.radio-browser.info) directory.
 - The desktop application will be added as a separate crate.

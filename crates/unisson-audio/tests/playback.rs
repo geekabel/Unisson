@@ -9,7 +9,7 @@ use std::path::Path;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use common::{WAIT, make_wav, silent_player};
+use common::{WAIT, make_wav, ogg_file, silent_player};
 use unisson_audio::{AudioError, PlaybackState, Player, PlayerEvent, file_uri};
 use unisson_core::StreamUri;
 
@@ -68,6 +68,24 @@ fn pauses_resumes_and_stops() {
     player.stop().unwrap();
     assert_eq!(player.state(), PlaybackState::Stopped);
     assert_eq!(player.poll_event(Duration::from_millis(100)), None);
+}
+
+#[test]
+fn reports_the_title_stored_in_a_file() {
+    let player = silent_player(false);
+    load(&player, &ogg_file("titled.ogg", 1, Some("Blue in Green")));
+    player.play().unwrap();
+
+    assert_eq!(
+        player.poll_event(WAIT),
+        Some(PlayerEvent::Title("Blue in Green".into()))
+    );
+    // The title does not stop playback: the end still comes afterwards.
+    let mut event = player.poll_event(WAIT);
+    while matches!(event, Some(PlayerEvent::Title(_))) {
+        event = player.poll_event(WAIT);
+    }
+    assert_eq!(event, Some(PlayerEvent::EndOfStream));
 }
 
 #[test]
