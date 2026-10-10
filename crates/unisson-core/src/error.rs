@@ -1,30 +1,32 @@
-//! Erreurs qu'une source peut renvoyer.
+//! Errors a source can report.
 
 use std::error::Error;
 use std::fmt;
 
-/// Ce qui peut mal se passer quand on interroge une source.
+/// What can go wrong when querying a source.
 ///
-/// Les messages sont écrits pour être montrés à l'utilisateur.
+/// The [`Display`](fmt::Display) output is a short lowercase message without
+/// trailing punctuation, as is customary for Rust errors. The user interface
+/// is expected to match on the variant to show a localized message.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SourceError {
-    /// Le réseau ou le serveur distant n'a pas répondu correctement.
+    /// The network or the remote server did not answer properly.
     Network(String),
-    /// Le média demandé n'existe pas, ou n'existe plus, dans la source.
+    /// The requested media does not exist, or no longer exists, in the source.
     NotFound,
-    /// La source ne peut pas répondre (outil manquant, source non enregistrée, panne).
+    /// The source cannot answer: missing tool, source not registered, crash.
     Unavailable(String),
-    /// La demande ou la réponse est mal formée.
+    /// The request or the response is malformed.
     Invalid(String),
 }
 
 impl fmt::Display for SourceError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Network(detail) => write!(f, "problème de réseau : {detail}"),
-            Self::NotFound => write!(f, "média introuvable"),
-            Self::Unavailable(detail) => write!(f, "source indisponible : {detail}"),
-            Self::Invalid(detail) => write!(f, "donnée invalide : {detail}"),
+            Self::Network(detail) => write!(f, "network error: {detail}"),
+            Self::NotFound => write!(f, "media not found"),
+            Self::Unavailable(detail) => write!(f, "source unavailable: {detail}"),
+            Self::Invalid(detail) => write!(f, "invalid data: {detail}"),
         }
     }
 }
@@ -37,14 +39,14 @@ mod tests {
 
     #[test]
     fn messages_are_readable() {
-        let error = SourceError::Network("délai dépassé".into());
-        assert_eq!(error.to_string(), "problème de réseau : délai dépassé");
-        assert_eq!(SourceError::NotFound.to_string(), "média introuvable");
+        let error = SourceError::Network("timed out".into());
+        assert_eq!(error.to_string(), "network error: timed out");
+        assert_eq!(SourceError::NotFound.to_string(), "media not found");
     }
 
     #[test]
     fn works_as_a_standard_error() {
         let boxed: Box<dyn Error> = Box::new(SourceError::NotFound);
-        assert_eq!(boxed.to_string(), "média introuvable");
+        assert_eq!(boxed.to_string(), "media not found");
     }
 }

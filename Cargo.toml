@@ -1,17 +1,17 @@
-# Espace de travail Unisson.
-# Référence : https://doc.rust-lang.org/cargo/reference/workspaces.html
+# Unisson workspace.
+# Reference: https://doc.rust-lang.org/cargo/reference/workspaces.html
 [workspace]
 members = ["crates/*"]
-# Un manifeste virtuel doit fixer le résolveur. "3" va avec l'édition 2024.
+# A virtual manifest must set the resolver explicitly. "3" matches edition 2024.
 resolver = "3"
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-# Les plugins Tauri 2 demandent Rust 1.90 au minimum.
+# Tauri 2 plugins require Rust 1.90 or newer.
 rust-version = "1.90"
 repository = "https://github.com/geekabel/Unisson"
-description = "Lecteur audio unifié pour Linux : radio, fichiers locaux, YouTube."
+description = "Unified audio player for Linux: internet radio, local files, YouTube."
 
 [workspace.lints.rust]
 unsafe_code = "forbid"
