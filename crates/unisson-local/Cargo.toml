@@ -1,0 +1,14 @@
+[package]
+name = "unisson-local"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Local files source of Unisson: scans a music folder and reads the tags of audio files."
+
+[lints]
+workspace = true
+
+[dependencies]
+unisson-core.workspace = true
+lofty.workspace = true

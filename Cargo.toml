@@ -31,3 +31,5 @@ ureq = { version = "3", features = ["json"] }
 serde = { version = "1", features = ["derive"] }
 # SQLite, compiled from the bundled sources: no system package is needed.
 rusqlite = { version = "0.40", features = ["bundled"] }
+# Reads the tags (title, artist, cover...) of audio files. Pure Rust.
+lofty = "0.25"

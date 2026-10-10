@@ -15,6 +15,8 @@ The project is under construction. Current target: Ubuntu 22.04.
   errors). It also reconnects live streams that drop.
 - `crates/unisson-radio`: the internet radio source, backed by the free
   [Radio Browser](https://www.radio-browser.info) directory.
+- `crates/unisson-local`: local audio files. It scans a music folder and reads
+  the tags of each file (title, artist, album, duration, cover).
 - `crates/unisson-store`: the local storage, an SQLite database kept in
   `~/.local/share/unisson/`. For now it holds the favorite stations.
 - The desktop application will be added as a separate crate.
@@ -59,6 +61,15 @@ cargo clippy --workspace --all-targets -- -D warnings   # lint
 cargo test --workspace                                  # run the tests
 cargo doc --no-deps --workspace --open                  # read the API docs
 ```
+
+## Try the music folder scan
+
+```sh
+cargo run -p unisson-local --example scan
+cargo run -p unisson-local --example scan -- ~/Music/Jazz
+```
+
+Without a folder, the user's music folder is scanned.
 
 ## Try the favorite stations
 
