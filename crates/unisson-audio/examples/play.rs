@@ -2,8 +2,12 @@
 //!
 //! ```sh
 //! cargo run -p unisson-audio --example play -- ~/Music/song.mp3
-//! cargo run -p unisson-audio --example play -- https://example.org/stream.mp3
+//! cargo run -p unisson-audio --example play -- https://example.org/file.mp3
+//! cargo run -p unisson-audio --example play -- --live https://example.org/radio
 //! ```
+//!
+//! With `--live`, the address is treated as a radio stream: if the connection
+//! is lost, the engine connects again by itself.
 //!
 //! Then type a command and press Enter:
 //! `p` pause or resume, `s` stop, `+` or `-` volume, `i` position, `q` quit.
@@ -18,8 +22,15 @@ use unisson_audio::{Engine, EngineEvent, PlaybackState, file_uri};
 use unisson_core::StreamUri;
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let Some(target) = std::env::args().nth(1) else {
-        eprintln!("usage: play <file path or http(s) address>");
+    let mut arguments: Vec<String> = std::env::args().skip(1).collect();
+    let live = arguments
+        .first()
+        .is_some_and(|argument| argument == "--live");
+    if live {
+        arguments.remove(0);
+    }
+    let Some(target) = arguments.into_iter().next() else {
+        eprintln!("usage: play [--live] <file path or http(s) address>");
         std::process::exit(2);
     };
     // An argument with a scheme is an address. Anything else is a file path.
@@ -32,7 +43,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     let (engine, events) = Engine::spawn()?;
     println!("Playing {uri}");
     println!("Commands: p = pause/resume, s = stop, + / - = volume, i = position, q = quit");
-    engine.play_uri(uri)?;
+    if live {
+        engine.play_live(uri)?;
+    } else {
+        engine.play_uri(uri)?;
+    }
 
     // Read the keyboard on another thread so the main loop never blocks on it.
     let (sender, keyboard) = mpsc::channel();
@@ -67,6 +82,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 volume = new_volume;
                 println!("Volume: {:.0} %", volume * 100.0);
             }
+            Ok(EngineEvent::Reconnecting {
+                attempt,
+                max_attempts,
+            }) => {
+                println!("Connection lost, reconnecting ({attempt}/{max_attempts})");
+            }
+            Ok(EngineEvent::Reconnected) => println!("Reconnected"),
             Ok(EngineEvent::EndOfStream) => {
                 println!("End of stream");
                 return Ok(());

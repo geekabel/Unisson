@@ -44,7 +44,7 @@ mod engine;
 mod error;
 mod player;
 
-pub use engine::{Engine, EngineEvent};
+pub use engine::{Engine, EngineConfig, EngineEvent};
 pub use error::AudioError;
 pub use player::{PlaybackState, Player, PlayerEvent, file_uri};
 
