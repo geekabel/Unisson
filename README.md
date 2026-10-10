@@ -15,6 +15,8 @@ The project is under construction. Current target: Ubuntu 22.04.
   errors). It also reconnects live streams that drop.
 - `crates/unisson-radio`: the internet radio source, backed by the free
   [Radio Browser](https://www.radio-browser.info) directory.
+- `crates/unisson-store`: the local storage, an SQLite database kept in
+  `~/.local/share/unisson/`. For now it holds the favorite stations.
 - The desktop application will be added as a separate crate.
 
 ## Requirements
@@ -57,6 +59,17 @@ cargo clippy --workspace --all-targets -- -D warnings   # lint
 cargo test --workspace                                  # run the tests
 cargo doc --no-deps --workspace --open                  # read the API docs
 ```
+
+## Try the favorite stations
+
+```sh
+cargo run -p unisson-store --example favorites -- add fip
+cargo run -p unisson-store --example favorites -- add-url "My radio" https://example.org/stream
+cargo run -p unisson-store --example favorites -- list
+```
+
+Run it without arguments to see every command. The favorites are saved in the
+real database, so they are still there on the next run.
 
 ## Branches
 

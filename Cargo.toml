@@ -22,9 +22,12 @@ all = { level = "warn", priority = -1 }
 
 [workspace.dependencies]
 unisson-core = { path = "crates/unisson-core", version = "0.1.0" }
+unisson-radio = { path = "crates/unisson-radio", version = "0.1.0" }
 # GStreamer bindings. Default features target the GStreamer 1.14 API, which
 # keeps the build compatible with Ubuntu 22.04 (GStreamer 1.20).
 gst = { package = "gstreamer", version = "0.25" }
 # Blocking HTTP client. It fits the blocking `Source` trait, with no async runtime.
 ureq = { version = "3", features = ["json"] }
 serde = { version = "1", features = ["derive"] }
+# SQLite, compiled from the bundled sources: no system package is needed.
+rusqlite = { version = "0.40", features = ["bundled"] }

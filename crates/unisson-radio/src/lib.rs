@@ -7,6 +7,7 @@
 //!   name, tag and country, fetch one station, count a click.
 //! - [`RadioSource`] plugs the directory into the application through the
 //!   [`Source`](unisson_core::Source) trait.
+//! - [`Favorites`] is the ordered list of the user's favorite stations.
 //!
 //! # Examples
 //!
@@ -24,11 +25,13 @@
 //! ```
 
 mod client;
+mod favorites;
 mod source;
 mod station;
 #[cfg(test)]
 mod test_server;
 
 pub use client::{RadioBrowser, StationQuery};
+pub use favorites::Favorites;
 pub use source::RadioSource;
 pub use station::Station;

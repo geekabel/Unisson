@@ -1,7 +1,7 @@
 //! A radio station, as described by the Radio Browser directory.
 
 use serde::Deserialize;
-use unisson_core::{Media, MediaId, SourceKind};
+use unisson_core::{Media, MediaId, SourceError, SourceKind, StreamUri};
 
 /// A radio station.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,6 +32,61 @@ pub struct Station {
 }
 
 impl Station {
+    /// Start of the identifier of a station added by its stream address.
+    pub const CUSTOM_PREFIX: &'static str = "custom-";
+
+    /// Creates a station that is not in the directory, from its stream address.
+    ///
+    /// The identifier is derived from the address, so adding the same
+    /// address twice gives the same station.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SourceError::Invalid`] if the name is empty, or if the
+    /// address is not an `http://` or `https://` address.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use unisson_radio::Station;
+    ///
+    /// let station = Station::custom("My radio", "https://example.org/stream.mp3")?;
+    /// assert!(station.is_custom());
+    /// assert!(Station::custom("My radio", "not an address").is_err());
+    /// # Ok::<(), unisson_core::SourceError>(())
+    /// ```
+    pub fn custom(name: &str, stream_url: &str) -> Result<Self, SourceError> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(SourceError::Invalid("the station needs a name".into()));
+        }
+        let stream_url = StreamUri::new(stream_url.trim())?;
+        if stream_url.as_str().starts_with("file://") {
+            return Err(SourceError::Invalid(
+                "a station needs a network address".into(),
+            ));
+        }
+        Ok(Self {
+            uuid: format!("{}{:016x}", Self::CUSTOM_PREFIX, fnv1a(stream_url.as_str())),
+            name: name.to_owned(),
+            stream_url: stream_url.as_str().to_owned(),
+            homepage: None,
+            favicon: None,
+            tags: Vec::new(),
+            country_code: None,
+            codec: None,
+            bitrate: None,
+            hls: false,
+        })
+    }
+
+    /// Returns `true` for a station added by its stream address.
+    ///
+    /// Such a station is unknown to the directory.
+    pub fn is_custom(&self) -> bool {
+        self.uuid.starts_with(Self::CUSTOM_PREFIX)
+    }
+
     /// Converts the station into the common [`Media`] model.
     ///
     /// The media is a live station from the radio source. Its key is the
@@ -103,6 +158,18 @@ impl RawStation {
             hls: self.hls.unwrap_or(0) != 0,
         })
     }
+}
+
+/// Hashes a text with the 64-bit FNV-1a function.
+///
+/// Unlike the hasher of the standard library, its result is the same on
+/// every machine and with every Rust version, so it can be stored.
+fn fnv1a(text: &str) -> u64 {
+    const OFFSET_BASIS: u64 = 0xcbf2_9ce4_8422_2325;
+    const PRIME: u64 = 0x0000_0100_0000_01b3;
+    text.bytes().fold(OFFSET_BASIS, |hash, byte| {
+        (hash ^ u64::from(byte)).wrapping_mul(PRIME)
+    })
 }
 
 /// Trims a value, and turns an empty one into `None`.
@@ -177,6 +244,43 @@ mod tests {
                 .is_none()
         );
         assert!(raw("u1", "FIP", "").into_station().is_none());
+    }
+
+    #[test]
+    fn a_custom_station_has_a_stable_identifier() {
+        let station = Station::custom("  My radio ", " https://example.org/a.mp3 ").unwrap();
+        assert_eq!(station.name, "My radio");
+        assert_eq!(station.stream_url, "https://example.org/a.mp3");
+        assert!(station.is_custom());
+        // The value is fixed: it must never change, since it is stored on disk.
+        assert_eq!(fnv1a(""), 0xcbf2_9ce4_8422_2325);
+        assert_eq!(fnv1a("a"), 0xaf63_dc4c_8601_ec8c);
+
+        let again = Station::custom("Other name", "https://example.org/a.mp3").unwrap();
+        assert_eq!(again.uuid, station.uuid);
+        let other = Station::custom("My radio", "https://example.org/b.mp3").unwrap();
+        assert_ne!(other.uuid, station.uuid);
+    }
+
+    #[test]
+    fn a_custom_station_needs_a_name_and_a_network_address() {
+        for (name, url) in [
+            (" ", "https://example.org/a.mp3"),
+            ("My radio", "example.org/a.mp3"),
+            ("My radio", "file:///home/me/a.mp3"),
+        ] {
+            let result = Station::custom(name, url);
+            assert!(
+                matches!(result, Err(SourceError::Invalid(_))),
+                "{name:?} {url:?}"
+            );
+        }
+        assert!(
+            !raw("aaaa-1111", "FIP", "http://example.org/a")
+                .into_station()
+                .unwrap()
+                .is_custom()
+        );
     }
 
     #[test]

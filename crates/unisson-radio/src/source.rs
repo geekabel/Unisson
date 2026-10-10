@@ -7,6 +7,7 @@ use std::thread;
 use unisson_core::{Media, MediaId, SearchQuery, Source, SourceError, SourceKind, StreamUri};
 
 use crate::client::{RadioBrowser, StationQuery};
+use crate::station::Station;
 
 /// Most stream addresses remembered from past searches.
 const MAX_KNOWN_STREAMS: usize = 2000;
@@ -43,6 +44,16 @@ impl RadioSource {
     /// Returns the directory client, for searches by tag or by country.
     pub fn client(&self) -> &RadioBrowser {
         &self.client
+    }
+
+    /// Teaches the source the stream address of a station.
+    ///
+    /// Call it for stations that do not come from a search, such as the
+    /// favorites loaded at startup. They can then be played without asking
+    /// the directory, which is the only way for stations added by address.
+    pub fn remember(&self, station: &Station) {
+        self.known_streams()
+            .insert(station.uuid.clone(), station.stream_url.clone());
     }
 
     fn known_streams(&self) -> MutexGuard<'_, HashMap<String, String>> {
@@ -87,6 +98,10 @@ impl Source for RadioSource {
         let known = self.known_streams().get(&id.key).cloned();
         let stream_url = match known {
             Some(stream_url) => stream_url,
+            // The directory does not know stations added by address.
+            None if id.key.starts_with(Station::CUSTOM_PREFIX) => {
+                return Err(SourceError::NotFound);
+            }
             None => self.client.station(&id.key)?.stream_url,
         };
         let uri = StreamUri::new(stream_url)?;
@@ -186,6 +201,30 @@ mod tests {
             "/json/stations/byuuid?uuids=aaaa-1111"
         );
         wait_for_request(&server, "/json/url/aaaa-1111");
+    }
+
+    #[test]
+    fn a_remembered_station_is_resolved_without_the_directory() {
+        let server = TestServer::start(|_| (200, "[]".to_owned()));
+        let source = source_on(&server);
+        let custom = Station::custom("My radio", "https://example.org/stream.mp3").unwrap();
+        let id = custom.to_media().id;
+
+        // Unknown at first, and not worth asking the directory about.
+        assert_eq!(source.resolve(&id), Err(SourceError::NotFound));
+        assert!(server.requests().is_empty());
+
+        source.remember(&custom);
+        assert_eq!(
+            source.resolve(&id).unwrap().as_str(),
+            "https://example.org/stream.mp3"
+        );
+        let lookups = server
+            .requests()
+            .iter()
+            .filter(|request| request.contains("byuuid"))
+            .count();
+        assert_eq!(lookups, 0);
     }
 
     #[test]

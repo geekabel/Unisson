@@ -1,0 +1,17 @@
+[package]
+name = "unisson-store"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Local storage of Unisson: keeps the user's data in an SQLite database."
+
+[lints]
+workspace = true
+
+[dependencies]
+unisson-radio.workspace = true
+rusqlite.workspace = true
+
+[dev-dependencies]
+unisson-core.workspace = true
