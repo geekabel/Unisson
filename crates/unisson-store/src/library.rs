@@ -27,6 +27,13 @@ use crate::store::Store;
 
 const TRACK_COLUMNS: &str = "path, title, artist, album, track_number, duration_ms, has_cover";
 
+/// The order of the library: by artist, album, track number, then title.
+/// Tracks without an artist or an album come last.
+const LIBRARY_ORDER: &str = "artist IS NULL, artist COLLATE NOCASE,
+     album IS NULL, album COLLATE NOCASE,
+     track_number IS NULL, track_number,
+     title COLLATE NOCASE, path";
+
 fn insert_track(connection: &Connection, track: &LocalTrack) -> rusqlite::Result<()> {
     let searchable = [
         Some(&track.title),
@@ -194,13 +201,44 @@ impl Store {
     pub fn library_tracks(&self) -> Result<Vec<LocalTrack>, StoreError> {
         let connection = self.connection();
         let mut statement = connection.prepare(&format!(
-            "SELECT {TRACK_COLUMNS} FROM tracks
-             ORDER BY artist IS NULL, artist COLLATE NOCASE,
-                      album IS NULL, album COLLATE NOCASE,
-                      track_number IS NULL, track_number,
-                      title COLLATE NOCASE, path"
+            "SELECT {TRACK_COLUMNS} FROM tracks ORDER BY {LIBRARY_ORDER}"
         ))?;
         let tracks = statement.query_map((), track_from_row)?;
+        Ok(tracks.collect::<Result<_, _>>()?)
+    }
+
+    /// Returns a slice of the library, in the order of
+    /// [`library_tracks`](Self::library_tracks): at most `limit` tracks,
+    /// after skipping the first `offset`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::Database`] if the library cannot be read.
+    pub fn library_page(&self, offset: usize, limit: usize) -> Result<Vec<LocalTrack>, StoreError> {
+        let connection = self.connection();
+        let mut statement = connection.prepare(&format!(
+            "SELECT {TRACK_COLUMNS} FROM tracks ORDER BY {LIBRARY_ORDER} LIMIT ?1 OFFSET ?2"
+        ))?;
+        let tracks = statement.query_map((limit as i64, offset as i64), track_from_row)?;
+        Ok(tracks.collect::<Result<_, _>>()?)
+    }
+
+    /// Returns the tracks of an album, in album order.
+    ///
+    /// The album name must match exactly, apart from case. Tracks are
+    /// sorted by track number, then by title.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`StoreError::Database`] if the library cannot be read.
+    pub fn album_tracks(&self, album: &str) -> Result<Vec<LocalTrack>, StoreError> {
+        let connection = self.connection();
+        let mut statement = connection.prepare(&format!(
+            "SELECT {TRACK_COLUMNS} FROM tracks
+             WHERE album = ?1 COLLATE NOCASE
+             ORDER BY track_number IS NULL, track_number, title COLLATE NOCASE, path"
+        ))?;
+        let tracks = statement.query_map([album], track_from_row)?;
         Ok(tracks.collect::<Result<_, _>>()?)
     }
 
@@ -360,6 +398,39 @@ mod tests {
             titles(&store.library_tracks().unwrap()),
             ["Take Five", "So What", "Freddie Freeloader", "Untagged"]
         );
+    }
+
+    #[test]
+    fn a_page_is_a_slice_of_the_sorted_library() {
+        let store = sample_library();
+        let all = store.library_tracks().unwrap();
+        assert_eq!(store.library_page(0, 2).unwrap(), all[..2]);
+        assert_eq!(store.library_page(3, 10).unwrap(), all[3..]);
+        assert!(store.library_page(10, 10).unwrap().is_empty());
+        assert!(store.library_page(0, 0).unwrap().is_empty());
+    }
+
+    #[test]
+    fn album_tracks_come_in_album_order() {
+        let store = Store::open_in_memory().unwrap();
+        let numbered = |path: &str, title: &str, album: &str, number| LocalTrack {
+            track_number: number,
+            ..track(path, title, Some("Miles Davis"), Some(album))
+        };
+        store
+            .replace_library(&[
+                numbered("/1", "Blue in Green", "Kind of Blue", Some(3)),
+                numbered("/2", "So What", "Kind of Blue", Some(1)),
+                numbered("/3", "Bonus", "kind of blue", None),
+                numbered("/4", "Milestones", "Milestones", Some(1)),
+                track("/5", "Loose", None, None),
+            ])
+            .unwrap();
+        assert_eq!(
+            titles(&store.album_tracks("Kind of Blue").unwrap()),
+            ["So What", "Blue in Green", "Bonus"]
+        );
+        assert!(store.album_tracks("Unknown").unwrap().is_empty());
     }
 
     #[test]
