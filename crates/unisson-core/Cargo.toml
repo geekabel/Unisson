@@ -1,0 +1,12 @@
+[package]
+name = "unisson-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Cœur d'Unisson : modèle commun, sources, file d'attente. Sans interface."
+
+[lints]
+workspace = true
+
+[dependencies]
