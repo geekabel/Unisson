@@ -34,3 +34,5 @@ serde = { version = "1", features = ["derive"] }
 rusqlite = { version = "0.40", features = ["bundled"] }
 # Reads the tags (title, artist, cover...) of audio files. Pure Rust.
 lofty = "0.25"
+# Tells when files appear, change or disappear in a folder (inotify on Linux).
+notify = "8"

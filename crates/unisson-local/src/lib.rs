@@ -7,6 +7,8 @@
 //! - [`LocalTrack::read`] reads the tags of a single file.
 //! - [`read_cover`] extracts the cover picture of a file, on demand.
 //! - [`music_directory`] finds the user's music folder.
+//! - [`LibraryWatcher`] reports the files that appear, change or disappear
+//!   in a folder while the application runs.
 //!
 //! # Examples
 //!
@@ -26,8 +28,10 @@ mod dirs;
 mod error;
 mod scan;
 mod track;
+mod watch;
 
 pub use dirs::music_directory;
 pub use error::LocalError;
 pub use scan::{ScanReport, is_audio_file, scan};
 pub use track::{Cover, LocalTrack, read_cover};
+pub use watch::{LibraryChange, LibraryWatcher};

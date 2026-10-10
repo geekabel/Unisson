@@ -12,3 +12,4 @@ workspace = true
 [dependencies]
 unisson-core.workspace = true
 lofty.workspace = true
+notify.workspace = true
