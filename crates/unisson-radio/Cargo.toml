@@ -1,0 +1,15 @@
+[package]
+name = "unisson-radio"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Internet radio source of Unisson, backed by the Radio Browser directory."
+
+[lints]
+workspace = true
+
+[dependencies]
+unisson-core.workspace = true
+ureq.workspace = true
+serde.workspace = true

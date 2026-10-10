@@ -12,6 +12,8 @@ The project is under construction. Current target: Ubuntu 22.04.
 - `crates/unisson-audio`: the audio engine, built on GStreamer. `Player` plays
   one address (load, play, pause, stop, volume). `Engine` runs it on its own
   thread and reports events (state, position, end of stream, errors).
+- `crates/unisson-radio`: the internet radio source, backed by the free
+  [Radio Browser](https://www.radio-browser.info) directory.
 - The desktop application will be added as a separate crate.
 
 ## Requirements
@@ -34,6 +36,15 @@ cargo run -p unisson-audio --example play -- ~/Music/song.mp3
 Then type a command and press Enter:
 `p` pause or resume, `s` stop, `+` or `-` volume, `i` position, `q` quit.
 An `http(s)://` stream address works too.
+
+## Try the radio directory
+
+```sh
+cargo run -p unisson-radio --example search -- fip
+cargo run -p unisson-radio --example search -- --tag jazz --country FR
+```
+
+Each result shows a stream address, which the `play` example above can play.
 
 ## Useful commands
 
