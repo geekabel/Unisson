@@ -194,6 +194,9 @@ impl RadioBrowser {
     ) -> Self {
         let mut config = Agent::config_builder()
             .user_agent(USER_AGENT)
+            // The real directory is only reached over HTTPS, redirects
+            // included. Tests talk to a local server in plain HTTP.
+            .https_only(scheme == "https")
             .timeout_global(Some(TIMEOUT));
         if !proxy_from_env {
             config = config.proxy(None);
@@ -332,7 +335,7 @@ impl RadioBrowser {
         };
         let entries: Vec<ServerEntry> =
             self.fetch(&format!("{discovery_url}/json/servers"), &[])?;
-        let mut servers = server_addresses(entries, self.scheme);
+        let mut servers = server_addresses(entries, self.scheme, self.scheme == "https");
         if servers.is_empty() {
             return Err(SourceError::Unavailable(
                 "the radio directory lists no server".into(),
@@ -370,11 +373,32 @@ impl Default for RadioBrowser {
     }
 }
 
+/// The domain every mirror of the directory belongs to.
+const MIRROR_DOMAIN: &str = ".api.radio-browser.info";
+
+/// Tells whether a name given by the directory is one of its mirrors.
+///
+/// The list of mirrors comes from the network. A name outside the domain
+/// of the directory, or one that carries a path or a port, is not followed.
+fn is_mirror_name(name: &str) -> bool {
+    name.ends_with(MIRROR_DOMAIN)
+        && name.len() > MIRROR_DOMAIN.len()
+        && name
+            .chars()
+            .all(|letter| letter.is_ascii_alphanumeric() || letter == '.' || letter == '-')
+}
+
 /// Turns the `/json/servers` answer into base addresses, without duplicates.
-fn server_addresses(entries: Vec<ServerEntry>, scheme: &str) -> Vec<String> {
+///
+/// With `only_mirrors`, names that are not mirrors of the directory are
+/// left out. Tests turn it off, since their servers are local addresses.
+fn server_addresses(entries: Vec<ServerEntry>, scheme: &str, only_mirrors: bool) -> Vec<String> {
     let mut servers = Vec::new();
     for name in entries.into_iter().filter_map(|entry| entry.name) {
         let name = name.trim();
+        if only_mirrors && !is_mirror_name(name) {
+            continue;
+        }
         let address = format!("{scheme}://{name}");
         if !name.is_empty() && !servers.contains(&address) {
             servers.push(address);
@@ -626,8 +650,32 @@ mod tests {
             name: Some(name.to_owned()),
         });
         assert_eq!(
-            server_addresses(entries.into(), "https"),
+            server_addresses(entries.into(), "https", false),
             ["https://de1.example.org", "https://fi1.example.org"]
+        );
+    }
+
+    #[test]
+    fn only_mirrors_of_the_directory_are_followed() {
+        let entries = [
+            "de1.api.radio-browser.info",
+            "evil.example.org",
+            "api.radio-browser.info.evil.example.org",
+            "de1.api.radio-browser.info/path",
+            "user@fi1.api.radio-browser.info",
+            "fi1.api.radio-browser.info:8443",
+            ".api.radio-browser.info",
+            "fi1.api.radio-browser.info",
+        ]
+        .map(|name| ServerEntry {
+            name: Some(name.to_owned()),
+        });
+        assert_eq!(
+            server_addresses(entries.into(), "https", true),
+            [
+                "https://de1.api.radio-browser.info",
+                "https://fi1.api.radio-browser.info"
+            ]
         );
     }
 }

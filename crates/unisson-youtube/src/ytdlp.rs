@@ -279,12 +279,19 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
         .unwrap_or_else(|poisoned| poisoned.into_inner())
 }
 
-/// Reads a whole output of the program on another thread.
+/// The most that is kept of one output of the program. A search answer is
+/// a few hundred kilobytes, and a long playlist a few megabytes.
+const OUTPUT_LIMIT: u64 = 64 * 1024 * 1024;
+
+/// Reads an output of the program on another thread, up to
+/// [`OUTPUT_LIMIT`]. What comes after is thrown away, so that the program
+/// never blocks on a full pipe.
 fn read_in_background(pipe: Option<impl Read + Send + 'static>) -> JoinHandle<String> {
     thread::spawn(move || {
         let mut bytes = Vec::new();
         if let Some(mut pipe) = pipe {
-            let _ = pipe.read_to_end(&mut bytes);
+            let _ = pipe.by_ref().take(OUTPUT_LIMIT).read_to_end(&mut bytes);
+            let _ = std::io::copy(&mut pipe, &mut std::io::sink());
         }
         String::from_utf8_lossy(&bytes).into_owned()
     })
@@ -376,11 +383,14 @@ fn media_of(entry: Entry) -> Option<Media> {
         Media::track(media_id, title)
     };
     media.artist = artist;
-    if let Some(seconds) = entry
+    // `try_from_secs_f64` refuses what a `Duration` cannot hold: negative,
+    // not a number, or absurdly large. Such a value is simply not used.
+    if let Some(duration) = entry
         .duration
-        .filter(|seconds| seconds.is_finite() && *seconds > 0.0)
+        .filter(|seconds| *seconds > 0.0)
+        .and_then(|seconds| Duration::try_from_secs_f64(seconds).ok())
     {
-        media = media.with_duration(Duration::from_secs_f64(seconds));
+        media = media.with_duration(duration);
     }
     // YouTube serves a small picture of each video at a fixed address.
     Some(media.with_artwork(format!("https://i.ytimg.com/vi/{id}/mqdefault.jpg")))

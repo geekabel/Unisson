@@ -125,9 +125,10 @@ pub fn install(program: &Path, binding: &str, name: &str) -> Result<(), Shortcut
     let path = next_path(&paths);
     let mut others = unlist_ours(&paths)?;
 
-    gsettings(&["set", &entry(&path), "name", name])?;
-    gsettings(&["set", &entry(&path), "command", &launcher_command(program)])?;
-    gsettings(&["set", &entry(&path), "binding", binding])?;
+    let command = launcher_command(program);
+    for (key, value) in [("name", name), ("command", &command), ("binding", binding)] {
+        gsettings(&["set", &entry(&path), key, &variant_string(value)])?;
+    }
     // The list is written last: GNOME reads the entry when it sees its path.
     others.push(path);
     gsettings(&["set", LIST_SCHEMA, LIST_KEY, &format_list(&others)])?;
@@ -203,6 +204,25 @@ fn gsettings(arguments: &[&str]) -> Result<String, ShortcutError> {
             String::from_utf8_lossy(&output.stderr).trim().to_owned(),
         ))
     }
+}
+
+/// Writes a text as `gsettings set` reads it: a string between double
+/// quotes, in the text format of GVariant.
+///
+/// Without this, `gsettings` guesses. A value that starts with a quote,
+/// such as a quoted path, is then read as a string followed by rubbish,
+/// and refused.
+fn variant_string(text: &str) -> String {
+    let mut written = String::with_capacity(text.len() + 2);
+    written.push('"');
+    for letter in text.chars() {
+        if letter == '"' || letter == '\\' {
+            written.push('\\');
+        }
+        written.push(letter);
+    }
+    written.push('"');
+    written
 }
 
 /// Builds the command of the shortcut. The path is quoted when it holds
@@ -315,6 +335,16 @@ mod tests {
             launcher_command(Path::new("/home/me/l'app/unisson")),
             r"'/home/me/l'\''app/unisson' --launcher"
         );
+    }
+
+    #[test]
+    fn a_value_is_written_as_a_variant_string() {
+        assert_eq!(variant_string("<Super>u"), "\"<Super>u\"");
+        assert_eq!(
+            variant_string("'/home/me/Mes projets/unisson' --launcher"),
+            "\"'/home/me/Mes projets/unisson' --launcher\""
+        );
+        assert_eq!(variant_string(r#"a"b\c"#), r#""a\"b\\c""#);
     }
 
     #[test]

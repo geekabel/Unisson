@@ -127,7 +127,10 @@ fn open(path: &Path) -> Result<TaggedFile, LocalError> {
     // Checked first, so a missing file is not reported as a damaged one.
     std::fs::metadata(path)
         .map_err(|error| LocalError::Io(format!("{}: {error}", path.display())))?;
-    lofty::read_from_path(path)
+    // The tag reader parses whatever the file holds. A file built to break
+    // it must cost one unreadable file, not the whole scan.
+    std::panic::catch_unwind(|| lofty::read_from_path(path))
+        .map_err(|_| LocalError::Unreadable(format!("{}: the tag reader failed", path.display())))?
         .map_err(|error| LocalError::Unreadable(format!("{}: {error}", path.display())))
 }
 

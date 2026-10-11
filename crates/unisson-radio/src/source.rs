@@ -111,6 +111,14 @@ impl Source for RadioSource {
             None => self.client.station(&id.key)?.stream_url,
         };
         let uri = StreamUri::new(stream_url)?;
+        // The address comes from the directory, or from a saved favorite: a
+        // station is on the network, and must never open a file of this
+        // computer.
+        if uri.as_str().starts_with("file://") {
+            return Err(SourceError::Invalid(
+                "a station needs a network address".into(),
+            ));
+        }
 
         let client = Arc::clone(&self.client);
         let uuid = id.key.clone();
@@ -247,6 +255,20 @@ mod tests {
         let error = source_on(&server).resolve(&MediaId::new(SourceKind::Local, "a.mp3"));
         assert!(matches!(error, Err(SourceError::Invalid(_))));
         assert!(server.requests().is_empty());
+    }
+
+    #[test]
+    fn a_station_never_opens_a_local_file() {
+        let server = TestServer::start(|_| (200, "[]".to_owned()));
+        let source = source_on(&server);
+        let mut station = Station::custom("Trap", "https://example.org/stream").unwrap();
+        // As a tampered favorite, or a hostile directory entry, would be.
+        station.stream_url = "file:///etc/hostname".to_owned();
+        source.remember(&station);
+
+        let error = source.resolve(&MediaId::new(SourceKind::Radio, &station.uuid));
+
+        assert!(matches!(error, Err(SourceError::Invalid(_))), "{error:?}");
     }
 
     #[test]
