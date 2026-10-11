@@ -25,6 +25,7 @@ unisson-local.workspace = true
 unisson-playback.workspace = true
 unisson-radio.workspace = true
 unisson-store.workspace = true
+unisson-youtube.workspace = true
 serde.workspace = true
 tauri = { version = "2", features = [] }
 # Native dialogs: the folder picker of the settings.
@@ -33,4 +34,4 @@ tauri-plugin-dialog = "2"
 toml = "1"
 
 [dev-dependencies]
-serde_json = "1"
+serde_json.workspace = true

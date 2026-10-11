@@ -4,9 +4,10 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use tauri::State;
-use unisson_core::Media;
+use unisson_core::{Media, MediaKind, SourceError};
 use unisson_local::{LocalError, LocalTrack};
-use unisson_radio::Station;
+use unisson_radio::{Station, is_finite_file};
+use unisson_youtube::is_youtube_url;
 
 use crate::dto::{CommandError, MediaDto, SnapshotDto};
 use crate::state::{AppState, Direction};
@@ -56,26 +57,48 @@ pub fn player_enqueue(state: State<'_, AppState>, media: MediaDto) -> Result<(),
     Ok(())
 }
 
-/// Plays what the user typed or pasted: a stream address or a file path.
+/// Plays what the user typed or pasted: a YouTube link, the address of a
+/// stream or of an audio file, or the path of a file on this computer.
+///
+/// A link to a YouTube playlist plays the whole playlist.
 #[tauri::command(async)]
 pub fn player_open(state: State<'_, AppState>, target: String) -> Result<(), CommandError> {
     let media = match Target::parse(&target)? {
+        Target::YouTube(link) => state.youtube.tool().lookup(&link).map_err(source_error)?,
         Target::Stream(address) => {
             let station = Station::custom(&stream_name(&address), &address)
                 .map_err(|error| CommandError::invalid(error.to_string()))?;
-            // The directory does not know this station: teach its address.
+            // The directory does not know this address: teach it.
             state.radio.remember(&station);
-            station.to_media()
+            let mut media = station.to_media();
+            // A file has an end, and can be moved through: play it as a
+            // track. A radio stream is kept alive when it drops.
+            if is_finite_file(&address) {
+                media.kind = MediaKind::Track;
+            }
+            vec![media]
         }
-        Target::File(path) => LocalTrack::read(&path)
-            .map_err(|error| match error {
-                LocalError::Io(detail) => CommandError::new("notFound", detail),
-                other => CommandError::new("unreadable", other.to_string()),
-            })?
-            .to_media(),
+        Target::File(path) => vec![
+            LocalTrack::read(&path)
+                .map_err(|error| match error {
+                    LocalError::Io(detail) => CommandError::new("notFound", detail),
+                    other => CommandError::new("unreadable", other.to_string()),
+                })?
+                .to_media(),
+        ],
     };
-    state.session.play_list(vec![media], 0);
+    state.session.play_list(media, 0);
     Ok(())
+}
+
+fn source_error(error: SourceError) -> CommandError {
+    let kind = match error {
+        SourceError::Network(_) => "network",
+        SourceError::NotFound => "notFound",
+        SourceError::Invalid(_) => "invalid",
+        _ => "unavailable",
+    };
+    CommandError::new(kind, error.to_string())
 }
 
 /// Pauses if something plays, resumes otherwise.
@@ -123,7 +146,9 @@ pub fn player_set_volume(state: State<'_, AppState>, volume: f64) {
 /// What the user asked to open.
 #[derive(Debug, PartialEq, Eq)]
 enum Target {
-    /// A network address.
+    /// A link to YouTube: a video or a playlist.
+    YouTube(String),
+    /// Any other network address.
     Stream(String),
     /// A file on this computer.
     File(PathBuf),
@@ -135,6 +160,9 @@ impl Target {
     /// A path may start with `~/`, for the home folder.
     fn parse(text: &str) -> Result<Self, CommandError> {
         let text = text.trim();
+        if is_youtube_url(text) {
+            return Ok(Self::YouTube(text.to_owned()));
+        }
         if text.starts_with("http://") || text.starts_with("https://") {
             return Ok(Self::Stream(text.to_owned()));
         }
@@ -175,6 +203,23 @@ mod tests {
                 Ok(Target::Stream(address.trim().to_owned()))
             );
         }
+    }
+
+    #[test]
+    fn a_youtube_link_is_told_apart_from_other_addresses() {
+        for link in [
+            "https://www.youtube.com/watch?v=abc",
+            " https://youtu.be/abc ",
+        ] {
+            assert_eq!(
+                Target::parse(link),
+                Ok(Target::YouTube(link.trim().to_owned()))
+            );
+        }
+        assert_eq!(
+            Target::parse("https://example.org/youtube.mp3"),
+            Ok(Target::Stream("https://example.org/youtube.mp3".to_owned()))
+        );
     }
 
     #[test]

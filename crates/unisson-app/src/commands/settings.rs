@@ -40,6 +40,9 @@ pub struct SettingsDto {
     pub resume_radio: bool,
     /// Where the settings are saved.
     pub config_path: Option<String>,
+    /// The version of the yt-dlp program, which YouTube needs. `None` when
+    /// it is not installed.
+    pub yt_dlp_version: Option<String>,
 }
 
 fn describe(state: &AppState) -> Result<SettingsDto, CommandError> {
@@ -64,6 +67,7 @@ fn describe(state: &AppState) -> Result<SettingsDto, CommandError> {
         config_path: state
             .settings_path()
             .map(|path| path.to_string_lossy().into_owned()),
+        yt_dlp_version: state.yt_dlp_version(false),
     })
 }
 
@@ -152,6 +156,16 @@ pub fn settings_reset_music_folder(
     if let Some(folder) = state.music_folder() {
         library.follow(folder);
     }
+    changed(&app, &state)
+}
+
+/// Looks again for the yt-dlp program, after the user installed it.
+#[tauri::command(async)]
+pub fn settings_check_yt_dlp(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<SettingsDto, CommandError> {
+    state.yt_dlp_version(true);
     changed(&app, &state)
 }
 

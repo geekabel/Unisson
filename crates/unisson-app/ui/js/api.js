@@ -76,6 +76,7 @@
  * @property {number} libraryTotal
  * @property {boolean} resumeRadio
  * @property {?string} configPath
+ * @property {?string} ytDlpVersion The yt-dlp program YouTube needs, if installed.
  *
  * @typedef {object} SearchUpdate
  * @property {{media: Media, sources: string[]}[]} hits The best match first.
@@ -150,7 +151,7 @@ export function search(text, onUpdate) {
 }
 
 /**
- * Plays a stream address or the full path of a file.
+ * Plays a YouTube link, a stream address or the full path of a file.
  *
  * @param {string} target
  */
@@ -288,6 +289,13 @@ export const settingsPickMusicFolder = () => invoke("settings_pick_music_folder"
 
 /** @returns {Promise<Settings>} */
 export const settingsResetMusicFolder = () => invoke("settings_reset_music_folder");
+
+/**
+ * Looks again for the yt-dlp program, after the user installed it.
+ *
+ * @returns {Promise<Settings>}
+ */
+export const settingsCheckYtDlp = () => invoke("settings_check_yt_dlp");
 
 /** Reads the music folder again, from scratch. */
 export const settingsRescanLibrary = () => invoke("settings_rescan_library");

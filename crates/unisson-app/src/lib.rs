@@ -96,6 +96,7 @@ pub fn run() {
             commands::settings::settings_pick_music_folder,
             commands::settings::settings_reset_music_folder,
             commands::settings::settings_rescan_library,
+            commands::settings::settings_check_yt_dlp,
         ])
         .run(tauri::generate_context!())
         .expect("cannot run Unisson");

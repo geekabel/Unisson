@@ -2,7 +2,7 @@
 
 use tauri::State;
 use tauri::ipc::Channel;
-use unisson_core::SearchQuery;
+use unisson_core::{SearchQuery, SourceKind};
 
 use crate::search::{LIMIT_PER_SOURCE, SearchUpdateDto};
 use crate::state::AppState;
@@ -23,6 +23,10 @@ pub fn search(state: State<'_, AppState>, text: String, on_update: Channel<Searc
         let registered = state.sources.kinds();
         let mut asked = state.settings().enabled_sources();
         asked.retain(|source| registered.contains(source));
+        // Without yt-dlp, YouTube would only answer with an error each time.
+        if asked.contains(&SourceKind::YouTube) && state.yt_dlp_version(false).is_none() {
+            asked.retain(|source| *source != SourceKind::YouTube);
+        }
         asked
     };
     let mut answers = Vec::new();

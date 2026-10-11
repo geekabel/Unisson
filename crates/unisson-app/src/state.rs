@@ -4,12 +4,14 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, MutexGuard};
+use std::time::{Duration, Instant};
 
 use unisson_audio::Engine;
 use unisson_core::{Media, MediaId, SourceKind, SourceRegistry};
 use unisson_playback::{Session, SessionEvent, Snapshot};
 use unisson_radio::{Favorites, RadioBrowser, RadioSource, Station};
 use unisson_store::{LocalSource, Store, StoreError};
+use unisson_youtube::YouTubeSource;
 
 use crate::dto::SnapshotDto;
 use crate::settings::{Settings, SettingsError};
@@ -32,7 +34,10 @@ pub struct AppState {
     /// The radio source, kept apart for what only it can do: exploring the
     /// directory, and learning stations added by address.
     pub radio: Arc<RadioSource>,
-    /// Every active source, for the unified search.
+    /// The YouTube source, kept apart to play pasted links and to tell
+    /// whether yt-dlp is installed.
+    pub youtube: Arc<YouTubeSource>,
+    /// Every source, for the unified search.
     pub sources: Arc<SourceRegistry>,
     /// The favorite stations, kept in memory. The database holds a copy.
     stations: Mutex<Favorites>,
@@ -44,6 +49,9 @@ pub struct AppState {
     settings_path: Option<PathBuf>,
     /// Whether the settings changed since they were last written.
     settings_unsaved: AtomicBool,
+    /// The version of yt-dlp, `None` if it is not installed, with the time
+    /// it was asked.
+    yt_dlp: Mutex<Option<(Instant, Option<String>)>>,
 }
 
 impl AppState {
@@ -73,6 +81,8 @@ impl AppState {
         let mut sources = SourceRegistry::new();
         sources.register(Box::new(LocalSource::new(Arc::clone(&store))));
         sources.register(Box::new(Arc::clone(&radio)));
+        let youtube = Arc::new(YouTubeSource::new());
+        sources.register(Box::new(Arc::clone(&youtube)));
         let sources = Arc::new(sources);
 
         let (engine, engine_events) = Engine::spawn()?;
@@ -93,12 +103,14 @@ impl AppState {
             session,
             store,
             radio,
+            youtube,
             sources,
             stations: Mutex::new(stations),
             last_radio: Mutex::new(last_radio),
             settings: Mutex::new(settings),
             settings_path,
             settings_unsaved: AtomicBool::new(false),
+            yt_dlp: Mutex::new(None),
         };
         state.apply_fallback();
         Ok((state, events))
@@ -138,6 +150,32 @@ impl AppState {
     /// Returns the radio station listened to most recently, if any.
     pub fn last_radio(&self) -> Option<Media> {
         self.lock_last_radio().clone()
+    }
+
+    /// Returns the version of yt-dlp, or `None` if it cannot be used.
+    ///
+    /// Asking means starting the program, which takes a moment: the answer
+    /// is kept for a minute. Pass `refresh` to ask again now.
+    pub fn yt_dlp_version(&self, refresh: bool) -> Option<String> {
+        let known = self
+            .yt_dlp
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone();
+        if let Some((asked_at, version)) = known
+            && !refresh
+            && asked_at.elapsed() < YT_DLP_CHECK_LIFETIME
+        {
+            return version;
+        }
+        // The lock is not held while the program runs.
+        let version = self.youtube.tool().version().ok();
+        *self
+            .yt_dlp
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) =
+            Some((Instant::now(), version.clone()));
+        version
     }
 
     /// Returns a copy of the settings.
@@ -285,6 +323,9 @@ impl AppState {
         true
     }
 }
+
+/// How long the answer to "is yt-dlp installed?" is trusted.
+const YT_DLP_CHECK_LIFETIME: Duration = Duration::from_secs(60);
 
 /// How far back in the history the last radio station is looked for.
 const HISTORY_DEPTH: usize = 200;

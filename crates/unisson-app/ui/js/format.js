@@ -300,8 +300,10 @@ export function playbackErrorMessage(error) {
 
 const OPEN_ERRORS = {
   invalid: "Ce lien ou ce chemin n'est pas valide.",
-  notFound: "Fichier introuvable. Vérifiez le chemin.",
+  notFound: "Introuvable. Vérifiez le lien ou le chemin.",
   unreadable: "Ce fichier n'est pas un fichier audio lisible.",
+  network: "Le réseau ne répond pas. Vérifiez votre connexion.",
+  unavailable: "Ce lien n'a pas pu être ouvert. Pour YouTube, vérifiez que yt-dlp est installé et à jour.",
 };
 
 /**

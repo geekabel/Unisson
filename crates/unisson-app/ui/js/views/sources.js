@@ -126,9 +126,12 @@ function toggle({ key, checked, label, labelledBy, onChange }) {
  * @param {import("../api.js").Settings} settings
  */
 function sourceCard(source, settings) {
-  const status = source.enabled
-    ? "Active. Aucun compte requis."
-    : "Coupée. Ses résultats n'apparaissent pas dans la recherche.";
+  const missingTool = source.id === "youtube" && !settings.ytDlpVersion;
+  const status = !source.enabled
+    ? "Coupée. Ses résultats n'apparaissent pas dans la recherche."
+    : missingTool
+      ? "Active, mais le programme yt-dlp est introuvable."
+      : "Active. Aucun compte requis.";
   return element("div", { class: "source-card", "data-enabled": String(source.enabled) }, [
     element("div", { class: "source-card-head" }, [
       element("span", { class: "cover", "data-source": source.id }, [icon(SOURCE_ICONS[source.id] ?? "note")]),
@@ -144,6 +147,38 @@ function sourceCard(source, settings) {
       }),
     ]),
     source.id === "local" ? localDetails(settings) : null,
+    source.id === "youtube" ? youtubeDetails(settings) : null,
+  ]);
+}
+
+/** @param {import("../api.js").Settings} settings */
+function youtubeDetails(settings) {
+  const check = element(
+    "button",
+    { class: "text-button", type: "button", "data-focus-key": "check-yt-dlp" },
+    ["Vérifier à nouveau"],
+  );
+  check.addEventListener("click", () => apply(api.settingsCheckYtDlp));
+  const note = element("p", { class: "station-detail" }, [
+    "Le son est extrait des vidéos par yt-dlp. Cette méthode n'est pas prévue par les conditions " +
+      "d'utilisation de YouTube, et elle peut cesser de marcher tant que yt-dlp n'est pas mis à jour.",
+  ]);
+  if (settings.ytDlpVersion) {
+    return element("div", { class: "source-card-details" }, [
+      element("p", {}, [
+        element("span", { class: "station-detail" }, ["Programme : "]),
+        element("span", { class: "path" }, [`yt-dlp ${settings.ytDlpVersion}`]),
+      ]),
+      note,
+    ]);
+  }
+  return element("div", { class: "source-card-details" }, [
+    element("p", { class: "search-error", role: "alert" }, [
+      "YouTube ne peut pas être utilisé sans yt-dlp. Installez-le avec cette commande, dans un terminal :",
+    ]),
+    element("p", { class: "path" }, ['pipx install "yt-dlp[default]"']),
+    element("div", { class: "inline-form" }, [check]),
+    note,
   ]);
 }
 

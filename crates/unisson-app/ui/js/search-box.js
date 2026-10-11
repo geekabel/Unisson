@@ -53,6 +53,8 @@ function leaveSearch() {
 }
 
 async function openTarget(text) {
+  // A YouTube link takes a few seconds: say that something is happening.
+  showNotice({ owner: "search", text: "Ouverture du lien…" });
   try {
     await api.open(text);
     hideNotice("search");
