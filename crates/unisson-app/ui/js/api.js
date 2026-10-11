@@ -75,6 +75,7 @@
  * @property {boolean} musicFolderExists
  * @property {number} libraryTotal
  * @property {boolean} resumeRadio
+ * @property {boolean} keepInTray Whether closing the window keeps the application running.
  * @property {?string} configPath
  * @property {?string} ytDlpVersion The yt-dlp program YouTube needs, if installed.
  *
@@ -289,6 +290,14 @@ export const settingsPickMusicFolder = () => invoke("settings_pick_music_folder"
 
 /** @returns {Promise<Settings>} */
 export const settingsResetMusicFolder = () => invoke("settings_reset_music_folder");
+
+/**
+ * Chooses whether closing the window keeps the application running.
+ *
+ * @param {boolean} enabled
+ * @returns {Promise<Settings>}
+ */
+export const settingsSetKeepInTray = (enabled) => invoke("settings_set_keep_in_tray", { enabled });
 
 /**
  * Looks again for the yt-dlp program, after the user installed it.

@@ -16,6 +16,7 @@ use unisson_store::Store;
 use crate::dto::PositionDto;
 use crate::mpris::Mpris;
 use crate::state::AppState;
+use crate::tray;
 
 /// The playback state changed. Payload: [`SnapshotDto`](crate::dto::SnapshotDto).
 pub const PLAYER_CHANGED: &str = "player:changed";
@@ -52,6 +53,7 @@ pub fn forward_session_events(app: AppHandle, store: Arc<Store>, events: Receive
                     let dto = state.snapshot_dto(&snapshot);
                     app.state::<Mpris>()
                         .state_changed(&snapshot, dto.has_next, dto.has_previous);
+                    tray::refresh(&app);
                     app.emit(PLAYER_CHANGED, dto)
                 }
                 SessionEvent::Position { position, duration } => {

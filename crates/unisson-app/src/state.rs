@@ -325,6 +325,20 @@ impl AppState {
         }
     }
 
+    /// Plays a favorite station, by its place in the list. The other
+    /// favorites surround it in the queue.
+    pub fn play_favorite_station(&self, index: usize) {
+        let media: Vec<Media> = self
+            .stations()
+            .stations()
+            .iter()
+            .map(Station::to_media)
+            .collect();
+        if index < media.len() {
+            self.session.play_list(media, index);
+        }
+    }
+
     /// Moves from the station that plays to its neighbor in the favorites.
     ///
     /// Returns `false`, and does nothing, if no station plays or if there

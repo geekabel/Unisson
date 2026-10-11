@@ -104,6 +104,7 @@ pub fn station_add_custom(
 fn stations_changed(app: &AppHandle, state: &AppState) {
     // A failed emit means the window is closing: nothing to do.
     let _ = app.emit(STATIONS_CHANGED, ());
+    crate::tray::refresh(app);
     // "Previous" and "next" depend on the favorites while a station plays.
     let _ = app.emit(
         PLAYER_CHANGED,

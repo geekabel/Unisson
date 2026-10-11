@@ -66,20 +66,22 @@ function draw() {
       })),
     ]),
     section("Comportement", [
-      element("div", { class: "setting-row" }, [
-        element("span", { class: "setting-label", id: "resume-radio-label" }, [
-          "Quand la file est vide, reprendre la dernière radio",
-        ]),
-        toggle({
-          key: "resume-radio",
-          checked: settings.resumeRadio,
-          labelledBy: "resume-radio-label",
-          onChange: async (checked) => {
-            await api.queueSetResumeRadio(checked);
-            return api.settingsGet();
-          },
-        }),
-      ]),
+      settingRow({
+        key: "resume-radio",
+        label: "Quand la file est vide, reprendre la dernière radio",
+        checked: settings.resumeRadio,
+        onChange: async (checked) => {
+          await api.queueSetResumeRadio(checked);
+          return api.settingsGet();
+        },
+      }),
+      settingRow({
+        key: "keep-in-tray",
+        label: "À la fermeture de la fenêtre, continuer la lecture",
+        detail: "L'icône de la barre du haut rouvre la fenêtre, et son menu permet de quitter.",
+        checked: settings.keepInTray,
+        onChange: (checked) => api.settingsSetKeepInTray(checked),
+      }),
     ]),
     settings.configPath
       ? element("p", { class: "section-note" }, [
@@ -90,6 +92,26 @@ function draw() {
   if (focused) {
     area.querySelector(`[data-focus-key="${focused}"]`)?.focus();
   }
+}
+
+/**
+ * Builds one line of the behavior settings: a label and its switch.
+ *
+ * @param {object} options
+ * @param {string} options.key
+ * @param {string} options.label
+ * @param {string} [options.detail] A second line, to explain.
+ * @param {boolean} options.checked
+ * @param {(checked: boolean) => Promise<import("../api.js").Settings>} options.onChange
+ */
+function settingRow({ key, label, detail, checked, onChange }) {
+  return element("div", { class: "setting-row" }, [
+    element("span", { class: "station-text" }, [
+      element("span", { class: "setting-label", id: `${key}-label` }, [label]),
+      detail ? element("span", { class: "station-detail" }, [detail]) : null,
+    ]),
+    toggle({ key, checked, labelledBy: `${key}-label`, onChange }),
+  ]);
 }
 
 /**

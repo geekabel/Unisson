@@ -49,6 +49,7 @@ pub fn favorite_set(
             state.update_stations(|stations| stations.remove(&media.id.key))?;
         }
         let _ = app.emit(STATIONS_CHANGED, ());
+        crate::tray::refresh(&app);
     } else {
         if favorite {
             state.store.add_favorite(&media)?;

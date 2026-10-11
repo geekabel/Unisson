@@ -38,6 +38,8 @@ pub struct SettingsDto {
     pub library_total: usize,
     /// Whether the last radio station takes over when the queue runs out.
     pub resume_radio: bool,
+    /// Whether closing the window keeps the application running.
+    pub keep_in_tray: bool,
     /// Where the settings are saved.
     pub config_path: Option<String>,
     /// The version of the yt-dlp program, which YouTube needs. `None` when
@@ -64,6 +66,7 @@ fn describe(state: &AppState) -> Result<SettingsDto, CommandError> {
         music_folder_is_default: settings.music_folder.is_none(),
         library_total: state.store.library_len()?,
         resume_radio: settings.resume_radio,
+        keep_in_tray: settings.keep_in_tray,
         config_path: state
             .settings_path()
             .map(|path| path.to_string_lossy().into_owned()),
@@ -156,6 +159,18 @@ pub fn settings_reset_music_folder(
     if let Some(folder) = state.music_folder() {
         library.follow(folder);
     }
+    changed(&app, &state)
+}
+
+/// Chooses whether closing the window keeps the application running, with
+/// its icon in the top bar.
+#[tauri::command(async)]
+pub fn settings_set_keep_in_tray(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> Result<SettingsDto, CommandError> {
+    state.update_settings(|settings| settings.keep_in_tray = enabled)?;
     changed(&app, &state)
 }
 

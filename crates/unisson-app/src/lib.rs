@@ -22,6 +22,7 @@ pub mod now_playing;
 pub mod search;
 pub mod settings;
 pub mod state;
+pub mod tray;
 pub mod windows;
 
 use std::sync::Arc;
@@ -31,6 +32,7 @@ use tauri::Manager;
 use crate::library::LibrarySync;
 use crate::mpris::Mpris;
 use crate::state::AppState;
+use crate::tray::Tray;
 
 /// Runs the application until its window is closed.
 ///
@@ -57,7 +59,26 @@ pub fn run() {
                 library.follow(folder);
             }
             app.manage(library);
+
+            // Without a tray icon, the application simply has none.
+            match Tray::create(handle) {
+                Ok(tray) => {
+                    app.manage(tray);
+                }
+                Err(error) => eprintln!("unisson: no tray icon: {error}"),
+            }
             Ok(())
+        })
+        .on_window_event(|window, event| {
+            if window.label() == windows::MAIN
+                && let tauri::WindowEvent::CloseRequested { api, .. } = event
+                && windows::keeps_running_when_closed(window.app_handle())
+            {
+                // Keep playing: only hide the window. The tray icon, the
+                // media keys, or starting Unisson again bring it back.
+                api.prevent_close();
+                let _ = window.hide();
+            }
         })
         .invoke_handler(tauri::generate_handler![
             commands::collection::favorites_list,
@@ -102,6 +123,7 @@ pub fn run() {
             commands::settings::settings_reset_music_folder,
             commands::settings::settings_rescan_library,
             commands::settings::settings_check_yt_dlp,
+            commands::settings::settings_set_keep_in_tray,
         ])
         .run(tauri::generate_context!())
         .expect("cannot run Unisson");
