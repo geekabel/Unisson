@@ -1,5 +1,5 @@
 name: Package
-# Builds the Debian package and keeps it with the run, to try a change
+# Builds the installers and keeps them with the run, to try a change
 # before a release. It runs when what shapes the package changes, and on
 # demand from the Actions tab. Releases are built by release.yml.
 on:
@@ -8,6 +8,7 @@ on:
     paths:
       - .github/workflows/package.yml
       - crates/unisson-app/tauri.conf.json
+      - crates/unisson-app/tauri.windows.conf.json
       - crates/unisson-app/packaging/**
       - crates/unisson-app/icons/**
   workflow_dispatch:
@@ -49,4 +50,32 @@ jobs:
         with:
           name: unisson-deb
           path: target/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+  windows:
+    name: Windows installer (experimental)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Install GStreamer
+        shell: pwsh
+        run: .github/scripts/install-gstreamer.ps1
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: package
+      - name: Install the Tauri command line tool
+        shell: bash
+        run: command -v cargo-tauri || cargo install tauri-cli --version "^2" --locked
+      - name: Build the installer
+        shell: bash
+        working-directory: crates/unisson-app
+        run: ../../.github/scripts/run-and-report.sh "Windows installer" cargo tauri build --bundles nsis -- --locked
+      - name: Show what was built
+        shell: bash
+        run: ls -l target/release/bundle/nsis/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: unisson-windows
+          path: target/release/bundle/nsis/*.exe
           if-no-files-found: error
