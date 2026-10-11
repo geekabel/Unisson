@@ -39,9 +39,8 @@ const muteButton = byId("player-mute");
 const muteIcon = byId("player-mute-icon");
 const volumeSlider = /** @type {HTMLInputElement} */ (byId("player-volume"));
 
-// The page is already translated here: `i18n.js` runs before this module.
-const EMPTY_TITLE = title.textContent;
-const EMPTY_SUBTITLE = subtitle.textContent;
+const EMPTY_TITLE = t("shell.nothingPlaying");
+const EMPTY_SUBTITLE = t("shell.nothingPlayingHint");
 
 /** Whether the user is dragging the position slider. */
 let seeking = false;

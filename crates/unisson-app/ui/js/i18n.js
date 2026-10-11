@@ -6,10 +6,10 @@
  * per area of the interface.
  *
  * The backend decides the language: the choice of the user, or the language
- * of the desktop. This module asks it once, before any other module of the
- * page runs, so that the first word written is already in the right
- * language. When the user changes the language, the page simply reloads:
- * playback lives in the backend and is not disturbed.
+ * of the desktop. A page cannot wait for its answer before writing its first
+ * word, so it starts in the language of its last load, then asks. When the
+ * answer differs, as it does when the user changes the language, the page
+ * simply reloads: playback lives in the backend and is not disturbed.
  */
 
 import { CATALOGS } from "./locales/index.js";
@@ -91,21 +91,57 @@ export function translatePage(root = document) {
   }
 }
 
-// In the application: ask the backend, then write the page. Outside of it
-// (the tests of the pure helpers), the fallback language stays.
+/** Where the language is remembered between two loads of a page. */
+const STORAGE_KEY = "unisson-language";
+
+function remembered() {
+  try {
+    return globalThis.localStorage?.getItem(STORAGE_KEY) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** Remembers the language. Returns whether it could be written. */
+function remember(code) {
+  try {
+    globalThis.localStorage.setItem(STORAGE_KEY, code);
+    return globalThis.localStorage.getItem(STORAGE_KEY) === code;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Asks the backend which language to use. If it is not the one on screen,
+ * the page reloads in the right one.
+ */
+async function follow(tauri) {
+  const wanted = await tauri.core.invoke("settings_language");
+  if (wanted === language) {
+    remember(wanted);
+    return;
+  }
+  // Without a place to remember it, a reload would start in the wrong
+  // language again, for ever: stay as we are.
+  if (remember(wanted)) {
+    window.location.reload();
+  }
+}
+
+// In the application, the language must be known at once: the modules of
+// the page write their texts as soon as they load, and cannot wait for an
+// answer of the backend. So the language of the last load is used, or, the
+// very first time, the language of the system as the browser engine sees
+// it. The backend is then asked, and the page reloads if it disagrees:
+// that happens when the user changes the language, and almost never
+// otherwise. Outside of the application (the tests of the pure helpers),
+// the fallback language stays.
 const tauri = globalThis.__TAURI__;
 if (tauri) {
-  try {
-    setLanguage(await tauri.core.invoke("settings_language"));
-  } catch (error) {
-    console.error(error);
-  }
+  setLanguage(remembered() ?? (globalThis.navigator?.language ?? "en").slice(0, 2).toLowerCase());
   document.documentElement.lang = language;
   translatePage();
-  tauri.event.listen("settings:changed", async () => {
-    const wanted = await tauri.core.invoke("settings_language");
-    if (wanted !== language) {
-      window.location.reload();
-    }
-  });
+  follow(tauri).catch((error) => console.error(error));
+  tauri.event.listen("settings:changed", () => follow(tauri).catch((error) => console.error(error)));
 }
