@@ -41,3 +41,9 @@ rusqlite = { version = "0.40", features = ["bundled"] }
 lofty = "0.25"
 # Tells when files appear, change or disappear in a folder (inotify on Linux).
 notify = "8"
+
+# The program that goes into the package.
+# Reference: https://doc.rust-lang.org/cargo/reference/profiles.html
+[profile.release]
+# Debug symbols triple the size of the program and serve no user.
+strip = true

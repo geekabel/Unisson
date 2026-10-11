@@ -37,8 +37,10 @@ use crate::windows;
 
 /// The name the desktop shows above the message.
 const APP_NAME: &str = "Unisson";
-/// The name of the desktop file and of the icon.
-const DESKTOP_ENTRY: &str = "unisson";
+/// The name of the desktop file: the package installs `Unisson.desktop`.
+const DESKTOP_ENTRY: &str = "Unisson";
+/// The name of the icon in the icon theme of the desktop.
+const ICON: &str = "unisson";
 /// How long a message stays on screen, in milliseconds.
 const TIMEOUT_MS: u32 = 5_000;
 
@@ -208,7 +210,7 @@ fn show_all(inbox: &Receiver<Announcement>) {
             .appname(APP_NAME)
             .summary(&announcement.summary)
             .body(&body)
-            .icon(DESKTOP_ENTRY)
+            .icon(ICON)
             .hint(Hint::DesktopEntry(DESKTOP_ENTRY.into()))
             // Not kept in the list of the desktop once it left the screen.
             .hint(Hint::Transient(true))

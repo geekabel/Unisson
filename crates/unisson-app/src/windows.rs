@@ -68,6 +68,16 @@ pub fn apply_theme(app: &AppHandle) {
     }
 }
 
+/// Gives the main window the icon of Unisson.
+///
+/// GNOME takes the icon from the desktop file of the package. Other
+/// desktops, and a copy started with `cargo run`, read it from the window.
+pub fn set_main_icon(app: &AppHandle) {
+    if let (Some(window), Some(icon)) = (app.get_webview_window(MAIN), app.default_window_icon()) {
+        let _ = window.set_icon(icon.clone());
+    }
+}
+
 /// Brings the main window back in front of the user, and puts the
 /// mini-player away.
 pub fn show_main(app: &AppHandle) {

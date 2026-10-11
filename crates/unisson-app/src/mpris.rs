@@ -107,7 +107,8 @@ async fn serve(
     let player = Player::builder(BUS_NAME_SUFFIX)
         .identity("Unisson")
         // The name of the desktop file, which gives the desktop the icon.
-        .desktop_entry("unisson")
+        // The package installs it as `Unisson.desktop`.
+        .desktop_entry("Unisson")
         .can_raise(true)
         .can_quit(true)
         .can_play(false)

@@ -66,6 +66,7 @@ pub fn run() {
             let music_folder = state.music_folder();
             app.manage(state);
             windows::apply_theme(app.handle());
+            windows::set_main_icon(app.handle());
 
             let handle = app.handle();
             app.manage(Mpris::start(handle.clone()));

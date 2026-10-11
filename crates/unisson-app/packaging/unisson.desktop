@@ -1,0 +1,20 @@
+[Desktop Entry]
+Type=Application
+Name={{name}}
+GenericName=Audio Player
+GenericName[fr]=Lecteur audio
+Comment=Internet radio, local files and YouTube in one player
+Comment[fr]=Radios, fichiers locaux et YouTube dans un seul lecteur
+Exec={{exec}}
+Icon={{icon}}
+StartupWMClass={{exec}}
+Terminal=false
+Categories=AudioVideo;Audio;Player;Music;
+Keywords=music;radio;player;audio;youtube;stream;
+Keywords[fr]=musique;radio;lecteur;audio;youtube;flux;
+Actions=launcher;
+
+[Desktop Action launcher]
+Name=Quick Launcher
+Name[fr]=Lanceur rapide
+Exec={{exec}} --lanceur

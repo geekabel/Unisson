@@ -70,6 +70,38 @@ The project is under construction. Current target: Ubuntu 22.04.
   Unisson works without yt-dlp: only YouTube is then left out. Listening to
   YouTube this way is not covered by its terms of service.
 
+## Install the package
+
+Unisson is packaged for Debian and Ubuntu as a `.deb` file. The *Package*
+workflow builds it on Ubuntu 22.04: open the
+[Actions tab](https://github.com/geekabel/Unisson/actions/workflows/package.yml),
+choose the last run, and download the `unisson-deb` artifact. Unzip it, then:
+
+```sh
+sudo apt install ./Unisson_0.1.0_amd64.deb
+```
+
+`apt` installs the GStreamer plugins and the other libraries with it. Unisson
+then appears in the application menu. To remove it: `sudo apt remove unisson`.
+Settings and library stay in `~/.config/unisson` and `~/.local/share/unisson`.
+
+To build the package yourself, install the Tauri command line tool once, then
+build from the folder of the application:
+
+```sh
+cargo install tauri-cli --version "^2" --locked
+cd crates/unisson-app
+cargo tauri build --bundles deb
+```
+
+The package is written to `target/release/bundle/deb/`. Build it on the oldest
+system it must run on: a program built on a newer Ubuntu does not start on an
+older one.
+
+The icons of the package are PNG files made from `icons/icon.svg` by
+`packaging/make-icons.sh`. The desktop entry comes from
+`packaging/unisson.desktop`.
+
 ## Run the application
 
 ```sh
@@ -156,6 +188,12 @@ JavaScript helpers of the interface:
 ```sh
 node --test crates/unisson-app/ui-tests/*.test.mjs
 ```
+
+## Manual tests
+
+[`docs/manual-tests.md`](docs/manual-tests.md) lists what to check by hand on
+a real desktop, once under Wayland and once under X11: sound, the desktop
+integration, the keyboard, the behavior when the network drops.
 
 ## Try YouTube from the command line
 
