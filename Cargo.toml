@@ -11,6 +11,10 @@ edition = "2024"
 # Tauri 2 plugins require Rust 1.90 or newer.
 rust-version = "1.90"
 repository = "https://github.com/geekabel/Unisson"
+license = "MIT OR Apache-2.0"
+# The crates are parts of one application: they are not published on
+# crates.io.
+publish = false
 description = "Unified audio player for Linux: internet radio, local files, YouTube."
 
 [workspace.lints.rust]

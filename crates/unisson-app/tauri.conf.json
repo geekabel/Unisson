@@ -42,7 +42,8 @@
       "icons/32x32.png",
       "icons/64x64.png",
       "icons/256x256.png",
-      "icons/icon.png"
+      "icons/icon.png",
+      "icons/icon.ico"
     ],
     "category": "Music",
     "publisher": "geekabel",
@@ -67,6 +68,8 @@
           "/usr/share/icons/hicolor/scalable/apps/unisson.svg": "icons/icon.svg"
         }
       }
-    }
+    },
+    "license": "MIT OR Apache-2.0",
+    "copyright": "Copyright (c) 2026 geekabel and the Unisson contributors"
   }
 }
