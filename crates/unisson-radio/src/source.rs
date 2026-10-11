@@ -56,6 +56,12 @@ impl RadioSource {
             .insert(station.uuid.clone(), station.stream_url.clone());
     }
 
+    /// Returns the stream address of a station the source has met, in a
+    /// search or through [`remember`](Self::remember).
+    pub fn stream_url(&self, uuid: &str) -> Option<String> {
+        self.known_streams().get(uuid).cloned()
+    }
+
     fn known_streams(&self) -> MutexGuard<'_, HashMap<String, String>> {
         // The map is always valid, even if a thread panicked while holding it.
         self.known_streams

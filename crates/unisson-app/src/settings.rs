@@ -134,8 +134,8 @@ impl Settings {
     /// written.
     pub fn save(&self, path: &Path) -> Result<(), SettingsError> {
         let error = |error: std::io::Error| SettingsError(format!("{}: {error}", path.display()));
-        let text = toml::to_string(&self.to_file())
-            .map_err(|error| SettingsError(error.to_string()))?;
+        let text =
+            toml::to_string(&self.to_file()).map_err(|error| SettingsError(error.to_string()))?;
         if let Some(folder) = path.parent() {
             std::fs::create_dir_all(folder).map_err(error)?;
         }

@@ -5,11 +5,12 @@
 import * as api from "./api.js";
 import { showNotice } from "./notice.js";
 import { renderPlayer, renderPosition } from "./player-bar.js";
+import { drawPlaylistsSidebar, loadPlaylists } from "./playlists.js";
 import { refreshQueue } from "./queue.js";
 import "./search-box.js";
 import { loadSettings } from "./settings.js";
 import { loadStations } from "./stations.js";
-import { refreshView, setPlayerState, showView } from "./views.js";
+import { onViewChange, refreshView, setPlayerState, showView } from "./views.js";
 
 /** @param {import("./api.js").Snapshot} snapshot */
 function onPlayerChanged(snapshot) {
@@ -27,6 +28,9 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+// The sidebar highlights the playlist on screen.
+onViewChange(drawPlaylistsSidebar);
+
 async function start() {
   // Listen first, ask second: no change can slip in between.
   await Promise.all([
@@ -37,7 +41,12 @@ async function start() {
       // The settings screen shows how many tracks the library holds.
       loadSettings();
     }),
-    api.onHistoryChanged(() => refreshView("home")),
+    api.onHistoryChanged(() => refreshView("home", "history")),
+    api.onFavoritesChanged(() => refreshView("favorites")),
+    api.onPlaylistsChanged(async () => {
+      await loadPlaylists();
+      refreshView("playlist");
+    }),
     api.onQueueChanged(refreshQueue),
     api.onSettingsChanged(async () => {
       await loadSettings();
@@ -45,10 +54,10 @@ async function start() {
     }),
     api.onStationsChanged(async () => {
       await loadStations();
-      refreshView("home");
+      refreshView("home", "favorites");
     }),
   ]);
-  await Promise.all([loadStations(), loadSettings()]);
+  await Promise.all([loadStations(), loadSettings(), loadPlaylists()]);
   onPlayerChanged(await api.playerState());
   refreshQueue();
   await showView("home");

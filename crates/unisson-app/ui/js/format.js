@@ -192,6 +192,28 @@ export function tileText(tile) {
 }
 
 /**
+ * Simplifies a text for comparison: lower case, no accents.
+ *
+ * @param {string} text
+ */
+function simplified(text) {
+  return text.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
+/**
+ * Tells whether `text` contains every word of `wanted`, ignoring case and
+ * accents.
+ *
+ * @param {string} text
+ * @param {string} wanted
+ */
+export function matchesText(text, wanted) {
+  const haystack = simplified(text);
+  const words = simplified(wanted).split(/\s+/).filter(Boolean);
+  return words.length > 0 && words.every((word) => haystack.includes(word));
+}
+
+/**
  * Writes the line shown above the search results.
  *
  * @param {string} text What the user typed.
@@ -211,7 +233,9 @@ export function searchSummary(text, update, shown, minLength) {
   if (shown === 0) {
     return update.done ? `Aucun résultat pour « ${text} ».` : "Recherche en cours…";
   }
-  return `${countLabel(shown, "résultat")}, ${countLabel(sources, "source")}.${waiting}`;
+  // Playlists are results too, and they come from no source.
+  const from = sources > 0 ? `, ${countLabel(sources, "source")}` : "";
+  return `${countLabel(shown, "résultat")}${from}.${waiting}`;
 }
 
 /**

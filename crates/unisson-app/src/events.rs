@@ -28,6 +28,10 @@ const SAVE_INTERVAL: Duration = Duration::from_secs(1);
 pub const LIBRARY_CHANGED: &str = "library:changed";
 /// The play queue changed. No payload.
 pub const QUEUE_CHANGED: &str = "queue:changed";
+/// The favorite media changed. No payload.
+pub const FAVORITES_CHANGED: &str = "favorites:changed";
+/// The playlists changed: their list, a name, or what one holds. No payload.
+pub const PLAYLISTS_CHANGED: &str = "playlists:changed";
 /// The favorite stations changed. No payload.
 pub const STATIONS_CHANGED: &str = "stations:changed";
 /// A media was added to the listening history. No payload.

@@ -32,6 +32,7 @@ const positionLabel = byId("player-position");
 const durationLabel = byId("player-duration");
 const seekSlider = /** @type {HTMLInputElement} */ (byId("player-seek"));
 const live = byId("player-live");
+const favoriteButton = /** @type {HTMLButtonElement} */ (byId("player-favorite"));
 const muteButton = byId("player-mute");
 const muteIcon = byId("player-mute-icon");
 const volumeSlider = /** @type {HTMLInputElement} */ (byId("player-volume"));
@@ -45,6 +46,9 @@ let seeking = false;
 let settingVolume = false;
 /** The volume to come back to after "mute". */
 let volumeBeforeMute = 1;
+/** The media and the favorite state the heart was last drawn for. */
+let favoriteOf = null;
+let isFavorite = false;
 /** The error already shown, so that closing its message is final. */
 let shownError = null;
 
@@ -84,6 +88,13 @@ export function renderPlayer(snapshot) {
   const started = snapshot.status === "playing" || snapshot.status === "paused";
   seekSlider.disabled = !media || isLive || !started;
   renderPosition(snapshot);
+
+  favoriteOf = media;
+  isFavorite = snapshot.currentIsFavorite;
+  favoriteButton.disabled = !media;
+  favoriteButton.setAttribute("aria-pressed", String(Boolean(media) && isFavorite));
+  favoriteButton.title = isFavorite && media ? "Retirer des favoris" : "Ajouter aux favoris";
+  favoriteButton.setAttribute("aria-label", favoriteButton.title);
 
   if (!settingVolume) {
     renderVolume(snapshot.volume);
@@ -175,6 +186,25 @@ coverImage.addEventListener("load", () => {
 });
 coverImage.addEventListener("error", () => {
   coverImage.hidden = true;
+});
+
+favoriteButton.addEventListener("click", async () => {
+  if (!favoriteOf) {
+    return;
+  }
+  try {
+    await api.favoriteSet(favoriteOf, !isFavorite);
+  } catch (error) {
+    showNotice({
+      owner: "favorites",
+      tone: "error",
+      text:
+        error?.kind === "notFound"
+          ? "Cette station ne peut pas être gardée : son adresse n'est plus connue."
+          : "Les favoris n'ont pas pu être enregistrés.",
+      duration: 8000,
+    });
+  }
 });
 
 toggleButton.addEventListener("click", () => api.toggle());

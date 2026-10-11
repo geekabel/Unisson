@@ -15,6 +15,7 @@ import {
   fillPercent,
   formatTime,
   looksLikeTarget,
+  matchesText,
   mediaKey,
   mediaSubtitle,
   moved,
@@ -199,4 +200,12 @@ test("moved swaps an item with its neighbor, or changes nothing", () => {
 test("sourceName gives the full name of a source", () => {
   assert.equal(sourceName("local"), "Fichiers locaux");
   assert.equal(sourceName("cassette"), "cassette");
+});
+
+test("matchesText ignores case and accents, and wants every word", () => {
+  assert.equal(matchesText("Pause café", "cafe"), true);
+  assert.equal(matchesText("Pause café", "CAFÉ pau"), true);
+  assert.equal(matchesText("Pause café", "the"), false);
+  assert.equal(matchesText("Pause café", "pause thé"), false);
+  assert.equal(matchesText("Pause café", "   "), false);
 });

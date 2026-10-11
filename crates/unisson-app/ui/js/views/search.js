@@ -7,15 +7,19 @@
  */
 
 import * as api from "../api.js";
-import { iconButton, mediaRow, sourceBadge } from "../components.js";
+import { iconButton, listButton, mediaRow, sourceBadge } from "../components.js";
 import { element, icon } from "../dom.js";
 import {
+  countLabel,
+  matchesText,
   mediaKey,
   mediaSubtitle,
   searchSummary,
   sourceLabel,
 } from "../format.js";
 import { showNotice } from "../notice.js";
+import { allPlaylists } from "../playlists.js";
+import { showView } from "../views.js";
 
 /** Shortest text that is searched. */
 export const MIN_LENGTH = 2;
@@ -30,6 +34,7 @@ const KINDS = [
   ["all", "Tout"],
   ["track", "Titres"],
   ["station", "Radios"],
+  ["playlist", "Listes"],
 ];
 
 const SOURCE_ERRORS = {
@@ -41,7 +46,7 @@ const state = {
   text: "",
   /** @type {?{hits: Hit[], pending: string[], errors: {source: string, kind: string}[], done: boolean}} */
   update: null,
-  /** `all`, `track` or `station`. */
+  /** `all`, `track`, `station` or `playlist`. */
   kind: "all",
   /** Sources the user switched off. */
   hiddenSources: new Set(),
@@ -141,7 +146,7 @@ export function clearQuery() {
  * @param {number} delta `1` for the next line, `-1` for the previous one.
  */
 export function moveSelection(delta) {
-  const count = visibleHits().length;
+  const count = visibleEntries().length;
   if (count === 0) {
     return;
   }
@@ -159,9 +164,9 @@ export function moveSelection(delta) {
  * @param {"now"|"next"|"enqueue"} mode
  */
 export function activateSelection(mode) {
-  const hit = visibleHits()[state.selected];
-  if (hit) {
-    act(hit, mode);
+  const entry = visibleEntries()[state.selected];
+  if (entry) {
+    actOn(entry, mode);
   } else if (!state.update?.done && state.text.length >= MIN_LENGTH) {
     state.whenReady = mode;
     readyAskedAt = performance.now();
@@ -183,16 +188,50 @@ function runWhenReady({ patient = true } = {}) {
   if (!state.whenReady || (patient && !state.update?.done)) {
     return;
   }
-  const hit = visibleHits()[0];
-  if (!hit && !state.update?.done) {
+  const entry = visibleEntries()[0];
+  if (!entry && !state.update?.done) {
     // Nothing yet: the next answer may bring something.
     return;
   }
   const mode = state.whenReady;
   state.whenReady = null;
   clearTimeout(readyTimer);
-  if (hit) {
-    act(hit, mode);
+  if (entry) {
+    actOn(entry, mode);
+  }
+}
+
+/**
+ * Acts on a line of the results: a media or a playlist.
+ *
+ * @param {{hit?: Hit, playlist?: import("../api.js").Playlist}} entry
+ * @param {"now"|"next"|"enqueue"} mode
+ */
+function actOn(entry, mode) {
+  if (entry.hit) {
+    act(entry.hit, mode);
+  } else {
+    actOnPlaylist(entry.playlist, mode);
+  }
+}
+
+/**
+ * Plays a playlist, or adds its media to the queue.
+ *
+ * @param {import("../api.js").Playlist} playlist
+ * @param {"now"|"next"|"enqueue"} mode
+ */
+async function actOnPlaylist(playlist, mode) {
+  const items = await api.playlistItems(playlist.id);
+  if (items.length === 0) {
+    showNotice({ owner: "search", text: `La liste « ${playlist.name} » est vide.`, duration: 3000 });
+  } else if (mode === "now") {
+    api.playList(items, 0);
+  } else {
+    for (const media of items) {
+      await api.enqueue(media);
+    }
+    showNotice({ owner: "search", text: `Ajouté à la file : la liste « ${playlist.name} »`, duration: 2500 });
   }
 }
 
@@ -217,7 +256,23 @@ function act(hit, mode) {
   });
 }
 
-/** Returns the lines on screen, in display order. */
+/** Returns the playlists whose name matches the text, if they are shown. */
+function visiblePlaylists() {
+  if (state.text.length < MIN_LENGTH || (state.kind !== "all" && state.kind !== "playlist")) {
+    return [];
+  }
+  return allPlaylists().filter((playlist) => matchesText(playlist.name, state.text));
+}
+
+/** Returns every line on screen, in display order: media, then playlists. */
+function visibleEntries() {
+  return [
+    ...visibleHits().map((hit) => ({ hit })),
+    ...visiblePlaylists().map((playlist) => ({ playlist })),
+  ];
+}
+
+/** Returns the media on screen, in display order. */
 function visibleHits() {
   const hits = (state.update?.hits ?? []).filter((hit) => {
     return (
@@ -294,8 +349,10 @@ function drawFilters() {
 function drawResults() {
   const update = state.update;
   const hits = visibleHits();
-  state.selected = Math.min(state.selected, Math.max(0, hits.length - 1));
-  summaryArea.textContent = searchSummary(state.text, update, hits.length, MIN_LENGTH);
+  const playlists = visiblePlaylists();
+  const count = hits.length + playlists.length;
+  state.selected = Math.min(state.selected, Math.max(0, count - 1));
+  summaryArea.textContent = searchSummary(state.text, update, count, MIN_LENGTH);
 
   const content = [];
   for (const error of update?.errors ?? []) {
@@ -321,7 +378,41 @@ function drawResults() {
       );
     }
   }
+  if (playlists.length > 0) {
+    content.push(
+      group("Listes", playlists.map((playlist, index) => playlistRow(playlist, hits.length + index))),
+    );
+  }
   resultsArea.replaceChildren(...content);
+}
+
+/**
+ * @param {import("../api.js").Playlist} playlist
+ * @param {number} index Position among the lines on screen.
+ */
+function playlistRow(playlist, index) {
+  const main = element(
+    "button",
+    { class: "row-main", type: "button", "aria-label": `Lire la liste ${playlist.name}` },
+    [
+      element("span", { class: "row-play" }, [icon("play", { filled: true })]),
+      element("span", { class: "row-title truncate" }, [playlist.name]),
+      element("span", { class: "row-artist truncate" }, [`Liste, ${countLabel(playlist.len, "titre")}`]),
+    ],
+  );
+  main.addEventListener("click", () => actOnPlaylist(playlist, "now"));
+  const row = element("div", { class: "row" }, [
+    main,
+    iconButton({
+      icon: "list",
+      label: `Ouvrir la liste ${playlist.name}`,
+      onClick: () => showView("playlist", { param: playlist.id }),
+    }),
+  ]);
+  if (index === state.selected) {
+    row.dataset.selected = "";
+  }
+  return row;
 }
 
 function group(title, rows) {
@@ -347,7 +438,7 @@ function hitRow(hit, index) {
   const row = mediaRow(hit.media, {
     onPlay: () => act(hit, "now"),
     sources: hit.sources,
-    actions: [addButton(hit)],
+    actions: [addButton(hit), listButton(hit.media)],
   });
   if (index === state.selected) {
     row.dataset.selected = "";
@@ -383,6 +474,7 @@ function bestCard(hit, selected) {
   const card = element("div", { class: "row best", "data-media-key": mediaKey(media) }, [
     main,
     addButton(hit),
+    listButton(hit.media),
   ]);
   if (selected) {
     card.dataset.selected = "";

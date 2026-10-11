@@ -26,6 +26,8 @@
   <symbol id="icon-bars" viewBox="0 0 24 24"><path d="M6 15V9M12 19V5M18 16V8"/></symbol>
   <symbol id="icon-folder" viewBox="0 0 24 24"><path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2v7.5a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z"/></symbol>
   <symbol id="icon-video" viewBox="0 0 24 24"><rect x="3.5" y="6" width="17" height="12" rx="3"/><path d="M10.5 9.5v5l4.5-2.5z"/></symbol>
+  <symbol id="icon-list" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></symbol>
+  <symbol id="icon-list-add" viewBox="0 0 24 24"><path d="M4 7h12M4 12h8M4 17h6"/><path d="M17 12v8M13 16h8"/></symbol>
   <symbol id="icon-up" viewBox="0 0 24 24"><path d="M6 14l6-6 6 6"/></symbol>
   <symbol id="icon-down" viewBox="0 0 24 24"><path d="M6 10l6 6 6-6"/></symbol>
   <!-- Filled icons. -->
@@ -55,6 +57,14 @@
       </button>
       <button class="nav-item" type="button" data-view="history" title="Historique">
         <svg class="icon" aria-hidden="true"><use href="#icon-history"/></svg><span class="nav-label">Historique</span>
+      </button>
+    </div>
+
+    <div class="nav-group" id="playlists-nav" hidden>
+      <div class="nav-heading">Mes listes</div>
+      <div class="nav-group" id="playlists-list"></div>
+      <button class="nav-item nav-item-soft" id="playlist-new" type="button" title="Nouvelle liste">
+        <svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg><span class="nav-label">Nouvelle liste</span>
       </button>
     </div>
 
@@ -129,6 +139,10 @@
     </div>
 
     <div class="player-tools">
+      <button class="icon-button favorite-button" id="player-favorite" type="button"
+        aria-label="Ajouter aux favoris" title="Ajouter aux favoris" aria-pressed="false" disabled>
+        <svg class="icon" aria-hidden="true"><use href="#icon-heart"/></svg>
+      </button>
       <button class="icon-button" id="player-mute" type="button" aria-label="Couper le son" aria-pressed="false">
         <svg class="icon" aria-hidden="true"><use id="player-mute-icon" href="#icon-volume"/></svg>
       </button>

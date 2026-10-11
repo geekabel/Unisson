@@ -208,6 +208,8 @@ pub struct SnapshotDto {
     pub has_next: bool,
     /// Why the last playback failed.
     pub error: Option<PlaybackErrorDto>,
+    /// Whether the selected media is a favorite.
+    pub current_is_favorite: bool,
 }
 
 impl From<&Snapshot> for SnapshotDto {
@@ -239,6 +241,31 @@ impl From<&Snapshot> for SnapshotDto {
             has_previous: snapshot.has_previous,
             has_next: snapshot.has_next,
             error: snapshot.error.as_ref().map(PlaybackErrorDto::from),
+            // Only the application knows the favorites: see
+            // `AppState::snapshot_dto`.
+            current_is_favorite: false,
+        }
+    }
+}
+
+/// A playlist, as the interface sees it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaylistDto {
+    /// The identifier of the playlist.
+    pub id: i64,
+    /// Its name.
+    pub name: String,
+    /// The number of media it holds.
+    pub len: usize,
+}
+
+impl From<&unisson_store::Playlist> for PlaylistDto {
+    fn from(playlist: &unisson_store::Playlist) -> Self {
+        Self {
+            id: playlist.id,
+            name: playlist.name.clone(),
+            len: playlist.len,
         }
     }
 }
@@ -333,7 +360,13 @@ impl From<crate::settings::SettingsError> for CommandError {
 
 impl From<unisson_store::StoreError> for CommandError {
     fn from(error: unisson_store::StoreError) -> Self {
-        Self::new("storage", error.to_string())
+        let kind = match error {
+            // The interface sent something the storage refuses, such as an
+            // empty playlist name.
+            unisson_store::StoreError::Invalid(_) => "invalid",
+            _ => "storage",
+        };
+        Self::new(kind, error.to_string())
     }
 }
 

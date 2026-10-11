@@ -27,6 +27,7 @@
  * @property {boolean} hasPrevious
  * @property {boolean} hasNext
  * @property {?{kind: string, detail: string}} error
+ * @property {boolean} currentIsFavorite
  *
  * @typedef {object} Station
  * @property {string} uuid
@@ -61,6 +62,11 @@
  * @property {number} upcomingTotal May exceed the length of `upcoming`.
  * @property {?Media} lastRadio The radio listened to most recently.
  * @property {boolean} resumeRadio Whether it takes over when the queue runs out.
+ *
+ * @typedef {object} Playlist
+ * @property {number} id
+ * @property {string} name
+ * @property {number} len Number of media it holds.
  *
  * @typedef {object} Settings
  * @property {{id: string, enabled: boolean}[]} sources The preferred one first.
@@ -194,6 +200,64 @@ export const queueClear = () => invoke("queue_clear");
  */
 export const queueSetResumeRadio = (enabled) => invoke("queue_set_resume_radio", { enabled });
 
+/** @returns {Promise<Media[]>} The favorite media. Stations are apart. */
+export const favoritesList = () => invoke("favorites_list");
+
+/**
+ * Adds a media to the favorites, or removes it. A radio station joins the
+ * favorite stations.
+ *
+ * @param {Media} media
+ * @param {boolean} favorite
+ */
+export const favoriteSet = (media, favorite) => invoke("favorite_set", { media, favorite });
+
+/** @returns {Promise<Media[]>} The media played most recently, the latest first. */
+export const historyList = () => invoke("history_list");
+
+/** Forgets the whole listening history. */
+export const historyClear = () => invoke("history_clear");
+
+/** @returns {Promise<Playlist[]>} */
+export const playlistsList = () => invoke("playlists_list");
+
+/**
+ * @param {string} name
+ * @returns {Promise<Playlist>}
+ */
+export const playlistCreate = (name) => invoke("playlist_create", { name });
+
+/**
+ * @param {number} id
+ * @param {string} name
+ */
+export const playlistRename = (id, name) => invoke("playlist_rename", { id, name });
+
+/** @param {number} id */
+export const playlistDelete = (id) => invoke("playlist_delete", { id });
+
+/**
+ * @param {number} id
+ * @returns {Promise<Media[]>}
+ */
+export const playlistItems = (id) => invoke("playlist_items", { id });
+
+/**
+ * Adds a media at the end of a playlist.
+ *
+ * @param {number} id
+ * @param {Media} media
+ */
+export const playlistAdd = (id, media) => invoke("playlist_add", { id, media });
+
+/**
+ * Replaces the content of a playlist, to remove or reorder its media.
+ *
+ * @param {number} id
+ * @param {Media[]} items
+ */
+export const playlistSetItems = (id, items) => invoke("playlist_set_items", { id, items });
+
 /** @returns {Promise<Settings>} */
 export const settingsGet = () => invoke("settings_get");
 
@@ -275,6 +339,12 @@ export const onPlayerPosition = (handler) => on("player:position", handler);
 
 /** @param {() => void} handler */
 export const onLibraryChanged = (handler) => on("library:changed", handler);
+
+/** @param {() => void} handler */
+export const onFavoritesChanged = (handler) => on("favorites:changed", handler);
+
+/** @param {() => void} handler */
+export const onPlaylistsChanged = (handler) => on("playlists:changed", handler);
 
 /** @param {() => void} handler */
 export const onSettingsChanged = (handler) => on("settings:changed", handler);

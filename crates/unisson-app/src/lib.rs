@@ -55,6 +55,17 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            commands::collection::favorites_list,
+            commands::collection::favorite_set,
+            commands::collection::history_list,
+            commands::collection::history_clear,
+            commands::collection::playlists_list,
+            commands::collection::playlist_create,
+            commands::collection::playlist_rename,
+            commands::collection::playlist_delete,
+            commands::collection::playlist_items,
+            commands::collection::playlist_add,
+            commands::collection::playlist_set_items,
             commands::home::home,
             commands::player::player_state,
             commands::player::player_play_list,

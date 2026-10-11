@@ -8,6 +8,7 @@
 //! file or the network is marked `async`, so that Tauri runs it on another
 //! thread and the window never freezes.
 
+pub mod collection;
 pub mod home;
 pub mod player;
 pub mod queue;

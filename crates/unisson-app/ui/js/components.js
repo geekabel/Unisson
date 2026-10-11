@@ -2,8 +2,11 @@
  * Building blocks shared by several views.
  */
 
+import * as api from "./api.js";
 import { element, icon } from "./dom.js";
-import { formatTime, mediaKey, sourceLabel } from "./format.js";
+import { formatTime, mediaKey, sourceLabel, stationDescription, stationMedia } from "./format.js";
+import { showNotice } from "./notice.js";
+import { openAddToListMenu } from "./playlists.js";
 
 /**
  * Builds a titled section.
@@ -62,6 +65,107 @@ export function mediaRow(media, { onPlay, actions = [], sources = [media.source]
   );
   main.addEventListener("click", onPlay);
   return element("div", { class: "row", "data-media-key": mediaKey(media) }, [main, ...actions]);
+}
+
+/**
+ * Builds the button of a favorite station: one click plays it.
+ *
+ * @param {import("./api.js").Station} station
+ * @param {() => void} onPlay
+ */
+export function stationChip(station, onPlay) {
+  const description = stationDescription(station);
+  const chip = element(
+    "button",
+    {
+      class: "chip",
+      type: "button",
+      "data-media-key": mediaKey(stationMedia(station)),
+      "aria-label": `Écouter ${station.name}`,
+    },
+    [
+      element("span", { class: "chip-title truncate" }, [station.name]),
+      description ? element("span", { class: "chip-subtitle truncate" }, [description]) : null,
+    ],
+  );
+  chip.addEventListener("click", onPlay);
+  return chip;
+}
+
+/**
+ * Builds the "add to the queue" button of a media.
+ *
+ * @param {import("./api.js").Media} media
+ */
+export function queueButton(media) {
+  return iconButton({
+    icon: "plus",
+    label: `Ajouter ${media.title} à la file`,
+    onClick: () => {
+      api.enqueue(media);
+      showNotice({ owner: "queue", text: `Ajouté à la file : ${media.title}`, duration: 2500 });
+    },
+  });
+}
+
+/**
+ * Builds the "add to a list" button of a media.
+ *
+ * @param {import("./api.js").Media} media
+ */
+export function listButton(media) {
+  const button = iconButton({
+    icon: "list-add",
+    label: `Ajouter ${media.title} à une liste`,
+    onClick: () => openAddToListMenu(button, media),
+  });
+  button.setAttribute("aria-haspopup", "menu");
+  button.setAttribute("aria-expanded", "false");
+  return button;
+}
+
+/**
+ * Builds the buttons every media line offers: add to the queue, add to a
+ * list.
+ *
+ * @param {import("./api.js").Media} media
+ */
+export function mediaActions(media) {
+  return [queueButton(media), listButton(media)];
+}
+
+/**
+ * Builds a button that asks for a second click before it acts, for what
+ * cannot be undone.
+ *
+ * @param {object} options
+ * @param {string} options.label
+ * @param {string} options.confirmLabel Shown after the first click.
+ * @param {() => void} options.onConfirm
+ */
+export function confirmButton({ label, confirmLabel, onConfirm }) {
+  const button = element("button", { class: "text-button", type: "button" }, [label]);
+  let timer = null;
+  const disarm = () => {
+    clearTimeout(timer);
+    button.textContent = label;
+    button.classList.remove("text-button-danger");
+    delete button.dataset.armed;
+  };
+  button.addEventListener("click", () => {
+    if (button.dataset.armed) {
+      disarm();
+      onConfirm();
+      return;
+    }
+    button.dataset.armed = "true";
+    button.textContent = confirmLabel;
+    button.classList.add("text-button-danger");
+    // Without a second click, the button goes back to its first state.
+    timer = setTimeout(disarm, 4000);
+  });
+  button.addEventListener("blur", disarm);
+  return button;
 }
 
 /**

@@ -146,6 +146,11 @@ p {
   background: var(--color-hover);
 }
 
+.text-button-danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
 .badge {
   flex: none;
   padding: 2px 7px;
@@ -243,6 +248,19 @@ p {
 
 .nav-label {
   flex: 1;
+}
+
+.nav-heading {
+  padding: 0 12px 6px;
+  color: var(--color-text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.nav-item-soft {
+  color: var(--color-text-muted);
 }
 
 .nav-count {
@@ -848,6 +866,79 @@ kbd {
   gap: 6px;
 }
 
+/* ---------- Menus and playlists ---------- */
+
+.menu {
+  position: fixed;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: max-content;
+  min-width: 200px;
+  max-width: min(320px, calc(100vw - 16px));
+  max-height: min(360px, calc(100vh - 16px));
+  padding: 6px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 10px;
+  background: var(--color-surface);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 50%);
+  overflow-y: auto;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 40px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible {
+  background: var(--color-hover);
+}
+
+.menu-form {
+  display: flex;
+  gap: 6px;
+  padding: 2px;
+}
+
+.menu-form .field {
+  flex: 1 1 150px;
+  height: 40px;
+}
+
+.menu-form .text-button {
+  height: 40px;
+}
+
+.playlist-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.playlist-head .station-text {
+  flex: 1 1 200px;
+}
+
+.playlist-head .text-button {
+  height: 40px;
+  padding: 0 16px;
+}
+
+.playlist-head .inline-form {
+  flex: 1;
+}
+
 /* ---------- Settings ---------- */
 
 .settings {
@@ -1424,7 +1515,8 @@ kbd {
 
   .brand-name,
   .nav-label,
-  .nav-count {
+  .nav-count,
+  .nav-heading {
     display: none;
   }
 

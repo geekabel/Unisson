@@ -3,15 +3,9 @@
  */
 
 import * as api from "../api.js";
-import { mediaRow, section } from "../components.js";
+import { mediaActions, mediaRow, section, stationChip } from "../components.js";
 import { element, icon } from "../dom.js";
-import {
-  countLabel,
-  mediaKey,
-  stationDescription,
-  stationMedia,
-  tileText,
-} from "../format.js";
+import { countLabel, mediaKey, stationMedia, tileText } from "../format.js";
 
 /**
  * Builds the view.
@@ -52,7 +46,7 @@ export async function render({ showView }) {
     sections.push(
       section("Écoutés récemment", [
         element("div", { class: "rows" }, home.recent.map((media) => {
-          return mediaRow(media, { onPlay: () => api.playNow(media) });
+          return mediaRow(media, { onPlay: () => api.playNow(media), actions: mediaActions(media) });
         })),
       ]),
     );
@@ -67,7 +61,10 @@ export async function render({ showView }) {
         "Bibliothèque locale",
         [
           element("div", { class: "rows" }, home.library.map((media, index) => {
-            return mediaRow(media, { onPlay: () => api.playList(home.library, index) });
+            return mediaRow(media, {
+              onPlay: () => api.playList(home.library, index),
+              actions: mediaActions(media),
+            });
           })),
         ],
         element("span", { class: "section-note" }, [shown]),
@@ -113,27 +110,4 @@ function resumeTile(tile) {
   );
   button.addEventListener("click", () => api.playList(tile.items, tile.start));
   return button;
-}
-
-/**
- * @param {import("../api.js").Station} station
- * @param {() => void} onPlay
- */
-function stationChip(station, onPlay) {
-  const description = stationDescription(station);
-  const chip = element(
-    "button",
-    {
-      class: "chip",
-      type: "button",
-      "data-media-key": mediaKey(stationMedia(station)),
-      "aria-label": `Écouter ${station.name}`,
-    },
-    [
-      element("span", { class: "chip-title truncate" }, [station.name]),
-      description ? element("span", { class: "chip-subtitle truncate" }, [description]) : null,
-    ],
-  );
-  chip.addEventListener("click", onPlay);
-  return chip;
 }

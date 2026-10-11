@@ -235,12 +235,26 @@ impl AppState {
             .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
+    /// Tells whether a media is a favorite: a favorite station for a radio
+    /// station, a favorite media for anything else.
+    pub fn is_favorite(&self, media: &Media) -> bool {
+        if is_station(media) {
+            self.stations().contains(&media.id.key)
+        } else {
+            // A database that cannot answer shows an empty heart: harmless.
+            self.store.is_favorite(&media.id).unwrap_or(false)
+        }
+    }
+
     /// Describes a playback state for the interface.
     ///
     /// While a radio station plays, "previous" and "next" also walk the
     /// favorite stations, so they are reported as available.
     pub fn snapshot_dto(&self, snapshot: &Snapshot) -> SnapshotDto {
         let mut dto = SnapshotDto::from(snapshot);
+        if let Some(current) = &snapshot.current {
+            dto.current_is_favorite = self.is_favorite(current);
+        }
         let stations = self.stations();
         if let Some(current) = live_station(snapshot)
             && neighbor(&stations, &current.id.key, Direction::Next).is_some()
@@ -276,7 +290,7 @@ impl AppState {
 const HISTORY_DEPTH: usize = 200;
 
 /// Tells whether a media is a radio station.
-fn is_station(media: &Media) -> bool {
+pub fn is_station(media: &Media) -> bool {
     media.is_live() && media.id.source == SourceKind::Radio
 }
 
