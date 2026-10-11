@@ -34,6 +34,9 @@ pub fn search(state: State<'_, AppState>, text: String, on_update: Channel<Searc
     // sources that are still working cannot be interrupted anyway.
     let _ = on_update.send(SearchUpdateDto::new(&answers, &text, &asked));
     state.sources.search_each_in(&query, &asked, |results| {
+        if let Err(error) = &results.result {
+            eprintln!("unisson: the {} search failed: {error}", results.source);
+        }
         answers.push(results);
         let _ = on_update.send(SearchUpdateDto::new(&answers, &text, &asked));
     });

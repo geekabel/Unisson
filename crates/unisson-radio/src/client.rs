@@ -32,6 +32,12 @@ const USER_AGENT: &str = concat!("Unisson/", env!("CARGO_PKG_VERSION"));
 /// Longest time allowed for one request, from connection to last byte.
 const TIMEOUT: Duration = Duration::from_secs(10);
 
+/// How many times the whole list of mirrors is tried before giving up.
+const ROUNDS: usize = 2;
+
+/// Pause before the mirrors are tried again.
+const PAUSE_BETWEEN_ROUNDS: Duration = Duration::from_millis(250);
+
 /// What to search for in the directory.
 ///
 /// Results are the most listened stations first. Stations whose stream was
@@ -257,6 +263,11 @@ impl RadioBrowser {
     }
 
     /// Sends a GET request to the first mirror that answers.
+    ///
+    /// The mirrors are volunteer machines, and each of them hiccups now and
+    /// then: a connection that was kept open is dropped, a request is
+    /// refused while the machine is busy. If every mirror failed, they are
+    /// all asked once more after a short pause, which is usually enough.
     fn get_json<T: DeserializeOwned>(
         &self,
         path: &str,
@@ -264,16 +275,21 @@ impl RadioBrowser {
     ) -> Result<T, SourceError> {
         let servers = self.known_servers()?;
         let mut last_error = SourceError::Unavailable("no radio directory server is known".into());
-        for server in &servers {
-            match self.fetch(&format!("{server}{path}"), params) {
-                Ok(value) => {
-                    self.prefer(server);
-                    return Ok(value);
+        for round in 0..ROUNDS {
+            if round > 0 {
+                std::thread::sleep(PAUSE_BETWEEN_ROUNDS);
+            }
+            for server in &servers {
+                match self.fetch(&format!("{server}{path}"), params) {
+                    Ok(value) => {
+                        self.prefer(server);
+                        return Ok(value);
+                    }
+                    // This mirror is down or unwell: try the next one.
+                    Err(error @ SourceError::Network(_)) => last_error = error,
+                    // The mirror answered: another one would say the same.
+                    Err(error) => return Err(error),
                 }
-                // This mirror is down or unwell: try the next one.
-                Err(error @ SourceError::Network(_)) => last_error = error,
-                // The mirror answered: another one would say the same.
-                Err(error) => return Err(error),
             }
         }
         Err(last_error)
@@ -471,6 +487,34 @@ mod tests {
 
         assert_eq!(client.search(&StationQuery::new()).unwrap().len(), 1);
         assert_eq!(failing.requests().len(), 1);
+    }
+
+    #[test]
+    fn a_passing_failure_of_every_server_is_tried_again() {
+        // The only server is busy for its first request, then answers.
+        let calls = std::sync::atomic::AtomicUsize::new(0);
+        let server = TestServer::start(move |_| {
+            if calls.fetch_add(1, std::sync::atomic::Ordering::SeqCst) == 0 {
+                (503, "busy".to_owned())
+            } else {
+                (200, "[]".to_owned())
+            }
+        });
+        let client = RadioBrowser::for_tests(&[&server.url]);
+
+        assert_eq!(client.search(&StationQuery::new()), Ok(Vec::new()));
+        assert_eq!(server.requests().len(), 2);
+    }
+
+    #[test]
+    fn a_lasting_failure_is_given_up_after_two_rounds() {
+        let failing = TestServer::start(|_| (503, "busy".to_owned()));
+        let client = RadioBrowser::for_tests(&[&failing.url]);
+
+        let error = client.search(&StationQuery::new()).unwrap_err();
+
+        assert!(matches!(error, SourceError::Network(_)), "{error}");
+        assert_eq!(failing.requests().len(), ROUNDS);
     }
 
     #[test]

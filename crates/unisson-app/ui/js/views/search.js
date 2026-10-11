@@ -38,8 +38,8 @@ const KINDS = [
 ];
 
 const SOURCE_ERRORS = {
-  network: "le réseau ne répond pas",
-  unavailable: "source indisponible pour le moment",
+  network: "pas de réponse pour l'instant",
+  unavailable: "indisponible pour l'instant",
 };
 
 const state = {
@@ -129,6 +129,15 @@ export function setQuery(text) {
       state.update = { hits: [], pending: [], errors: [{ source: "", kind: "unavailable" }], done: true };
       draw();
     });
+}
+
+/** Asks every source again for the same text. */
+function retrySearch() {
+  const text = state.text;
+  state.text = "";
+  setQuery(text);
+  // The button is about to disappear: the keyboard goes back to the box.
+  document.getElementById("search-input")?.focus();
 }
 
 /** Forgets the search. */
@@ -355,13 +364,19 @@ function drawResults() {
   summaryArea.textContent = searchSummary(state.text, update, count, MIN_LENGTH);
 
   const content = [];
-  for (const error of update?.errors ?? []) {
-    const reason = SOURCE_ERRORS[error.kind] ?? SOURCE_ERRORS.unavailable;
-    content.push(
-      element("p", { class: "hint search-error" }, [
+  const errors = update?.errors ?? [];
+  if (errors.length > 0) {
+    // A source that did not answer is a side note, not an alarm: the other
+    // sources still show their results. The technical reason is a tooltip.
+    const notes = errors.map((error) => {
+      const reason = SOURCE_ERRORS[error.kind] ?? SOURCE_ERRORS.unavailable;
+      return element("span", { class: "search-note", title: error.detail || null }, [
         error.source ? `${sourceLabel(error.source)} : ${reason}.` : "La recherche a échoué.",
-      ]),
-    );
+      ]);
+    });
+    const retry = element("button", { class: "link-button", type: "button" }, ["Réessayer"]);
+    retry.addEventListener("click", retrySearch);
+    content.push(element("p", { class: "search-notes" }, [...notes, retry]));
   }
 
   if (hits.length > 0) {

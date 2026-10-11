@@ -32,6 +32,8 @@ pub struct SearchErrorDto {
     pub source: String,
     /// `network`, or `unavailable` for anything else.
     pub kind: &'static str,
+    /// The technical message, in English, for whoever wants to know more.
+    pub detail: String,
 }
 
 /// The state of a search, sent each time a source answers.
@@ -77,6 +79,7 @@ impl SearchUpdateDto {
                         SourceError::Network(_) => "network",
                         _ => "unavailable",
                     },
+                    detail: error.to_string(),
                 })
             })
             .collect();
