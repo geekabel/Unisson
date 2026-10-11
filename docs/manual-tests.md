@@ -6,6 +6,9 @@ session can show: sound, the desktop of GNOME, the keyboard, the network.
 
 Target: Ubuntu 22.04 with GNOME.
 
+The texts quoted below are those of the French interface. In English the
+labels differ, the behavior does not.
+
 ## How to use it
 
 1. Find the session in use:
@@ -63,7 +66,7 @@ marked **yt**.
 
 | # | Step | Expected | Wayland | X11 |
 | --- | --- | --- | --- | --- |
-| 4.1 | Open *Sources* | The version of yt-dlp is shown, or how to install it. | | |
+| 4.1 | Open *Sources* | The YouTube card says that its component is installed, with a version, or that it is missing. | | |
 | 4.2 | **net yt** Search a song by name | Results from YouTube appear with the others, a moment later. | | |
 | 4.3 | **net yt** Press Enter on a YouTube result | Sound starts. The duration is right. | | |
 | 4.4 | **net yt** Paste a YouTube link in the search field, press Enter | The video plays. | | |
@@ -121,7 +124,7 @@ marked **yt**.
 | 8.3 | With the Wi-Fi off, search something | Local results appear. A quiet note says which sources did not answer. | | |
 | 8.4 | Queue three local tracks. Delete the file of the second one while the first plays | The second is skipped with a short message. The third plays. | | |
 | 8.5 | Paste `http://example.invalid/stream` in the search field, press Enter | A clear message. Nothing plays. Unisson does not close. | | |
-| 8.6 | Rename the yt-dlp program for a moment, then search | YouTube is noted as unavailable, with "Vérifier yt-dlp". The other sources still answer. | | |
+| 8.6 | Rename the yt-dlp program for a moment, then search | YouTube is noted as unavailable, with "Vérifier YouTube". The other sources still answer. | | |
 | 8.7 | Close the window, then make a station fail (Wi-Fi off) | A notification says that playback stopped. | | |
 
 ## 9. Keyboard, colors, text size
@@ -137,12 +140,20 @@ marked **yt**.
 | 9.7 | Choose "Comme le système". In the settings of Ubuntu, switch between the light and dark styles | Unisson follows. | | |
 | 9.8 | Press Ctrl++ three times, then Ctrl+0 | The display grows, nothing is cut off, then it comes back. | | |
 
-## 10. Removal
+## 10. Language
 
 | # | Step | Expected | Wayland | X11 |
 | --- | --- | --- | --- | --- |
-| 10.1 | `sudo apt remove unisson` | Unisson leaves the application menu. | | |
-| 10.2 | Look at `~/.config/unisson` and `~/.local/share/unisson` | Settings and library are kept, for a later installation. | | |
+| 10.1 | In *Sources*, choose English as the language | The window reloads in English. Playback is not interrupted. | | |
+| 10.2 | Open the tray menu, the mini-player and the launcher | They are in English too. | | |
+| 10.3 | Choose "Same as system" | The interface follows the language of the desktop again. | | |
+
+## 11. Removal
+
+| # | Step | Expected | Wayland | X11 |
+| --- | --- | --- | --- | --- |
+| 11.1 | `sudo apt remove unisson` | Unisson leaves the application menu. | | |
+| 11.2 | Look at `~/.config/unisson` and `~/.local/share/unisson` | Settings and library are kept, for a later installation. | | |
 
 ## Known differences between the two sessions
 
