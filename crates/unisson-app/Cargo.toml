@@ -27,6 +27,10 @@ unisson-radio.workspace = true
 unisson-store.workspace = true
 serde.workspace = true
 tauri = { version = "2", features = [] }
+# Native dialogs: the folder picker of the settings.
+tauri-plugin-dialog = "2"
+# The settings file is written in TOML, which is easy to read and to edit.
+toml = "1"
 
 [dev-dependencies]
 serde_json = "1"

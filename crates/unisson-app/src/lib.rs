@@ -16,13 +16,16 @@ pub mod commands;
 pub mod dto;
 pub mod events;
 pub mod home;
+pub mod library;
 pub mod search;
+pub mod settings;
 pub mod state;
 
 use std::sync::Arc;
 
 use tauri::Manager;
 
+use crate::library::LibrarySync;
 use crate::state::AppState;
 
 /// Runs the application until its window is closed.
@@ -33,14 +36,22 @@ use crate::state::AppState;
 /// the audio engine is missing, or no window can be created.
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let (state, session_events) = AppState::start()?;
             let store = Arc::clone(&state.store);
+            let music_folder = state.music_folder();
             app.manage(state);
 
             let handle = app.handle();
             events::forward_session_events(handle.clone(), Arc::clone(&store), session_events);
-            events::keep_library_in_sync(handle.clone(), store);
+            events::save_settings_when_idle(handle.clone());
+
+            let library = LibrarySync::new(handle.clone(), store);
+            if let Some(folder) = music_folder {
+                library.follow(folder);
+            }
+            app.manage(library);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -68,6 +79,12 @@ pub fn run() {
             commands::radio::station_set_favorite,
             commands::radio::station_add_custom,
             commands::search::search,
+            commands::settings::settings_get,
+            commands::settings::settings_set_source_enabled,
+            commands::settings::settings_set_priority,
+            commands::settings::settings_pick_music_folder,
+            commands::settings::settings_reset_music_folder,
+            commands::settings::settings_rescan_library,
         ])
         .run(tauri::generate_context!())
         .expect("cannot run Unisson");

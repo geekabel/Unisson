@@ -1,5 +1,6 @@
 //! What the application keeps alive while it runs.
 
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -11,6 +12,7 @@ use unisson_radio::{Favorites, RadioBrowser, RadioSource, Station};
 use unisson_store::{LocalSource, Store, StoreError};
 
 use crate::dto::SnapshotDto;
+use crate::settings::{Settings, SettingsError};
 
 /// Which way "previous" and "next" go.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -36,8 +38,12 @@ pub struct AppState {
     stations: Mutex<Favorites>,
     /// The radio station listened to most recently.
     last_radio: Mutex<Option<Media>>,
-    /// Whether that station takes over when the queue runs out.
-    resume_radio: AtomicBool,
+    /// The settings of the user. Their file holds a copy.
+    settings: Mutex<Settings>,
+    /// Where the settings are saved, when a home directory is known.
+    settings_path: Option<PathBuf>,
+    /// Whether the settings changed since they were last written.
+    settings_unsaved: AtomicBool,
 }
 
 impl AppState {
@@ -51,6 +57,11 @@ impl AppState {
     /// engine cannot start.
     pub fn start() -> Result<(Self, Receiver<SessionEvent>), Box<dyn std::error::Error>> {
         let store = Arc::new(Store::open_default()?);
+        let settings_path = Settings::default_path();
+        let settings = settings_path
+            .as_deref()
+            .map(Settings::load)
+            .unwrap_or_default();
 
         let radio = Arc::new(RadioSource::new(RadioBrowser::new()));
         let stations = Favorites::from_stations(store.favorite_stations()?);
@@ -70,6 +81,7 @@ impl AppState {
             Arc::new(move |id: &MediaId| sources.resolve(id))
         };
         let (session, events) = Session::start(engine, engine_events, resolver);
+        session.set_volume(settings.volume);
 
         // The station of the last session is the one to come back to.
         let last_radio = store
@@ -84,7 +96,9 @@ impl AppState {
             sources,
             stations: Mutex::new(stations),
             last_radio: Mutex::new(last_radio),
-            resume_radio: AtomicBool::new(true),
+            settings: Mutex::new(settings),
+            settings_path,
+            settings_unsaved: AtomicBool::new(false),
         };
         state.apply_fallback();
         Ok((state, events))
@@ -126,17 +140,75 @@ impl AppState {
         self.lock_last_radio().clone()
     }
 
-    /// Tells whether the last radio station takes over when the queue runs
-    /// out.
-    pub fn resume_radio(&self) -> bool {
-        self.resume_radio.load(Ordering::Relaxed)
+    /// Returns a copy of the settings.
+    pub fn settings(&self) -> Settings {
+        self.lock_settings().clone()
     }
 
-    /// Chooses whether the last radio station takes over when the queue
-    /// runs out.
-    pub fn set_resume_radio(&self, enabled: bool) {
-        self.resume_radio.store(enabled, Ordering::Relaxed);
+    /// Returns where the settings are saved, when a home directory is known.
+    pub fn settings_path(&self) -> Option<&PathBuf> {
+        self.settings_path.as_ref()
+    }
+
+    /// Changes the settings, and writes them to their file at once.
+    ///
+    /// The change is all or nothing: if the file cannot be written, the
+    /// settings in memory stay as they were.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`SettingsError`] if the file cannot be written.
+    pub fn update_settings(&self, change: impl FnOnce(&mut Settings)) -> Result<(), SettingsError> {
+        let mut settings = self.lock_settings();
+        let mut changed = settings.clone();
+        change(&mut changed);
+        if let Some(path) = &self.settings_path {
+            changed.save(path)?;
+        }
+        *settings = changed;
+        drop(settings);
+        self.settings_unsaved.store(false, Ordering::Relaxed);
         self.apply_fallback();
+        Ok(())
+    }
+
+    /// Records the volume the user set. It is written to the settings file
+    /// a moment later, by [`save_settings_if_changed`](Self::save_settings_if_changed).
+    pub fn note_volume(&self, volume: f64) {
+        let mut settings = self.lock_settings();
+        if settings.volume != volume {
+            settings.set_volume(volume);
+            self.settings_unsaved.store(true, Ordering::Relaxed);
+        }
+    }
+
+    /// Writes the settings to their file, if they changed since last time.
+    pub fn save_settings_if_changed(&self) {
+        if !self.settings_unsaved.swap(false, Ordering::Relaxed) {
+            return;
+        }
+        let settings = self.settings();
+        if let Some(path) = &self.settings_path
+            && let Err(error) = settings.save(path)
+        {
+            eprintln!("unisson: {error}");
+        }
+    }
+
+    /// Returns the folder of the local library: the one the user chose, or
+    /// the music folder of the desktop.
+    pub fn music_folder(&self) -> Option<PathBuf> {
+        self.settings()
+            .music_folder
+            .or_else(unisson_local::music_directory)
+    }
+
+    fn lock_settings(&self) -> MutexGuard<'_, Settings> {
+        // The settings are always valid, even if a thread panicked while
+        // holding them.
+        self.settings
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     /// Records that a media started playing.
@@ -151,7 +223,9 @@ impl AppState {
 
     /// Tells the session what plays when the queue runs out.
     fn apply_fallback(&self) {
-        let fallback = self.last_radio().filter(|_| self.resume_radio());
+        let fallback = self
+            .last_radio()
+            .filter(|_| self.lock_settings().resume_radio);
         self.session.set_fallback(fallback);
     }
 

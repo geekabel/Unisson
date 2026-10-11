@@ -10,13 +10,6 @@ use unisson_core::{SourceError, SourceKind, SourceResults, merge_results};
 
 use crate::dto::MediaDto;
 
-/// Which copy of a track is played when several sources have it: the first
-/// source of this list that does.
-///
-/// A local file needs no network and no third-party service, so it wins.
-pub const SOURCE_PRIORITY: [SourceKind; 3] =
-    [SourceKind::Local, SourceKind::Radio, SourceKind::YouTube];
-
 /// Number of hits each source is asked for.
 pub const LIMIT_PER_SOURCE: usize = 20;
 
@@ -58,10 +51,11 @@ pub struct SearchUpdateDto {
 impl SearchUpdateDto {
     /// Describes a search from the answers received so far.
     ///
-    /// `text` is what the user typed, and `asked` lists every source that
-    /// was asked.
+    /// `text` is what the user typed. `asked` lists every source that was
+    /// asked, from the most to the least preferred: when several sources
+    /// have a track, the first one of the list is played.
     pub fn new(answers: &[SourceResults], text: &str, asked: &[SourceKind]) -> Self {
-        let hits = merge_results(answers, text, &SOURCE_PRIORITY)
+        let hits = merge_results(answers, text, asked)
             .iter()
             .map(|hit| HitDto {
                 media: MediaDto::from(&hit.media),

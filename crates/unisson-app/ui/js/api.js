@@ -62,6 +62,15 @@
  * @property {?Media} lastRadio The radio listened to most recently.
  * @property {boolean} resumeRadio Whether it takes over when the queue runs out.
  *
+ * @typedef {object} Settings
+ * @property {{id: string, enabled: boolean}[]} sources The preferred one first.
+ * @property {?string} musicFolder
+ * @property {boolean} musicFolderIsDefault
+ * @property {boolean} musicFolderExists
+ * @property {number} libraryTotal
+ * @property {boolean} resumeRadio
+ * @property {?string} configPath
+ *
  * @typedef {object} SearchUpdate
  * @property {{media: Media, sources: string[]}[]} hits The best match first.
  * @property {string[]} pending Sources still searching.
@@ -185,6 +194,40 @@ export const queueClear = () => invoke("queue_clear");
  */
 export const queueSetResumeRadio = (enabled) => invoke("queue_set_resume_radio", { enabled });
 
+/** @returns {Promise<Settings>} */
+export const settingsGet = () => invoke("settings_get");
+
+/**
+ * Switches a source on or off.
+ *
+ * @param {string} sourceId
+ * @param {boolean} enabled
+ * @returns {Promise<Settings>}
+ */
+export const settingsSetSourceEnabled = (sourceId, enabled) =>
+  invoke("settings_set_source_enabled", { sourceId, enabled });
+
+/**
+ * Sets the preferred order of the sources.
+ *
+ * @param {string[]} priority Source identifiers, the preferred one first.
+ * @returns {Promise<Settings>}
+ */
+export const settingsSetPriority = (priority) => invoke("settings_set_priority", { priority });
+
+/**
+ * Opens the system dialog to choose the music folder.
+ *
+ * @returns {Promise<Settings>} Unchanged if the dialog was closed.
+ */
+export const settingsPickMusicFolder = () => invoke("settings_pick_music_folder");
+
+/** @returns {Promise<Settings>} */
+export const settingsResetMusicFolder = () => invoke("settings_reset_music_folder");
+
+/** Reads the music folder again, from scratch. */
+export const settingsRescanLibrary = () => invoke("settings_rescan_library");
+
 /** @returns {Promise<Station[]>} The favorite stations, in the user's order. */
 export const stationsFavorites = () => invoke("stations_favorites");
 
@@ -232,6 +275,9 @@ export const onPlayerPosition = (handler) => on("player:position", handler);
 
 /** @param {() => void} handler */
 export const onLibraryChanged = (handler) => on("library:changed", handler);
+
+/** @param {() => void} handler */
+export const onSettingsChanged = (handler) => on("settings:changed", handler);
 
 /** @param {() => void} handler */
 export const onQueueChanged = (handler) => on("queue:changed", handler);

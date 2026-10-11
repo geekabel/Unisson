@@ -13,3 +13,4 @@ pub mod player;
 pub mod queue;
 pub mod radio;
 pub mod search;
+pub mod settings;

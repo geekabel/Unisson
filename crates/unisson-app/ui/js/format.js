@@ -23,6 +23,53 @@ export function formatTime(milliseconds) {
 }
 
 const SOURCE_LABELS = { radio: "Radio", local: "Local", youtube: "YouTube" };
+const SOURCE_NAMES = { radio: "Radio", local: "Fichiers locaux", youtube: "YouTube" };
+
+/**
+ * Returns the full name of a source, for the settings.
+ *
+ * @param {string} source
+ */
+export function sourceName(source) {
+  return SOURCE_NAMES[source] ?? source;
+}
+
+/**
+ * Shortens a path for display: the home folder becomes `~`.
+ *
+ * @param {?string} path
+ * @param {?string} [home] The home folder, when it is known.
+ */
+export function displayPath(path, home = null) {
+  if (!path) {
+    return "";
+  }
+  if (home && (path === home || path.startsWith(`${home}/`))) {
+    return `~${path.slice(home.length)}`;
+  }
+  // Without the home folder, recognize the usual place of homes on Linux.
+  return path.replace(/^\/home\/[^/]+(?=\/|$)/, "~");
+}
+
+/**
+ * Moves an item of a list one step up or down, and returns the new list.
+ * The list is returned unchanged when the item cannot move.
+ *
+ * @template T
+ * @param {T[]} list
+ * @param {number} index
+ * @param {-1|1} step
+ * @returns {T[]}
+ */
+export function moved(list, index, step) {
+  const target = index + step;
+  if (index < 0 || index >= list.length || target < 0 || target >= list.length) {
+    return list;
+  }
+  const copy = [...list];
+  [copy[index], copy[target]] = [copy[target], copy[index]];
+  return copy;
+}
 
 /**
  * Returns the display name of a source.

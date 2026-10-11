@@ -7,7 +7,7 @@ use unisson_core::SearchQuery;
 use crate::search::{LIMIT_PER_SOURCE, SearchUpdateDto};
 use crate::state::AppState;
 
-/// Searches every active source for `text`.
+/// Searches every source that is switched on for `text`.
 ///
 /// The results arrive through `on_update`, once at the start and then each
 /// time a source answers. The last update has `done` set. The command
@@ -19,13 +19,17 @@ pub fn search(state: State<'_, AppState>, text: String, on_update: Channel<Searc
     let asked = if query.is_empty() {
         Vec::new()
     } else {
-        state.sources.kinds()
+        // In order of preference, and only the sources that exist.
+        let registered = state.sources.kinds();
+        let mut asked = state.settings().enabled_sources();
+        asked.retain(|source| registered.contains(source));
+        asked
     };
     let mut answers = Vec::new();
     // A failed send means the interface stopped listening: carry on, the
     // sources that are still working cannot be interrupted anyway.
     let _ = on_update.send(SearchUpdateDto::new(&answers, &text, &asked));
-    state.sources.search_each(&query, |results| {
+    state.sources.search_each_in(&query, &asked, |results| {
         answers.push(results);
         let _ = on_update.send(SearchUpdateDto::new(&answers, &text, &asked));
     });

@@ -10,6 +10,7 @@ import { mediaKey } from "./format.js";
 import * as home from "./views/home.js";
 import * as radios from "./views/radios.js";
 import * as search from "./views/search.js";
+import * as sources from "./views/sources.js";
 
 /** A view that is not built yet: it only says when it arrives. */
 function coming(title, text) {
@@ -27,7 +28,7 @@ const VIEWS = {
   search,
   favorites: coming("Favoris", "Vos titres favoris arrivent avec la tâche T21."),
   history: coming("Historique", "L'historique d'écoute arrive avec la tâche T21. Il s'enregistre déjà."),
-  sources: coming("Sources", "Le réglage des sources arrive avec la tâche T20."),
+  sources,
 };
 
 const container = byId("view");

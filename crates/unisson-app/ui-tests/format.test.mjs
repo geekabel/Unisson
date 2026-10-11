@@ -11,15 +11,18 @@ import {
   capitalize,
   countLabel,
   countryName,
+  displayPath,
   fillPercent,
   formatTime,
   looksLikeTarget,
   mediaKey,
   mediaSubtitle,
+  moved,
   openErrorMessage,
   playbackErrorMessage,
   searchSummary,
   sourceLabel,
+  sourceName,
   stationDescription,
   stationMedia,
   stationQuality,
@@ -172,4 +175,28 @@ test("searchSummary follows the search from the first letter to the last answer"
   const none = { hits: [], pending: [], errors: [], done: true };
   assert.equal(searchSummary("zzz", none, 0, 2), "Aucun résultat pour « zzz ».");
   assert.equal(searchSummary("zzz", { ...none, done: false }, 0, 2), "Recherche en cours…");
+});
+
+test("displayPath shortens the home folder", () => {
+  assert.equal(displayPath("/home/me/Music"), "~/Music");
+  assert.equal(displayPath("/home/me"), "~");
+  assert.equal(displayPath("/data/home/me/Music"), "/data/home/me/Music");
+  assert.equal(displayPath("/srv/media/Music", "/srv/media"), "~/Music");
+  assert.equal(displayPath("/srv/mediatheque", "/srv/media"), "/srv/mediatheque");
+  assert.equal(displayPath(null), "");
+});
+
+test("moved swaps an item with its neighbor, or changes nothing", () => {
+  const list = ["a", "b", "c"];
+  assert.deepEqual(moved(list, 0, 1), ["b", "a", "c"]);
+  assert.deepEqual(moved(list, 2, -1), ["a", "c", "b"]);
+  assert.equal(moved(list, 0, -1), list);
+  assert.equal(moved(list, 2, 1), list);
+  assert.equal(moved(list, 5, -1), list);
+  assert.deepEqual(list, ["a", "b", "c"], "the original list is not touched");
+});
+
+test("sourceName gives the full name of a source", () => {
+  assert.equal(sourceName("local"), "Fichiers locaux");
+  assert.equal(sourceName("cassette"), "cassette");
 });

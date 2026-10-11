@@ -7,6 +7,7 @@ import { showNotice } from "./notice.js";
 import { renderPlayer, renderPosition } from "./player-bar.js";
 import { refreshQueue } from "./queue.js";
 import "./search-box.js";
+import { loadSettings } from "./settings.js";
 import { loadStations } from "./stations.js";
 import { refreshView, setPlayerState, showView } from "./views.js";
 
@@ -31,15 +32,23 @@ async function start() {
   await Promise.all([
     api.onPlayerChanged(onPlayerChanged),
     api.onPlayerPosition(renderPosition),
-    api.onLibraryChanged(() => refreshView("home")),
+    api.onLibraryChanged(() => {
+      refreshView("home");
+      // The settings screen shows how many tracks the library holds.
+      loadSettings();
+    }),
     api.onHistoryChanged(() => refreshView("home")),
     api.onQueueChanged(refreshQueue),
+    api.onSettingsChanged(async () => {
+      await loadSettings();
+      refreshQueue();
+    }),
     api.onStationsChanged(async () => {
       await loadStations();
       refreshView("home");
     }),
   ]);
-  await loadStations();
+  await Promise.all([loadStations(), loadSettings()]);
   onPlayerChanged(await api.playerState());
   refreshQueue();
   await showView("home");

@@ -325,6 +325,12 @@ impl CommandError {
     }
 }
 
+impl From<crate::settings::SettingsError> for CommandError {
+    fn from(error: crate::settings::SettingsError) -> Self {
+        Self::new("storage", error.to_string())
+    }
+}
+
 impl From<unisson_store::StoreError> for CommandError {
     fn from(error: unisson_store::StoreError) -> Self {
         Self::new("storage", error.to_string())

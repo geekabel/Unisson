@@ -7,10 +7,9 @@
 use std::sync::Arc;
 use std::sync::mpsc::Receiver;
 use std::thread;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use tauri::{AppHandle, Emitter, Manager};
-use unisson_local::{LibraryWatcher, music_directory, scan};
 use unisson_playback::SessionEvent;
 use unisson_store::Store;
 
@@ -21,6 +20,10 @@ use crate::state::AppState;
 pub const PLAYER_CHANGED: &str = "player:changed";
 /// Playback moved on. Payload: [`PositionDto`].
 pub const PLAYER_POSITION: &str = "player:position";
+/// The settings changed. No payload.
+pub const SETTINGS_CHANGED: &str = "settings:changed";
+/// How long a changed setting may wait before it is written to the file.
+const SAVE_INTERVAL: Duration = Duration::from_secs(1);
 /// The library of local files changed. No payload.
 pub const LIBRARY_CHANGED: &str = "library:changed";
 /// The play queue changed. No payload.
@@ -40,6 +43,7 @@ pub fn forward_session_events(app: AppHandle, store: Arc<Store>, events: Receive
             let _ = match event {
                 SessionEvent::Changed(snapshot) => {
                     let state = app.state::<AppState>();
+                    state.note_volume(snapshot.volume);
                     app.emit(PLAYER_CHANGED, state.snapshot_dto(&snapshot))
                 }
                 SessionEvent::Position { position, duration } => {
@@ -61,41 +65,15 @@ pub fn forward_session_events(app: AppHandle, store: Arc<Store>, events: Receive
     });
 }
 
-/// Keeps the library in step with the music folder, for as long as the
-/// application runs.
+/// Writes the settings to their file a moment after they changed.
 ///
-/// The folder is read once at startup, then watched for changes.
-pub fn keep_library_in_sync(app: AppHandle, store: Arc<Store>) {
-    spawn("unisson-library", move || {
-        let Some(folder) = music_directory().filter(|folder| folder.is_dir()) else {
-            return;
-        };
-        // Watch first, scan second: a file that arrives during the scan is
-        // then reported by the watcher instead of being missed.
-        let watch = LibraryWatcher::start(&folder);
-        if let Err(error) = &watch {
-            eprintln!("unisson: the music folder is not watched: {error}");
-        }
-
-        match scan(&folder).map(|report| store.replace_library(&report.tracks)) {
-            Ok(Ok(())) => {
-                let _ = app.emit(LIBRARY_CHANGED, ());
-            }
-            Ok(Err(error)) => eprintln!("unisson: cannot save the library: {error}"),
-            Err(error) => eprintln!("unisson: cannot read the music folder: {error}"),
-        }
-
-        let Ok((_watcher, changes)) = watch else {
-            return;
-        };
-        for change in changes {
-            match store.apply_library_change(&change) {
-                Ok(0) => {}
-                Ok(_) => {
-                    let _ = app.emit(LIBRARY_CHANGED, ());
-                }
-                Err(error) => eprintln!("unisson: cannot update the library: {error}"),
-            }
+/// Some settings change many times in a row, such as the volume while its
+/// slider moves. Waiting for a pause avoids writing the file each time.
+pub fn save_settings_when_idle(app: AppHandle) {
+    spawn("unisson-settings", move || {
+        loop {
+            thread::sleep(SAVE_INTERVAL);
+            app.state::<AppState>().save_settings_if_changed();
         }
     });
 }

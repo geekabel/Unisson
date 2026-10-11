@@ -2,8 +2,8 @@
 
 use tauri::{AppHandle, Emitter, State};
 
-use crate::dto::QueueDto;
-use crate::events::QUEUE_CHANGED;
+use crate::dto::{CommandError, QueueDto};
+use crate::events::{QUEUE_CHANGED, SETTINGS_CHANGED};
 use crate::state::AppState;
 
 /// Returns the queue, and what plays when it runs out.
@@ -12,7 +12,7 @@ pub fn queue_state(state: State<'_, AppState>) -> QueueDto {
     QueueDto::new(
         &state.session.queue(),
         state.last_radio().as_ref(),
-        state.resume_radio(),
+        state.settings().resume_radio,
     )
 }
 
@@ -44,9 +44,15 @@ pub fn queue_clear(state: State<'_, AppState>) {
 /// Chooses whether the last radio station takes over when the queue runs
 /// out.
 #[tauri::command]
-pub fn queue_set_resume_radio(app: AppHandle, state: State<'_, AppState>, enabled: bool) {
-    state.set_resume_radio(enabled);
+pub fn queue_set_resume_radio(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> Result<(), CommandError> {
+    state.update_settings(|settings| settings.resume_radio = enabled)?;
     // The session only reports a change when a station is known: tell the
     // interface in every case, so the switch shows what was chosen.
     let _ = app.emit(QUEUE_CHANGED, ());
+    let _ = app.emit(SETTINGS_CHANGED, ());
+    Ok(())
 }
