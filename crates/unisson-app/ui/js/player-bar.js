@@ -207,6 +207,7 @@ favoriteButton.addEventListener("click", async () => {
   }
 });
 
+byId("player-mini").addEventListener("click", () => api.windowShowMini());
 toggleButton.addEventListener("click", () => api.toggle());
 previousButton.addEventListener("click", () => api.previous());
 nextButton.addEventListener("click", () => api.next());

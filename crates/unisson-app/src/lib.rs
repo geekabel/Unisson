@@ -70,14 +70,27 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            if window.label() == windows::MAIN
-                && let tauri::WindowEvent::CloseRequested { api, .. } = event
-                && windows::keeps_running_when_closed(window.app_handle())
-            {
-                // Keep playing: only hide the window. The tray icon, the
-                // media keys, or starting Unisson again bring it back.
-                api.prevent_close();
-                let _ = window.hide();
+            let tauri::WindowEvent::CloseRequested { api, .. } = event else {
+                return;
+            };
+            let app = window.app_handle();
+            match window.label() {
+                windows::MAIN if windows::keeps_running_when_closed(app) => {
+                    // Keep playing: only hide the window. The tray icon,
+                    // the media keys, or starting Unisson again bring it
+                    // back.
+                    api.prevent_close();
+                    let _ = window.hide();
+                }
+                // Closing the main window for good ends the application,
+                // small windows included.
+                windows::MAIN => app.exit(0),
+                // Closing the mini-player goes back to the main window.
+                windows::MINI => {
+                    api.prevent_close();
+                    windows::show_main(app);
+                }
+                _ => {}
             }
         })
         .invoke_handler(tauri::generate_handler![
@@ -124,6 +137,9 @@ pub fn run() {
             commands::settings::settings_rescan_library,
             commands::settings::settings_check_yt_dlp,
             commands::settings::settings_set_keep_in_tray,
+            commands::window::window_show_main,
+            commands::window::window_show_mini,
+            commands::window::window_show_search,
         ])
         .run(tauri::generate_context!())
         .expect("cannot run Unisson");

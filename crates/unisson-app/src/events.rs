@@ -22,6 +22,8 @@ use crate::tray;
 pub const PLAYER_CHANGED: &str = "player:changed";
 /// Playback moved on. Payload: [`PositionDto`].
 pub const PLAYER_POSITION: &str = "player:position";
+/// The search box of the main window must take the keyboard. No payload.
+pub const FOCUS_SEARCH: &str = "ui:focus-search";
 /// The settings changed. No payload.
 pub const SETTINGS_CHANGED: &str = "settings:changed";
 /// How long a changed setting may wait before it is written to the file.

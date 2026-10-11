@@ -28,6 +28,7 @@
   <symbol id="icon-video" viewBox="0 0 24 24"><rect x="3.5" y="6" width="17" height="12" rx="3"/><path d="M10.5 9.5v5l4.5-2.5z"/></symbol>
   <symbol id="icon-list" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></symbol>
   <symbol id="icon-list-add" viewBox="0 0 24 24"><path d="M4 7h12M4 12h8M4 17h6"/><path d="M17 12v8M13 16h8"/></symbol>
+  <symbol id="icon-mini" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><rect x="12" y="12" width="6" height="4.5" rx="1"/></symbol>
   <symbol id="icon-up" viewBox="0 0 24 24"><path d="M6 14l6-6 6 6"/></symbol>
   <symbol id="icon-down" viewBox="0 0 24 24"><path d="M6 10l6 6 6-6"/></symbol>
   <!-- Filled icons. -->
@@ -148,6 +149,10 @@
       </button>
       <input class="slider slider-volume" id="player-volume" type="range" min="0" max="100" step="1" value="100"
         aria-label="Volume">
+      <button class="icon-button" id="player-mini" type="button"
+        aria-label="Réduire en mini-lecteur" title="Réduire en mini-lecteur">
+        <svg class="icon" aria-hidden="true"><use href="#icon-mini"/></svg>
+      </button>
       <button class="icon-button toggle-button" id="player-queue" type="button"
         aria-label="File d'attente" title="File d'attente" aria-pressed="false" aria-controls="queue">
         <svg class="icon" aria-hidden="true"><use href="#icon-queue"/></svg>

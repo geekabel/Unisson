@@ -130,6 +130,12 @@ document.addEventListener("unisson:search", (event) => {
   searchNow();
 });
 
+// Another window asked for a search, such as the mini-player.
+api.onFocusSearch(() => {
+  input.focus();
+  input.select();
+});
+
 document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "k") {
     event.preventDefault();

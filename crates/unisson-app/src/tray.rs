@@ -166,6 +166,7 @@ fn build_menu(app: &AppHandle, facts: &MenuFacts) -> tauri::Result<Menu<tauri::W
         menu = menu.item(&stations.build()?).separator();
     }
     menu.text("open", "Ouvrir Unisson")
+        .text("mini", "Mini-lecteur")
         .text("quit", "Quitter")
         .build()
 }
@@ -178,6 +179,7 @@ fn on_menu_event(app: &AppHandle, id: &str) {
         "next" => state.next(),
         "previous" => state.previous(),
         "open" => windows::show_main(app),
+        "mini" => windows::show_mini(app),
         "quit" => app.exit(0),
         _ => {
             if let Some(index) = id

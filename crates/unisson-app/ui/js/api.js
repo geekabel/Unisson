@@ -171,6 +171,18 @@ export const setVolume = (volume) => invoke("player_set_volume", { volume });
 /** @returns {Promise<Home>} */
 export const home = () => invoke("home");
 
+/** Shows the main window, and puts the mini-player away. */
+export const windowShowMain = () => invoke("window_show_main");
+
+/** Shows the main window with the keyboard in its search box. */
+export const windowShowSearch = () => invoke("window_show_search");
+
+/** @param {() => void} handler Called when the search box must take the keyboard. */
+export const onFocusSearch = (handler) => on("ui:focus-search", handler);
+
+/** Replaces the main window with the mini-player. */
+export const windowShowMini = () => invoke("window_show_mini");
+
 /** @returns {Promise<Queue>} */
 export const queueState = () => invoke("queue_state");
 
