@@ -3,12 +3,18 @@ on:
   push:
     branches: [main, develop]
   pull_request:
+
+# A run only reads the repository.
+permissions:
+  contents: read
+
 jobs:
   check:
+    name: Linux
     # Same release as the target machine, so GStreamer 1.20 is what gets tested.
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Install GStreamer and the Tauri system libraries
         run: |
           sudo apt-get update
@@ -20,20 +26,36 @@ jobs:
             gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
             libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev \
             libayatana-appindicator3-dev librsvg2-dev
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
         with:
           components: rustfmt, clippy
       # Tauri is a large dependency: keep its build between runs.
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
       - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets -- -D warnings
-      - run: cargo test --workspace
+      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - run: cargo test --workspace --locked
       - name: Check the documentation
-        run: cargo doc --no-deps --workspace
+        run: cargo doc --no-deps --workspace --locked
         env:
           RUSTDOCFLAGS: -D warnings
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
       - name: Test the JavaScript helpers of the interface
         run: node --test crates/unisson-app/ui-tests/*.test.mjs
+
+  windows:
+    name: Windows (build only)
+    # Windows support is experimental: the code must build there. Nothing
+    # is run, since no Windows desktop takes part in the tests yet.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Install GStreamer
+        shell: pwsh
+        run: .github/scripts/install-gstreamer.ps1
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Check that the workspace builds
+        shell: bash
+        run: .github/scripts/run-and-report.sh "cargo check on Windows" cargo check --workspace --locked

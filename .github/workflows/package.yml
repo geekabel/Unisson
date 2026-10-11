@@ -1,18 +1,20 @@
 name: Package
-# Builds the Debian package and keeps it with the run, to download and
-# install. It runs when what shapes the package changes, for each version
-# tag, and on demand from the Actions tab.
+# Builds the Debian package and keeps it with the run, to try a change
+# before a release. It runs when what shapes the package changes, and on
+# demand from the Actions tab. Releases are built by release.yml.
 on:
   push:
     branches: [main, develop]
     paths:
       - .github/workflows/package.yml
-      - Cargo.toml
       - crates/unisson-app/tauri.conf.json
       - crates/unisson-app/packaging/**
       - crates/unisson-app/icons/**
-    tags: ["v*"]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
 jobs:
   deb:
     # The oldest release Unisson supports. A program built here also runs on
@@ -20,7 +22,7 @@ jobs:
     # program to its newer C library.
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - name: Install GStreamer and the Tauri system libraries
         run: |
           sudo apt-get update
@@ -29,21 +31,21 @@ jobs:
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
             libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev \
             libayatana-appindicator3-dev librsvg2-dev
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
       # Keeps the build, and the Tauri command line tool, between runs.
-      - uses: Swatinem/rust-cache@v2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
         with:
           shared-key: package
       - name: Install the Tauri command line tool
         run: command -v cargo-tauri || cargo install tauri-cli --version "^2" --locked
       - name: Build the package
         working-directory: crates/unisson-app
-        run: cargo tauri build --bundles deb
+        run: cargo tauri build --bundles deb -- --locked
       - name: Show what the package holds
         run: |
           dpkg-deb --info target/release/bundle/deb/*.deb
           dpkg-deb --contents target/release/bundle/deb/*.deb
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: unisson-deb
           path: target/release/bundle/deb/*.deb
