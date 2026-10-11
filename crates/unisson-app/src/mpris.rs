@@ -14,7 +14,7 @@
 //!
 //! - the desktop asks for something (play, next, a position): the request
 //!   is passed on to the application state;
-//! - the playback state changes: the application sends an [`Update`]
+//! - the playback state changes: the application sends an update
 //!   through a channel, and the thread publishes it on D-Bus.
 
 use std::time::Duration;
