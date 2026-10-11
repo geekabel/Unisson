@@ -14,6 +14,7 @@ import {
   displayPath,
   fillPercent,
   formatTime,
+  launcherGroups,
   looksLikeTarget,
   matchesText,
   mediaKey,
@@ -208,4 +209,18 @@ test("matchesText ignores case and accents, and wants every word", () => {
   assert.equal(matchesText("Pause café", "the"), false);
   assert.equal(matchesText("Pause café", "pause thé"), false);
   assert.equal(matchesText("Pause café", "   "), false);
+});
+
+test("launcherGroups keeps the ranking, with the group of the best hit first", () => {
+  const hit = (title, kind) => ({ media: { title, kind } });
+  const hits = [hit("FIP", "station"), hit("Fip Song", "track"), hit("FIP Jazz", "station"), hit("Other", "track")];
+  assert.deepEqual(
+    launcherGroups(hits, 10).map((entry) => `${entry.group}:${entry.media.title}`),
+    ["Radios:FIP", "Radios:FIP Jazz", "Titres:Fip Song", "Titres:Other"],
+  );
+  assert.deepEqual(
+    launcherGroups(hits.slice(1), 2).map((entry) => `${entry.group}:${entry.media.title}`),
+    ["Titres:Fip Song", "Radios:FIP Jazz"],
+  );
+  assert.deepEqual(launcherGroups([], 5), []);
 });

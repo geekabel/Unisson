@@ -131,9 +131,15 @@ document.addEventListener("unisson:search", (event) => {
 });
 
 // Another window asked for a search, such as the mini-player.
-api.onFocusSearch(() => {
+api.onFocusSearch((text) => {
   input.focus();
-  input.select();
+  if (text) {
+    // The launcher hands over what was typed in it.
+    input.value = text;
+    searchNow();
+  } else {
+    input.select();
+  }
 });
 
 document.addEventListener("keydown", (event) => {

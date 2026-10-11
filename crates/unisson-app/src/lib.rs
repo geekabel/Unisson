@@ -21,6 +21,7 @@ pub mod mpris;
 pub mod now_playing;
 pub mod search;
 pub mod settings;
+pub mod shortcut;
 pub mod state;
 pub mod tray;
 pub mod windows;
@@ -42,6 +43,11 @@ use crate::tray::Tray;
 /// the audio engine is missing, or no window can be created.
 pub fn run() {
     tauri::Builder::default()
+        // This plugin must come first. When Unisson is already open, the
+        // new copy hands its arguments over here and exits.
+        .plugin(tauri_plugin_single_instance::init(|app, arguments, _| {
+            windows::handle_launch(app, &arguments);
+        }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let (state, session_events) = AppState::start()?;
@@ -67,6 +73,16 @@ pub fn run() {
                 }
                 Err(error) => eprintln!("unisson: no tray icon: {error}"),
             }
+
+            // Started by the keyboard shortcut while it was closed: the
+            // launcher is what was asked for.
+            let arguments: Vec<String> = std::env::args().collect();
+            if arguments
+                .iter()
+                .any(|argument| argument == shortcut::LAUNCHER_ARGUMENT)
+            {
+                windows::show_launcher(handle);
+            }
             Ok(())
         })
         .on_window_event(|window, event| {
@@ -85,6 +101,11 @@ pub fn run() {
                 // Closing the main window for good ends the application,
                 // small windows included.
                 windows::MAIN => app.exit(0),
+                // The launcher is only put away: it opens again at once.
+                windows::LAUNCHER => {
+                    api.prevent_close();
+                    windows::hide_launcher(app);
+                }
                 // Closing the mini-player goes back to the main window.
                 windows::MINI => {
                     api.prevent_close();
@@ -137,9 +158,13 @@ pub fn run() {
             commands::settings::settings_rescan_library,
             commands::settings::settings_check_yt_dlp,
             commands::settings::settings_set_keep_in_tray,
+            commands::settings::settings_install_shortcut,
+            commands::settings::settings_remove_shortcut,
             commands::window::window_show_main,
             commands::window::window_show_mini,
             commands::window::window_show_search,
+            commands::window::window_show_launcher,
+            commands::window::window_hide_launcher,
         ])
         .run(tauri::generate_context!())
         .expect("cannot run Unisson");

@@ -8,6 +8,7 @@ use unisson_core::SourceKind;
 use crate::dto::CommandError;
 use crate::events::SETTINGS_CHANGED;
 use crate::library::LibrarySync;
+use crate::shortcut;
 use crate::state::AppState;
 
 /// One source, as the settings screen shows it.
@@ -45,6 +46,43 @@ pub struct SettingsDto {
     /// The version of the yt-dlp program, which YouTube needs. `None` when
     /// it is not installed.
     pub yt_dlp_version: Option<String>,
+    /// The keyboard shortcut of the quick launcher.
+    pub shortcut: ShortcutDto,
+}
+
+/// The keyboard shortcut of the quick launcher, as the interface sees it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ShortcutDto {
+    /// Whether this desktop lets Unisson register the shortcut itself.
+    pub supported: bool,
+    /// The key combination in place, as GNOME writes it.
+    pub binding: Option<String>,
+    /// The key combinations offered: how GNOME writes each, and its name.
+    pub choices: Vec<(String, String)>,
+    /// The command to bind by hand on a desktop that is not supported.
+    pub command: String,
+}
+
+impl ShortcutDto {
+    fn read() -> Self {
+        let status = shortcut::status();
+        Self {
+            supported: status.supported,
+            binding: status.binding,
+            choices: shortcut::BINDINGS
+                .iter()
+                .map(|(binding, name)| ((*binding).to_owned(), (*name).to_owned()))
+                .collect(),
+            command: format!(
+                "{} {}",
+                std::env::current_exe()
+                    .map(|path| path.to_string_lossy().into_owned())
+                    .unwrap_or_else(|_| "unisson".into()),
+                shortcut::LAUNCHER_ARGUMENT
+            ),
+        }
+    }
 }
 
 fn describe(state: &AppState) -> Result<SettingsDto, CommandError> {
@@ -71,6 +109,7 @@ fn describe(state: &AppState) -> Result<SettingsDto, CommandError> {
             .settings_path()
             .map(|path| path.to_string_lossy().into_owned()),
         yt_dlp_version: state.yt_dlp_version(false),
+        shortcut: ShortcutDto::read(),
     })
 }
 
@@ -171,6 +210,36 @@ pub fn settings_set_keep_in_tray(
     enabled: bool,
 ) -> Result<SettingsDto, CommandError> {
     state.update_settings(|settings| settings.keep_in_tray = enabled)?;
+    changed(&app, &state)
+}
+
+/// Registers the keyboard shortcut of the quick launcher in the desktop,
+/// or changes its key combination.
+#[tauri::command(async)]
+pub fn settings_install_shortcut(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    binding: String,
+) -> Result<SettingsDto, CommandError> {
+    // The text ends up in the settings of the desktop: accept nothing but
+    // the combinations that were offered.
+    if !shortcut::is_offered(&binding) {
+        return Err(CommandError::invalid("this key combination is not offered"));
+    }
+    let program = std::env::current_exe()
+        .map_err(|error| CommandError::new("unavailable", error.to_string()))?;
+    shortcut::install(&program, &binding)
+        .map_err(|error| CommandError::new("unavailable", error.to_string()))?;
+    changed(&app, &state)
+}
+
+/// Removes the keyboard shortcut of the quick launcher from the desktop.
+#[tauri::command(async)]
+pub fn settings_remove_shortcut(
+    app: AppHandle,
+    state: State<'_, AppState>,
+) -> Result<SettingsDto, CommandError> {
+    shortcut::remove().map_err(|error| CommandError::new("unavailable", error.to_string()))?;
     changed(&app, &state)
 }
 

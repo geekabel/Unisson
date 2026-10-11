@@ -31,6 +31,8 @@ serde.workspace = true
 tauri = { version = "2", features = ["tray-icon"] }
 # Native dialogs: the folder picker of the settings.
 tauri-plugin-dialog = "2"
+# Starting Unisson again talks to the copy that is already open.
+tauri-plugin-single-instance = "2"
 # MPRIS: the D-Bus interface the desktop uses for the media keys and for
 # showing what plays. It runs on its own thread, with a small executor.
 mpris-server = "0.10"

@@ -78,6 +78,8 @@
  * @property {boolean} keepInTray Whether closing the window keeps the application running.
  * @property {?string} configPath
  * @property {?string} ytDlpVersion The yt-dlp program YouTube needs, if installed.
+ * @property {{supported: boolean, binding: ?string, choices: [string, string][], command: string}} shortcut
+ *   The keyboard shortcut of the quick launcher.
  *
  * @typedef {object} SearchUpdate
  * @property {{media: Media, sources: string[]}[]} hits The best match first.
@@ -174,11 +176,38 @@ export const home = () => invoke("home");
 /** Shows the main window, and puts the mini-player away. */
 export const windowShowMain = () => invoke("window_show_main");
 
-/** Shows the main window with the keyboard in its search box. */
-export const windowShowSearch = () => invoke("window_show_search");
+/**
+ * Shows the main window with the keyboard in its search box.
+ *
+ * @param {?string} [text] A text to put in the box and to search.
+ */
+export const windowShowSearch = (text = null) => invoke("window_show_search", { text });
 
-/** @param {() => void} handler Called when the search box must take the keyboard. */
+/**
+ * @param {(text: ?string) => void} handler Called when the search box must
+ *   take the keyboard, with a text to search or nothing.
+ */
 export const onFocusSearch = (handler) => on("ui:focus-search", handler);
+
+/** Opens the quick launcher above the other windows. */
+export const windowShowLauncher = () => invoke("window_show_launcher");
+
+/** Puts the quick launcher away. */
+export const windowHideLauncher = () => invoke("window_hide_launcher");
+
+/** @param {() => void} handler Called each time the quick launcher opens. */
+export const onLauncherOpened = (handler) => on("launcher:opened", handler);
+
+/**
+ * Registers the keyboard shortcut of the quick launcher in the desktop.
+ *
+ * @param {string} binding The key combination, as GNOME writes it.
+ * @returns {Promise<Settings>}
+ */
+export const settingsInstallShortcut = (binding) => invoke("settings_install_shortcut", { binding });
+
+/** @returns {Promise<Settings>} */
+export const settingsRemoveShortcut = () => invoke("settings_remove_shortcut");
 
 /** Replaces the main window with the mini-player. */
 export const windowShowMini = () => invoke("window_show_mini");

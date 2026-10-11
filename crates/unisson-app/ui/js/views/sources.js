@@ -83,6 +83,7 @@ function draw() {
         onChange: (checked) => api.settingsSetKeepInTray(checked),
       }),
     ]),
+    section("Lanceur rapide", shortcutSettings(settings.shortcut)),
     settings.configPath
       ? element("p", { class: "section-note" }, [
           `Réglages enregistrés dans ${displayPath(settings.configPath)}`,
@@ -92,6 +93,69 @@ function draw() {
   if (focused) {
     area.querySelector(`[data-focus-key="${focused}"]`)?.focus();
   }
+}
+
+/**
+ * Builds the settings of the keyboard shortcut that opens the launcher.
+ *
+ * @param {import("../api.js").Settings["shortcut"]} shortcut
+ * @returns {Node[]}
+ */
+function shortcutSettings(shortcut) {
+  const intro = element("p", { class: "hint" }, [
+    "Le lanceur est une petite fenêtre de recherche qui s'ouvre par-dessus votre travail : " +
+      "quelques lettres, Entrée, et la lecture démarre.",
+  ]);
+  const open = element("button", { class: "text-button", type: "button", "data-focus-key": "open-launcher" }, [
+    "Ouvrir le lanceur",
+  ]);
+  open.addEventListener("click", () => api.windowShowLauncher());
+
+  if (!shortcut.supported) {
+    // Not GNOME: the user binds the command in the settings of their desktop.
+    return [
+      intro,
+      element("p", { class: "station-detail" }, [
+        "Pour l'ouvrir au clavier, créez dans les réglages de votre bureau un raccourci qui lance cette commande :",
+      ]),
+      element("p", { class: "path" }, [shortcut.command]),
+      element("div", { class: "inline-form" }, [open]),
+    ];
+  }
+
+  const select = /** @type {HTMLSelectElement} */ (
+    element("select", { class: "field", "aria-label": "Raccourci clavier", "data-focus-key": "shortcut-choice" },
+      shortcut.choices.map(([binding, name]) => element("option", { value: binding }, [name])))
+  );
+  if (shortcut.binding && shortcut.choices.some(([binding]) => binding === shortcut.binding)) {
+    select.value = shortcut.binding;
+  }
+  const install = element(
+    "button",
+    { class: "text-button text-button-strong", type: "button", "data-focus-key": "install-shortcut" },
+    [shortcut.binding ? "Changer le raccourci" : "Installer le raccourci"],
+  );
+  install.addEventListener("click", () => apply(() => api.settingsInstallShortcut(select.value)));
+  const controls = [select, install];
+  if (shortcut.binding) {
+    const remove = element("button", { class: "text-button", type: "button", "data-focus-key": "remove-shortcut" }, [
+      "Retirer",
+    ]);
+    remove.addEventListener("click", () => apply(api.settingsRemoveShortcut));
+    controls.push(remove);
+  }
+  controls.push(open);
+
+  const name = shortcut.choices.find(([binding]) => binding === shortcut.binding)?.[1] ?? shortcut.binding;
+  return [
+    intro,
+    element("p", { class: "station-detail" }, [
+      shortcut.binding
+        ? `Raccourci en place : ${name}. Il apparaît aussi dans les réglages de GNOME, sous Clavier.`
+        : "Aucun raccourci pour l'instant. Unisson peut l'ajouter aux raccourcis personnalisés de GNOME.",
+    ]),
+    element("div", { class: "inline-form" }, controls),
+  ];
 }
 
 /**

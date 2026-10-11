@@ -4,7 +4,8 @@
   "description": "What the windows may ask the core of Tauri. The commands of Unisson itself need no entry here.",
   "windows": [
     "main",
-    "mini"
+    "mini",
+    "launcher"
   ],
   "permissions": [
     "core:default",

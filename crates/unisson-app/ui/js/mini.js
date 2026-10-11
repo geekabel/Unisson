@@ -80,7 +80,7 @@ toggleButton.addEventListener("click", () => api.toggle());
 previousButton.addEventListener("click", () => api.previous());
 nextButton.addEventListener("click", () => api.next());
 byId("mini-expand").addEventListener("click", () => api.windowShowMain());
-byId("mini-search").addEventListener("click", () => api.windowShowSearch());
+byId("mini-search").addEventListener("click", () => api.windowShowLauncher());
 
 document.addEventListener("keydown", (event) => {
   if (event.key === " " && !(event.target instanceof HTMLButtonElement)) {

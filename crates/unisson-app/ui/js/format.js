@@ -239,6 +239,23 @@ export function searchSummary(text, update, shown, minLength) {
 }
 
 /**
+ * Groups the best search hits for the quick launcher: tracks and stations
+ * apart, the group of the best hit first.
+ *
+ * @param {{media: import("./api.js").Media}[]} hits The best match first.
+ * @param {number} limit Most hits kept.
+ * @returns {{group: string, media: import("./api.js").Media}[]}
+ */
+export function launcherGroups(hits, limit) {
+  const kept = hits.slice(0, limit);
+  const group = (media) => (media.kind === "station" ? "Radios" : "Titres");
+  const first = kept.length > 0 ? group(kept[0].media) : null;
+  const entries = kept.map((hit) => ({ group: group(hit.media), media: hit.media }));
+  // A stable sort: inside a group, the ranking of the search is kept.
+  return entries.sort((a, b) => (b.group === first) - (a.group === first));
+}
+
+/**
  * Writes a count with its noun: `1 titre`, `12 titres`.
  *
  * @param {number} count
