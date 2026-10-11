@@ -21,6 +21,7 @@ use unisson_radio::Station;
 
 use crate::now_playing::NowPlaying;
 use crate::state::AppState;
+use crate::texts::Language;
 use crate::windows;
 
 /// Most favorite stations listed in the menu.
@@ -41,10 +42,18 @@ struct MenuFacts {
     has_previous: bool,
     /// The names of the favorite stations listed.
     stations: Vec<String>,
+    /// The language of the labels.
+    language: Language,
 }
 
 impl MenuFacts {
-    fn of(snapshot: &Snapshot, has_next: bool, has_previous: bool, stations: &[Station]) -> Self {
+    fn of(
+        snapshot: &Snapshot,
+        has_next: bool,
+        has_previous: bool,
+        stations: &[Station],
+        language: Language,
+    ) -> Self {
         let now = NowPlaying::of(snapshot);
         Self {
             playing: now.as_ref().is_some_and(|now| now.playing),
@@ -56,6 +65,7 @@ impl MenuFacts {
                 .take(STATION_LIMIT)
                 .map(|station| shortened(&station.name))
                 .collect(),
+            language,
         }
     }
 }
@@ -106,7 +116,13 @@ impl Tray {
         let snapshot = state.session.snapshot();
         let dto = state.snapshot_dto(&snapshot);
         let stations = state.stations().stations().to_vec();
-        let facts = MenuFacts::of(&snapshot, dto.has_next, dto.has_previous, &stations);
+        let facts = MenuFacts::of(
+            &snapshot,
+            dto.has_next,
+            dto.has_previous,
+            &stations,
+            state.language(),
+        );
 
         let mut shown = self.lock_shown();
         if shown.as_ref() == Some(&facts) {
@@ -134,20 +150,26 @@ pub fn refresh(app: &AppHandle) {
 
 fn build_menu(app: &AppHandle, facts: &MenuFacts) -> tauri::Result<Menu<tauri::Wry>> {
     // The first line only informs: it cannot be clicked.
-    let now = MenuItemBuilder::with_id("now", facts.now.as_deref().unwrap_or("Rien en lecture"))
-        .enabled(false)
-        .build(app)?;
+    let texts = facts.language.texts();
+    let now =
+        MenuItemBuilder::with_id("now", facts.now.as_deref().unwrap_or(texts.nothing_playing))
+            .enabled(false)
+            .build(app)?;
     let selected = facts.now.is_some();
     let play_pause = MenuItemBuilder::with_id(
         "play_pause",
-        if facts.playing { "Pause" } else { "Lecture" },
+        if facts.playing {
+            texts.pause
+        } else {
+            texts.play
+        },
     )
     .enabled(selected)
     .build(app)?;
-    let next = MenuItemBuilder::with_id("next", "Suivant")
+    let next = MenuItemBuilder::with_id("next", texts.next)
         .enabled(facts.has_next)
         .build(app)?;
-    let previous = MenuItemBuilder::with_id("previous", "Précédent")
+    let previous = MenuItemBuilder::with_id("previous", texts.previous)
         .enabled(selected)
         .build(app)?;
 
@@ -159,16 +181,16 @@ fn build_menu(app: &AppHandle, facts: &MenuFacts) -> tauri::Result<Menu<tauri::W
         .item(&previous)
         .separator();
     if !facts.stations.is_empty() {
-        let mut stations = SubmenuBuilder::new(app, "Radios favorites");
+        let mut stations = SubmenuBuilder::new(app, texts.favorite_stations);
         for (index, name) in facts.stations.iter().enumerate() {
             stations = stations.text(format!("{STATION_PREFIX}{index}"), name);
         }
         menu = menu.item(&stations.build()?).separator();
     }
-    menu.text("open", "Ouvrir Unisson")
-        .text("launcher", "Lanceur rapide")
-        .text("mini", "Mini-lecteur")
-        .text("quit", "Quitter")
+    menu.text("open", texts.open)
+        .text("launcher", texts.launcher)
+        .text("mini", texts.mini_player)
+        .text("quit", texts.quit)
         .build()
 }
 
@@ -207,7 +229,7 @@ mod tests {
 
     #[test]
     fn the_facts_follow_what_plays() {
-        let idle = MenuFacts::of(&Snapshot::default(), false, false, &[]);
+        let idle = MenuFacts::of(&Snapshot::default(), false, false, &[], Language::French);
         assert_eq!(idle.now, None);
         assert!(!idle.playing);
 
@@ -218,7 +240,7 @@ mod tests {
             current: Some(track),
             ..Snapshot::default()
         };
-        let playing = MenuFacts::of(&snapshot, true, false, &[station("FIP")]);
+        let playing = MenuFacts::of(&snapshot, true, false, &[station("FIP")], Language::French);
         assert_eq!(playing.now.as_deref(), Some("So What, Miles Davis"));
         assert!(playing.playing && playing.has_next && !playing.has_previous);
         assert_eq!(playing.stations, ["FIP"]);
@@ -234,8 +256,8 @@ mod tests {
             ..Snapshot::default()
         };
         assert_eq!(
-            MenuFacts::of(&at(1), false, false, &[]),
-            MenuFacts::of(&at(90), false, false, &[])
+            MenuFacts::of(&at(1), false, false, &[], Language::French),
+            MenuFacts::of(&at(90), false, false, &[], Language::French)
         );
     }
 
@@ -251,7 +273,7 @@ mod tests {
         let many: Vec<Station> = (0..30)
             .map(|index| station(&"s".repeat(index + 1)))
             .collect();
-        let facts = MenuFacts::of(&Snapshot::default(), false, false, &many);
+        let facts = MenuFacts::of(&Snapshot::default(), false, false, &many, Language::French);
         assert_eq!(facts.stations.len(), STATION_LIMIT);
     }
 }

@@ -78,6 +78,7 @@
  * @property {boolean} keepInTray Whether closing the window keeps the application running.
  * @property {boolean} notifications Whether a desktop notification tells each new title.
  * @property {"system"|"dark"|"light"} theme The colors of the interface.
+ * @property {"system"|"fr"|"en"} language The language of the interface.
  * @property {?string} configPath
  * @property {?string} ytDlpVersion The yt-dlp program YouTube needs, if installed.
  * @property {{supported: boolean, binding: ?string, choices: [string, string][], command: string}} shortcut
@@ -341,6 +342,15 @@ export const settingsResetMusicFolder = () => invoke("settings_reset_music_folde
  * @returns {Promise<Settings>}
  */
 export const settingsSetKeepInTray = (enabled) => invoke("settings_set_keep_in_tray", { enabled });
+
+/**
+ * Chooses the language of the interface. Every window then reloads in
+ * that language.
+ *
+ * @param {"system"|"fr"|"en"} language
+ * @returns {Promise<Settings>}
+ */
+export const settingsSetLanguage = (language) => invoke("settings_set_language", { language });
 
 /**
  * Returns the colors the user chose for the interface.

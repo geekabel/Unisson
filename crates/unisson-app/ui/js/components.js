@@ -5,6 +5,7 @@
 import * as api from "./api.js";
 import { element, icon } from "./dom.js";
 import { formatTime, mediaKey, sourceLabel, stationDescription, stationMedia } from "./format.js";
+import { t } from "./i18n.js";
 import { showNotice } from "./notice.js";
 import { openAddToListMenu } from "./playlists.js";
 
@@ -47,13 +48,15 @@ export function sourceBadge(source) {
  */
 export function mediaRow(media, { onPlay, actions = [], sources = [media.source] }) {
   const isStation = media.kind === "station";
-  const detail = isStation ? "En direct" : media.artist ?? "";
+  const detail = isStation ? t("common.live") : media.artist ?? "";
   const main = element(
     "button",
     {
       class: "row-main",
       type: "button",
-      "aria-label": `Lire ${media.title}${detail ? `, ${detail}` : ""}`,
+      "aria-label": detail
+        ? t("shell.playMediaWithDetail", { title: media.title, detail })
+        : t("shell.playMedia", { title: media.title }),
     },
     [
       element("span", { class: "row-play" }, [icon("play", { filled: true })]),
@@ -81,7 +84,7 @@ export function stationChip(station, onPlay) {
       class: "chip",
       type: "button",
       "data-media-key": mediaKey(stationMedia(station)),
-      "aria-label": `Écouter ${station.name}`,
+      "aria-label": t("shell.listenTo", { name: station.name }),
     },
     [
       element("span", { class: "chip-title truncate" }, [station.name]),
@@ -100,10 +103,10 @@ export function stationChip(station, onPlay) {
 export function queueButton(media) {
   return iconButton({
     icon: "plus",
-    label: `Ajouter ${media.title} à la file`,
+    label: t("shell.addToQueue", { title: media.title }),
     onClick: () => {
       api.enqueue(media);
-      showNotice({ owner: "queue", text: `Ajouté à la file : ${media.title}`, duration: 2500 });
+      showNotice({ owner: "queue", text: t("shell.addedToQueue", { title: media.title }), duration: 2500 });
     },
   });
 }
@@ -116,7 +119,7 @@ export function queueButton(media) {
 export function listButton(media) {
   const button = iconButton({
     icon: "list-add",
-    label: `Ajouter ${media.title} à une liste`,
+    label: t("shell.addToPlaylist", { title: media.title }),
     onClick: () => openAddToListMenu(button, media),
   });
   button.setAttribute("aria-haspopup", "menu");

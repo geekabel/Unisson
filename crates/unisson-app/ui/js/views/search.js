@@ -10,13 +10,13 @@ import * as api from "../api.js";
 import { iconButton, listButton, mediaRow, sourceBadge } from "../components.js";
 import { element, icon, replaceKeepingFocus } from "../dom.js";
 import {
-  countLabel,
   matchesText,
   mediaKey,
   mediaSubtitle,
   searchSummary,
   sourceLabel,
 } from "../format.js";
+import { plural, t } from "../i18n.js";
 import { showNotice } from "../notice.js";
 import { allPlaylists } from "../playlists.js";
 import { showView } from "../views.js";
@@ -31,15 +31,16 @@ export const MIN_LENGTH = 2;
 const READY_PATIENCE = 1500;
 
 const KINDS = [
-  ["all", "Tout"],
-  ["track", "Titres"],
-  ["station", "Radios"],
-  ["playlist", "Listes"],
+  ["all", t("search.kindAll")],
+  ["track", t("search.tracks")],
+  ["station", t("search.stations")],
+  ["playlist", t("search.playlists")],
 ];
 
+/** Writes why a source did not answer, by kind of failure. */
 const SOURCE_ERRORS = {
-  network: "pas de réponse pour l'instant",
-  unavailable: "indisponible pour l'instant",
+  network: (source) => t("search.sourceNetwork", { source }),
+  unavailable: (source) => t("search.sourceUnavailable", { source }),
 };
 
 const state = {
@@ -233,14 +234,18 @@ function actOn(entry, mode) {
 async function actOnPlaylist(playlist, mode) {
   const items = await api.playlistItems(playlist.id);
   if (items.length === 0) {
-    showNotice({ owner: "search", text: `La liste « ${playlist.name} » est vide.`, duration: 3000 });
+    showNotice({ owner: "search", text: t("search.playlistEmpty", { name: playlist.name }), duration: 3000 });
   } else if (mode === "now") {
     api.playList(items, 0);
   } else {
     for (const media of items) {
       await api.enqueue(media);
     }
-    showNotice({ owner: "search", text: `Ajouté à la file : la liste « ${playlist.name} »`, duration: 2500 });
+    showNotice({
+      owner: "search",
+      text: t("search.playlistEnqueued", { name: playlist.name }),
+      duration: 2500,
+    });
   }
 }
 
@@ -260,7 +265,10 @@ function act(hit, mode) {
   }
   showNotice({
     owner: "search",
-    text: `${mode === "next" ? "À lire juste après" : "Ajouté à la file"} : ${hit.media.title}`,
+    text:
+      mode === "next"
+        ? t("search.playingNext", { title: hit.media.title })
+        : t("search.enqueued", { title: hit.media.title }),
     duration: 2500,
   });
 }
@@ -341,13 +349,13 @@ function drawFilters() {
   });
 
   const groups = [
-    element("div", { class: "filter-chips", role: "group", "aria-label": "Type de résultat" }, kinds),
+    element("div", { class: "filter-chips", role: "group", "aria-label": t("search.resultKind") }, kinds),
   ];
   // Choosing between sources only makes sense when several answered.
   if (toggles.length > 1) {
     groups.push(
-      element("div", { class: "filter-chips", role: "group", "aria-label": "Sources" }, [
-        element("span", { class: "section-note" }, ["Sources"]),
+      element("div", { class: "filter-chips", role: "group", "aria-label": t("search.sources") }, [
+        element("span", { class: "section-note" }, [t("search.sources")]),
         ...toggles,
       ]),
     );
@@ -369,18 +377,18 @@ function drawResults() {
     // A source that did not answer is a side note, not an alarm: the other
     // sources still show their results. The technical reason is a tooltip.
     const notes = errors.map((error) => {
-      const reason = SOURCE_ERRORS[error.kind] ?? SOURCE_ERRORS.unavailable;
+      const describe = SOURCE_ERRORS[error.kind] ?? SOURCE_ERRORS.unavailable;
       return element("span", { class: "search-note", title: error.detail || null }, [
-        error.source ? `${sourceLabel(error.source)} : ${reason}.` : "La recherche a échoué.",
+        error.source ? describe(sourceLabel(error.source)) : t("search.failed"),
       ]);
     });
-    const retry = element("button", { class: "link-button", type: "button" }, ["Réessayer"]);
+    const retry = element("button", { class: "link-button", type: "button" }, [t("search.retry")]);
     retry.addEventListener("click", retrySearch);
     const ways = [retry];
     // YouTube is "unavailable" when its helper program is missing or too
     // old: the Sources screen says which, and how to repair it.
     if (errors.some((error) => error.source === "youtube" && error.kind === "unavailable")) {
-      const repair = element("button", { class: "link-button", type: "button" }, ["Vérifier yt-dlp"]);
+      const repair = element("button", { class: "link-button", type: "button" }, [t("search.checkYoutube")]);
       repair.addEventListener("click", () => showView("sources"));
       ways.push(repair);
     }
@@ -391,19 +399,22 @@ function drawResults() {
     const [best, ...others] = hits;
     const tracks = others.filter((hit) => hit.media.kind === "track");
     const stations = others.filter((hit) => hit.media.kind === "station");
-    content.push(group("Meilleur résultat", [bestCard(best, state.selected === 0)]));
+    content.push(group(t("search.topResult"), [bestCard(best, state.selected === 0)]));
     if (tracks.length > 0) {
-      content.push(group("Titres", tracks.map((hit, index) => hitRow(hit, 1 + index))));
+      content.push(group(t("search.tracks"), tracks.map((hit, index) => hitRow(hit, 1 + index))));
     }
     if (stations.length > 0) {
       content.push(
-        group("Radios", stations.map((hit, index) => hitRow(hit, 1 + tracks.length + index))),
+        group(t("search.stations"), stations.map((hit, index) => hitRow(hit, 1 + tracks.length + index))),
       );
     }
   }
   if (playlists.length > 0) {
     content.push(
-      group("Listes", playlists.map((playlist, index) => playlistRow(playlist, hits.length + index))),
+      group(
+        t("search.playlists"),
+        playlists.map((playlist, index) => playlistRow(playlist, hits.length + index)),
+      ),
     );
   }
   replaceKeepingFocus(resultsArea, ...content);
@@ -416,11 +427,11 @@ function drawResults() {
 function playlistRow(playlist, index) {
   const main = element(
     "button",
-    { class: "row-main", type: "button", "aria-label": `Lire la liste ${playlist.name}` },
+    { class: "row-main", type: "button", "aria-label": t("search.playPlaylist", { name: playlist.name }) },
     [
       element("span", { class: "row-play" }, [icon("play", { filled: true })]),
       element("span", { class: "row-title truncate" }, [playlist.name]),
-      element("span", { class: "row-artist truncate" }, [`Liste, ${countLabel(playlist.len, "titre")}`]),
+      element("span", { class: "row-artist truncate" }, [plural(playlist.len, "search.playlistDetail")]),
     ],
   );
   main.addEventListener("click", () => actOnPlaylist(playlist, "now"));
@@ -428,7 +439,7 @@ function playlistRow(playlist, index) {
     main,
     iconButton({
       icon: "list",
-      label: `Ouvrir la liste ${playlist.name}`,
+      label: t("search.openPlaylist", { name: playlist.name }),
       onClick: () => showView("playlist", { param: playlist.id }),
     }),
   ]);
@@ -448,7 +459,7 @@ function group(title, rows) {
 function addButton(hit) {
   return iconButton({
     icon: "plus",
-    label: `Ajouter ${hit.media.title} à la file`,
+    label: t("search.addToQueue", { title: hit.media.title }),
     onClick: () => act(hit, "enqueue"),
   });
 }
@@ -478,7 +489,7 @@ function bestCard(hit, selected) {
   const isStation = media.kind === "station";
   const main = element(
     "button",
-    { class: "best-main", type: "button", "aria-label": `Lire ${media.title}` },
+    { class: "best-main", type: "button", "aria-label": t("search.playTrack", { title: media.title }) },
     [
       element("span", { class: "cover", "data-source": media.source }, [
         icon(isStation ? "radio" : "note"),
@@ -486,11 +497,11 @@ function bestCard(hit, selected) {
       element("span", { class: "station-text" }, [
         element("span", { class: "best-title truncate" }, [media.title]),
         element("span", { class: "station-detail truncate" }, [
-          isStation ? "Radio en direct" : mediaSubtitle(media),
+          isStation ? t("search.liveStation") : mediaSubtitle(media),
         ]),
       ]),
       element("span", { class: "row-badges" }, hit.sources.map(sourceBadge)),
-      element("span", { class: "best-hint" }, [element("kbd", {}, ["Entrée"]), "Lire"]),
+      element("span", { class: "best-hint" }, [element("kbd", {}, [t("search.keyEnter")]), t("search.play")]),
     ],
   );
   main.addEventListener("click", () => act(hit, "now"));
@@ -511,11 +522,11 @@ function legend() {
       ...keys.map((key) => element("kbd", {}, [key])),
       text,
     ]);
-  return element("div", { class: "legend", "aria-label": "Raccourcis clavier" }, [
-    entry(["Haut", "Bas"], "naviguer"),
-    entry(["Entrée"], "lire tout de suite"),
-    entry(["Maj Entrée"], "ajouter à la file"),
-    entry(["Ctrl Entrée"], "lire juste après"),
-    entry(["Échap"], "effacer"),
+  return element("div", { class: "legend", "aria-label": t("search.shortcuts") }, [
+    entry([t("search.keyUp"), t("search.keyDown")], t("search.hintNavigate")),
+    entry([t("search.keyEnter")], t("search.hintPlayNow")),
+    entry([t("search.keyShiftEnter")], t("search.hintEnqueue")),
+    entry([t("search.keyCtrlEnter")], t("search.hintPlayNext")),
+    entry([t("search.keyEscape")], t("search.hintClear")),
   ]);
 }

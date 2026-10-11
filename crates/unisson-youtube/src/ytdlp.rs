@@ -88,7 +88,9 @@ impl YtDlp {
         let output = self.start(&["--version"])?.finish(self.timeout)?;
         let version = output.trim();
         if version.is_empty() {
-            return Err(SourceError::Unavailable("yt-dlp gave no version".into()));
+            return Err(SourceError::Unavailable(
+                "the YouTube helper gave no version".into(),
+            ));
         }
         Ok(version.to_owned())
     }
@@ -195,9 +197,9 @@ impl YtDlp {
             .spawn()
             .map_err(|error| match error.kind() {
                 std::io::ErrorKind::NotFound => {
-                    SourceError::Unavailable("yt-dlp is not installed".into())
+                    SourceError::Unavailable("the YouTube helper is not installed".into())
                 }
-                _ => SourceError::Unavailable(format!("cannot start yt-dlp: {error}")),
+                _ => SourceError::Unavailable(format!("cannot start the YouTube helper: {error}")),
             })?;
         // Read both outputs while the program runs: a program that fills
         // one of them and is not read would wait for ever.
@@ -233,9 +235,9 @@ impl Run {
     fn finish(&self, timeout: Duration) -> Result<String, SourceError> {
         let deadline = Instant::now() + timeout;
         let status = loop {
-            let ended = lock(&self.child)
-                .try_wait()
-                .map_err(|error| SourceError::Unavailable(format!("yt-dlp was lost: {error}")))?;
+            let ended = lock(&self.child).try_wait().map_err(|error| {
+                SourceError::Unavailable(format!("the YouTube helper was lost: {error}"))
+            })?;
             if let Some(status) = ended {
                 break status;
             }
@@ -243,7 +245,9 @@ impl Run {
                 let _ = lock(&self.child).kill();
                 // Reap the stopped program, so it does not linger.
                 let _ = lock(&self.child).wait();
-                return Err(SourceError::Network("yt-dlp did not answer in time".into()));
+                return Err(SourceError::Network(
+                    "the YouTube helper did not answer in time".into(),
+                ));
             }
             thread::sleep(POLL_INTERVAL);
         };
@@ -294,7 +298,7 @@ fn classify_failure(stderr: &str) -> SourceError {
         .map(str::trim)
         .find(|line| line.starts_with("ERROR:"))
         .or_else(|| stderr.lines().map(str::trim).find(|line| !line.is_empty()))
-        .unwrap_or("yt-dlp failed without a message");
+        .unwrap_or("the YouTube helper failed without a message");
     let message: String = message.chars().take(300).collect();
     let lower = message.to_lowercase();
 
@@ -471,7 +475,9 @@ mod tests {
         let tool = YtDlp::with_program("/nonexistent/unisson-test/yt-dlp");
         assert_eq!(
             tool.version(),
-            Err(SourceError::Unavailable("yt-dlp is not installed".into()))
+            Err(SourceError::Unavailable(
+                "the YouTube helper is not installed".into()
+            ))
         );
     }
 }

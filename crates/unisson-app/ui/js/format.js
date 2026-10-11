@@ -3,6 +3,8 @@
  * the backend, so they can be tested with `node --test`.
  */
 
+import { getLanguage, plural, t } from "./i18n.js";
+
 /**
  * Formats a duration for display: `3:41`, or `1:02:03` from one hour.
  *
@@ -22,8 +24,17 @@ export function formatTime(milliseconds) {
     : `${minutes}:${seconds}`;
 }
 
-const SOURCE_LABELS = { radio: "Radio", local: "Local", youtube: "YouTube" };
-const SOURCE_NAMES = { radio: "Radio", local: "Fichiers locaux", youtube: "YouTube" };
+// Tables of keys, not of texts: the language can change while the module lives.
+const SOURCE_LABELS = {
+  radio: "format.sourceRadio",
+  local: "format.sourceLocal",
+  youtube: "format.sourceYoutube",
+};
+const SOURCE_NAMES = {
+  radio: "format.sourceRadio",
+  local: "format.sourceLocalFiles",
+  youtube: "format.sourceYoutube",
+};
 
 /**
  * Returns the full name of a source, for the settings.
@@ -31,7 +42,8 @@ const SOURCE_NAMES = { radio: "Radio", local: "Fichiers locaux", youtube: "YouTu
  * @param {string} source
  */
 export function sourceName(source) {
-  return SOURCE_NAMES[source] ?? source;
+  const key = SOURCE_NAMES[source];
+  return key ? t(key) : source;
 }
 
 /**
@@ -77,7 +89,8 @@ export function moved(list, index, step) {
  * @param {string} source
  */
 export function sourceLabel(source) {
-  return SOURCE_LABELS[source] ?? source;
+  const key = SOURCE_LABELS[source];
+  return key ? t(key) : source;
 }
 
 /**
@@ -88,9 +101,9 @@ export function sourceLabel(source) {
  */
 export function mediaSubtitle(media, streamTitle = null) {
   if (media.kind === "station") {
-    return streamTitle || "En direct";
+    return streamTitle || t("format.live");
   }
-  return [media.artist, media.album].filter(Boolean).join(", ") || "Artiste inconnu";
+  return [media.artist, media.album].filter(Boolean).join(", ") || t("format.unknownArtist");
 }
 
 /**
@@ -112,17 +125,26 @@ export function stationMedia(station) {
   };
 }
 
-// Missing from old web engines: country names are then left out.
-const COUNTRY_NAMES = (() => {
-  try {
-    return new Intl.DisplayNames(["fr"], { type: "region" });
-  } catch {
-    return null;
+/** @type {Map<string, ?Intl.DisplayNames>} The names of the countries, per language. */
+const COUNTRY_NAMES = new Map();
+
+/** @returns {?Intl.DisplayNames} The names of the countries in the language in use. */
+function countryNames() {
+  const language = getLanguage();
+  if (!COUNTRY_NAMES.has(language)) {
+    // Missing from old web engines: country names are then left out.
+    try {
+      COUNTRY_NAMES.set(language, new Intl.DisplayNames([language], { type: "region" }));
+    } catch {
+      COUNTRY_NAMES.set(language, null);
+    }
   }
-})();
+  return COUNTRY_NAMES.get(language);
+}
 
 /**
- * Returns the French name of a country from its two-letter code.
+ * Returns the name of a country, in the language in use, from its
+ * two-letter code.
  *
  * @param {?string} code
  * @returns {string} An empty string when the code is missing or unknown.
@@ -132,7 +154,7 @@ export function countryName(code) {
     return "";
   }
   try {
-    const name = COUNTRY_NAMES?.of(code.toUpperCase());
+    const name = countryNames()?.of(code.toUpperCase());
     return name && name !== code.toUpperCase() ? name : "";
   } catch {
     return "";
@@ -161,7 +183,7 @@ export function stationDescription(station, tagCount = 1) {
  * @returns {string} An empty string when nothing is known.
  */
 export function stationQuality(station) {
-  const bitrate = station.bitrate > 0 ? `${station.bitrate} kb/s` : "";
+  const bitrate = station.bitrate > 0 ? t("format.bitrate", { bitrate: station.bitrate }) : "";
   return [station.codec, bitrate].filter(Boolean).join(" ");
 }
 
@@ -171,7 +193,7 @@ export function stationQuality(station) {
  * @param {string} text
  */
 export function capitalize(text) {
-  return text.charAt(0).toLocaleUpperCase("fr") + text.slice(1);
+  return text.charAt(0).toLocaleUpperCase(getLanguage()) + text.slice(1);
 }
 
 /**
@@ -183,11 +205,14 @@ export function capitalize(text) {
 export function tileText(tile) {
   switch (tile.kind) {
     case "station":
-      return { badge: "Radio", subtitle: "En direct" };
+      return { badge: t("format.sourceRadio"), subtitle: t("format.live") };
     case "album":
-      return { badge: "Album", subtitle: ["Album", tile.artist].filter(Boolean).join(", ") };
+      return {
+        badge: t("format.album"),
+        subtitle: [t("format.album"), tile.artist].filter(Boolean).join(", "),
+      };
     default:
-      return { badge: sourceLabel(tile.source), subtitle: tile.artist || "Titre" };
+      return { badge: sourceLabel(tile.source), subtitle: tile.artist || t("format.track") };
   }
 }
 
@@ -223,19 +248,21 @@ export function matchesText(text, wanted) {
  */
 export function searchSummary(text, update, shown, minLength) {
   if (text.length < minLength) {
-    return `Tapez au moins ${minLength} lettres.`;
+    return t("format.searchTooShort", { min: minLength });
   }
   if (!update) {
-    return "Recherche en cours…";
+    return t("format.searching");
   }
   const sources = new Set(update.hits.map((hit) => hit.media.source)).size;
-  const waiting = update.done ? "" : " Recherche en cours…";
   if (shown === 0) {
-    return update.done ? `Aucun résultat pour « ${text} ».` : "Recherche en cours…";
+    return update.done ? t("format.noResult", { text }) : t("format.searching");
   }
+  const results = plural(shown, "format.results");
   // Playlists are results too, and they come from no source.
-  const from = sources > 0 ? `, ${countLabel(sources, "source")}` : "";
-  return `${countLabel(shown, "résultat")}${from}.${waiting}`;
+  const summary = sources > 0
+    ? t("format.resultsFromSources", { results, sources: plural(sources, "format.sources") })
+    : t("format.resultsAlone", { results });
+  return update.done ? summary : t("format.resultsSoFar", { summary });
 }
 
 /**
@@ -248,22 +275,11 @@ export function searchSummary(text, update, shown, minLength) {
  */
 export function launcherGroups(hits, limit) {
   const kept = hits.slice(0, limit);
-  const group = (media) => (media.kind === "station" ? "Radios" : "Titres");
+  const group = (media) => (media.kind === "station" ? t("format.groupStations") : t("format.groupTracks"));
   const first = kept.length > 0 ? group(kept[0].media) : null;
   const entries = kept.map((hit) => ({ group: group(hit.media), media: hit.media }));
   // A stable sort: inside a group, the ranking of the search is kept.
   return entries.sort((a, b) => (b.group === first) - (a.group === first));
-}
-
-/**
- * Writes a count with its noun: `1 titre`, `12 titres`.
- *
- * @param {number} count
- * @param {string} singular
- * @param {string} [plural]
- */
-export function countLabel(count, singular, plural = `${singular}s`) {
-  return `${count} ${count > 1 ? plural : singular}`;
 }
 
 /**
@@ -334,42 +350,33 @@ export function playbackProblem(error, media) {
   switch (error?.kind) {
     case "notFound":
       if (station) {
-        return { text: "Cette station ne répond plus à cette adresse. Elle a peut-être fermé.", action: "retry" };
+        return { text: t("format.stationGone"), action: "retry" };
       }
       if (youtube) {
-        return { text: "Cette vidéo est introuvable. Elle a peut-être été retirée.", action: "retry" };
+        return { text: t("format.videoNotFound"), action: "retry" };
       }
       if (media?.source === "local") {
-        return { text: "Ce fichier est introuvable. Il a peut-être été déplacé ou supprimé.", action: "retry" };
+        return { text: t("format.fileNotFound"), action: "retry" };
       }
-      return { text: "Ce titre est introuvable. Il a peut-être été déplacé ou supprimé.", action: "retry" };
+      return { text: t("format.trackNotFound"), action: "retry" };
     case "network":
       return {
-        text: station
-          ? "La connexion à la station est perdue. Vérifiez votre réseau."
-          : "Le réseau ne répond pas. Vérifiez votre connexion.",
+        text: station ? t("format.stationConnectionLost") : t("format.networkDown"),
         action: "retry",
       };
     case "unavailable":
       if (youtube) {
-        return {
-          text: "YouTube n'a pas répondu. Vérifiez que yt-dlp est installé et à jour.",
-          action: "sources",
-        };
+        return { text: t("format.youtubeUnavailable"), action: "sources" };
       }
-      return { text: "Cette source est indisponible pour le moment.", action: "retry" };
+      return { text: t("format.sourceUnavailable"), action: "retry" };
     case "unsupported":
       return {
-        text: station
-          ? "Le format de ce flux n'est pas pris en charge."
-          : "Ce format audio n'est pas pris en charge.",
+        text: station ? t("format.streamUnsupported") : t("format.audioUnsupported"),
         action: "retry",
       };
     default:
       return {
-        text: station
-          ? "Lecture impossible. Le flux de la station est peut-être arrêté."
-          : "Lecture impossible.",
+        text: station ? t("format.stationPlaybackFailed") : t("format.playbackFailed"),
         action: "retry",
       };
   }
@@ -386,9 +393,9 @@ export function playbackErrorMessage(error, media) {
 }
 
 const SKIP_REASONS = {
-  notFound: "introuvable",
-  unavailable: "source indisponible",
-  unsupported: "format non pris en charge",
+  notFound: "format.skipNotFound",
+  unavailable: "format.skipUnavailable",
+  unsupported: "format.skipUnsupported",
 };
 
 /**
@@ -399,16 +406,16 @@ const SKIP_REASONS = {
  * @param {{kind: string}} error
  */
 export function skippedMessage(media, error) {
-  const reason = SKIP_REASONS[error?.kind] ?? "lecture impossible";
-  return `« ${media.title} » ignoré : ${reason}. Lecture du titre suivant.`;
+  const reason = t(SKIP_REASONS[error?.kind] ?? "format.skipFailed");
+  return t("format.skipped", { title: media.title, reason });
 }
 
 const OPEN_ERRORS = {
-  invalid: "Ce lien ou ce chemin n'est pas valide.",
-  notFound: "Introuvable. Vérifiez le lien ou le chemin.",
-  unreadable: "Ce fichier n'est pas un fichier audio lisible.",
-  network: "Le réseau ne répond pas. Vérifiez votre connexion.",
-  unavailable: "Ce lien n'a pas pu être ouvert. Pour YouTube, vérifiez que yt-dlp est installé et à jour.",
+  invalid: "format.openInvalid",
+  notFound: "format.openNotFound",
+  unreadable: "format.openUnreadable",
+  network: "format.networkDown",
+  unavailable: "format.openUnavailable",
 };
 
 /**
@@ -417,5 +424,5 @@ const OPEN_ERRORS = {
  * @param {{kind?: string}} error
  */
 export function openErrorMessage(error) {
-  return OPEN_ERRORS[error?.kind] ?? "Impossible d'ouvrir ce lien.";
+  return t(OPEN_ERRORS[error?.kind] ?? "format.openFailed");
 }

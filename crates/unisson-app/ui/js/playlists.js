@@ -8,6 +8,7 @@
 
 import * as api from "./api.js";
 import { byId, element, icon, replaceKeepingFocus } from "./dom.js";
+import { t } from "./i18n.js";
 import { closeMenu, menuItem, setMenuContent, toggleMenu } from "./menu.js";
 import { showNotice } from "./notice.js";
 import { activeParam, activeView, showView } from "./views.js";
@@ -81,7 +82,7 @@ export async function createPlaylist(name) {
     showNotice({
       owner: "playlists",
       tone: "error",
-      text: error?.kind === "invalid" ? "Donnez un nom à la liste." : "La liste n'a pas pu être créée.",
+      text: error?.kind === "invalid" ? t("shell.playlistNeedsName") : t("shell.playlistNotCreated"),
       duration: 8000,
     });
     return null;
@@ -98,9 +99,13 @@ export function openAddToListMenu(anchor, media) {
   const add = async (playlist) => {
     try {
       await api.playlistAdd(playlist.id, media);
-      showNotice({ owner: "playlists", text: `Ajouté à « ${playlist.name} » : ${media.title}`, duration: 2500 });
+      showNotice({
+        owner: "playlists",
+        text: t("shell.addedToPlaylist", { playlist: playlist.name, title: media.title }),
+        duration: 2500,
+      });
     } catch {
-      showNotice({ owner: "playlists", tone: "error", text: "Le titre n'a pas pu être ajouté.", duration: 8000 });
+      showNotice({ owner: "playlists", tone: "error", text: t("shell.trackNotAdded"), duration: 8000 });
     }
   };
 
@@ -108,12 +113,12 @@ export function openAddToListMenu(anchor, media) {
     const input = element("input", {
       class: "field",
       type: "text",
-      placeholder: "Nom de la liste",
-      "aria-label": "Nom de la nouvelle liste",
+      placeholder: t("shell.playlistName"),
+      "aria-label": t("shell.newPlaylistName"),
     });
     const form = element("form", { class: "menu-form" }, [
       input,
-      element("button", { class: "text-button text-button-strong", type: "submit" }, ["Créer"]),
+      element("button", { class: "text-button text-button-strong", type: "submit" }, [t("common.create")]),
     ]);
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
@@ -126,14 +131,14 @@ export function openAddToListMenu(anchor, media) {
     return form;
   };
 
-  toggleMenu(anchor, `Ajouter ${media.title} à une liste`, [
+  toggleMenu(anchor, t("shell.addToPlaylist", { title: media.title }), [
     ...playlists.map((playlist) => menuItem(playlist.name, () => add(playlist))),
-    menuItem("Nouvelle liste…", () => setMenuContent([nameForm()]), { keepOpen: true }),
+    menuItem(t("shell.newPlaylistEntry"), () => setMenuContent([nameForm()]), { keepOpen: true }),
   ]);
 }
 
 newButton.addEventListener("click", async () => {
-  const playlist = await createPlaylist("Nouvelle liste");
+  const playlist = await createPlaylist(t("shell.newPlaylist"));
   if (playlist) {
     // Open it with its name ready to be changed.
     showView("playlist", { param: playlist.id, renaming: true });

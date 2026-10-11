@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Unisson, lanceur rapide</title>
+<title data-i18n="launcher.windowTitle">Unisson, lanceur rapide</title>
 <link rel="stylesheet" href="styles/app.css">
 <link rel="stylesheet" href="styles/launcher.css">
 <script type="module" src="js/theme.js"></script>
@@ -18,34 +18,37 @@
   <symbol id="icon-next" viewBox="0 0 24 24"><path d="M6 6.5v11l8-5.5zM16.5 6h2v12h-2z"/></symbol>
 </svg>
 
-<main class="launcher" aria-label="Lanceur rapide">
+<main class="launcher" aria-label="Lanceur rapide" data-i18n-attrs="aria-label:launcher.label">
   <div class="launcher-search">
     <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
     <input id="launcher-input" type="search" autocomplete="off" spellcheck="false" autofocus
       aria-label="Rechercher dans toutes les sources" aria-controls="launcher-results"
-      placeholder="Un titre, un artiste, une radio">
-    <kbd>Échap</kbd>
+      placeholder="Un titre, un artiste, une radio"
+      data-i18n-attrs="aria-label:launcher.searchLabel, placeholder:launcher.searchPlaceholder">
+    <kbd data-i18n="launcher.keyEscape">Échap</kbd>
   </div>
 
   <div class="launcher-results" id="launcher-results"></div>
   <div class="launcher-status" id="launcher-status" role="status"></div>
 
   <div class="launcher-now" id="launcher-now" hidden>
-    <span class="group-title">En cours</span>
+    <span class="group-title" data-i18n="launcher.nowPlaying">En cours</span>
     <span class="launcher-now-text truncate" id="launcher-now-text"></span>
-    <button class="icon-button" id="launcher-toggle" type="button" aria-label="Mettre en pause">
+    <button class="icon-button" id="launcher-toggle" type="button" aria-label="Mettre en pause"
+      data-i18n-attrs="aria-label:launcher.pause">
       <svg class="icon icon-filled" aria-hidden="true"><use id="launcher-toggle-icon" href="#icon-pause"/></svg>
     </button>
-    <button class="icon-button" id="launcher-next" type="button" aria-label="Titre suivant">
+    <button class="icon-button" id="launcher-next" type="button" aria-label="Titre suivant"
+      data-i18n-attrs="aria-label:launcher.nextTrack">
       <svg class="icon icon-filled" aria-hidden="true"><use href="#icon-next"/></svg>
     </button>
   </div>
 
-  <div class="legend launcher-legend" aria-label="Raccourcis clavier">
-    <span class="legend-entry"><kbd>Entrée</kbd>lire</span>
-    <span class="legend-entry"><kbd>Maj Entrée</kbd>ajouter à la file</span>
-    <span class="legend-entry"><kbd>Ctrl Entrée</kbd>lire juste après</span>
-    <span class="legend-entry"><kbd>Espace</kbd>pause, si le champ est vide</span>
+  <div class="legend launcher-legend" aria-label="Raccourcis clavier" data-i18n-attrs="aria-label:launcher.shortcuts">
+    <span class="legend-entry"><kbd data-i18n="launcher.keyEnter">Entrée</kbd><span data-i18n="launcher.hintPlay">lire</span></span>
+    <span class="legend-entry"><kbd data-i18n="launcher.keyShiftEnter">Maj Entrée</kbd><span data-i18n="launcher.hintEnqueue">ajouter à la file</span></span>
+    <span class="legend-entry"><kbd data-i18n="launcher.keyCtrlEnter">Ctrl Entrée</kbd><span data-i18n="launcher.hintPlayNext">lire juste après</span></span>
+    <span class="legend-entry"><kbd data-i18n="launcher.keySpace">Espace</kbd><span data-i18n="launcher.hintPause">pause, si le champ est vide</span></span>
   </div>
 </main>
 </body>

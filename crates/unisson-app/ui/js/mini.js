@@ -9,6 +9,7 @@
 import * as api from "./api.js";
 import { byId } from "./dom.js";
 import { fillPercent, mediaSubtitle, playbackErrorMessage, sourceLabel } from "./format.js";
+import { t } from "./i18n.js";
 
 const cover = byId("mini-cover");
 const coverIcon = byId("mini-cover-icon");
@@ -23,8 +24,8 @@ const nextButton = byId("mini-next");
 const progress = byId("mini-progress");
 const progressFill = byId("mini-progress-fill");
 
-const EMPTY_TITLE = title.textContent;
-const EMPTY_SUBTITLE = subtitle.textContent;
+const EMPTY_TITLE = t("mini.nothingPlaying");
+const EMPTY_SUBTITLE = t("mini.nothingPlayingHint");
 
 /** @param {import("./api.js").Snapshot} snapshot */
 function render(snapshot) {
@@ -38,7 +39,7 @@ function render(snapshot) {
   if (problem) {
     subtitle.textContent = playbackErrorMessage(snapshot.error, media);
   } else if (media && snapshot.status === "reconnecting") {
-    subtitle.textContent = "Connexion perdue. Nouvelle tentative…";
+    subtitle.textContent = t("mini.reconnecting");
   } else {
     subtitle.textContent = media ? mediaSubtitle(media, snapshot.streamTitle) : EMPTY_SUBTITLE;
   }
@@ -63,7 +64,10 @@ function render(snapshot) {
   const sounding = snapshot.status === "playing" || snapshot.status === "reconnecting";
   toggleButton.disabled = !media;
   toggleButton.setAttribute("aria-busy", String(busy));
-  toggleButton.setAttribute("aria-label", busy ? "Chargement" : sounding ? "Mettre en pause" : "Lire");
+  toggleButton.setAttribute(
+    "aria-label",
+    busy ? t("mini.loading") : sounding ? t("mini.pause") : t("mini.play"),
+  );
   toggleIcon.setAttribute("href", sounding ? "#icon-pause" : "#icon-play");
   previousButton.disabled = !media || (isLive && !snapshot.hasPrevious);
   nextButton.disabled = !snapshot.hasNext;

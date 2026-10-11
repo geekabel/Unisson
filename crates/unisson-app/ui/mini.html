@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Unisson, mini-lecteur</title>
+<title data-i18n="mini.windowTitle">Unisson, mini-lecteur</title>
 <link rel="stylesheet" href="styles/app.css">
 <link rel="stylesheet" href="styles/mini.css">
 <script type="module" src="js/theme.js"></script>
@@ -23,36 +23,43 @@
 </svg>
 
 <!-- The area without buttons moves the window when it is dragged. -->
-<main class="mini" aria-label="Mini-lecteur">
+<main class="mini" aria-label="Mini-lecteur" data-i18n-attrs="aria-label:mini.label">
   <div class="mini-row" data-tauri-drag-region>
     <div class="cover mini-cover" id="mini-cover" data-source="none" data-tauri-drag-region>
       <svg class="icon" aria-hidden="true"><use id="mini-cover-icon" href="#icon-note"/></svg>
       <img id="mini-cover-image" alt="" hidden>
     </div>
     <div class="mini-text" data-tauri-drag-region>
-      <div class="player-title" id="mini-title" data-tauri-drag-region>Rien en lecture</div>
-      <div class="player-subtitle" id="mini-subtitle" data-tauri-drag-region>Ouvrez Unisson pour choisir un titre</div>
+      <div class="player-title" id="mini-title" data-tauri-drag-region data-i18n="mini.nothingPlaying">Rien en lecture</div>
+      <div class="player-subtitle" id="mini-subtitle" data-tauri-drag-region
+        data-i18n="mini.nothingPlayingHint">Ouvrez Unisson pour choisir un titre</div>
       <span class="badge mini-badge" id="mini-source" hidden></span>
     </div>
-    <button class="icon-button" id="mini-previous" type="button" aria-label="Titre précédent" title="Titre précédent" disabled>
+    <button class="icon-button" id="mini-previous" type="button" aria-label="Titre précédent" title="Titre précédent"
+      data-i18n-attrs="aria-label:mini.previousTrack, title:mini.previousTrack" disabled>
       <svg class="icon icon-filled" aria-hidden="true"><use href="#icon-previous"/></svg>
     </button>
-    <button class="play-button" id="mini-toggle" type="button" aria-label="Lire" disabled>
+    <button class="play-button" id="mini-toggle" type="button" aria-label="Lire"
+      data-i18n-attrs="aria-label:mini.play" disabled>
       <svg class="icon icon-filled" aria-hidden="true"><use id="mini-toggle-icon" href="#icon-play"/></svg>
       <span class="spinner" aria-hidden="true"></span>
     </button>
-    <button class="icon-button" id="mini-next" type="button" aria-label="Titre suivant" title="Titre suivant" disabled>
+    <button class="icon-button" id="mini-next" type="button" aria-label="Titre suivant" title="Titre suivant"
+      data-i18n-attrs="aria-label:mini.nextTrack, title:mini.nextTrack" disabled>
       <svg class="icon icon-filled" aria-hidden="true"><use href="#icon-next"/></svg>
     </button>
     <span class="mini-divider" aria-hidden="true"></span>
-    <button class="icon-button" id="mini-search" type="button" aria-label="Rechercher" title="Rechercher">
+    <button class="icon-button" id="mini-search" type="button" aria-label="Rechercher" title="Rechercher"
+      data-i18n-attrs="aria-label:mini.search, title:mini.search">
       <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
     </button>
-    <button class="icon-button" id="mini-expand" type="button" aria-label="Ouvrir la fenêtre principale" title="Ouvrir la fenêtre principale">
+    <button class="icon-button" id="mini-expand" type="button" aria-label="Ouvrir la fenêtre principale" title="Ouvrir la fenêtre principale"
+      data-i18n-attrs="aria-label:mini.openMainWindow, title:mini.openMainWindow">
       <svg class="icon" aria-hidden="true"><use href="#icon-expand"/></svg>
     </button>
   </div>
   <div class="mini-progress" id="mini-progress" role="progressbar" aria-label="Position dans le titre"
+    data-i18n-attrs="aria-label:mini.position"
     aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
     <div class="mini-progress-fill" id="mini-progress-fill"></div>
   </div>

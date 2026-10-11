@@ -12,6 +12,7 @@
 //! keep_in_tray = true
 //! notifications = true
 //! theme = "system"
+//! language = "system"
 //! music_folder = "/home/me/Music"
 //!
 //! [sources]
@@ -31,6 +32,8 @@ use std::path::{Path, PathBuf};
 use serde::{Deserialize, Serialize};
 use unisson_core::SourceKind;
 
+use crate::texts::LanguageChoice;
+
 /// The settings as the application uses them: always complete and valid.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Settings {
@@ -45,6 +48,8 @@ pub struct Settings {
     pub notifications: bool,
     /// The colors of the interface.
     pub theme: ThemeChoice,
+    /// The language of the interface.
+    pub language: LanguageChoice,
     /// The folder of the local library. `None` means the music folder of
     /// the desktop.
     pub music_folder: Option<PathBuf>,
@@ -100,6 +105,7 @@ impl Default for Settings {
             keep_in_tray: true,
             notifications: true,
             theme: ThemeChoice::System,
+            language: LanguageChoice::System,
             music_folder: None,
             priority: DEFAULT_PRIORITY.to_vec(),
             disabled: Vec::new(),
@@ -128,6 +134,7 @@ struct SettingsFile {
     keep_in_tray: Option<bool>,
     notifications: Option<bool>,
     theme: Option<String>,
+    language: Option<String>,
     music_folder: Option<PathBuf>,
     #[serde(default)]
     sources: SourcesFile,
@@ -246,6 +253,11 @@ impl Settings {
                 .as_deref()
                 .and_then(|id| ThemeChoice::from_id(id.trim()))
                 .unwrap_or(defaults.theme),
+            language: file
+                .language
+                .as_deref()
+                .and_then(|id| LanguageChoice::from_id(id.trim()))
+                .unwrap_or(defaults.language),
             // A relative folder would depend on where the program starts.
             music_folder: file.music_folder.filter(|folder| folder.is_absolute()),
             priority: complete_priority(&known(&file.sources.priority)),
@@ -261,6 +273,7 @@ impl Settings {
             keep_in_tray: Some(self.keep_in_tray),
             notifications: Some(self.notifications),
             theme: Some(self.theme.id().to_owned()),
+            language: Some(self.language.id().to_owned()),
             music_folder: self.music_folder.clone(),
             sources: SourcesFile {
                 priority: ids(&self.priority),
@@ -302,6 +315,7 @@ fn config_dir(xdg_config_home: Option<OsString>, home: Option<OsString>) -> Opti
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::texts::Language;
 
     /// Returns the path of a settings file in a new empty folder.
     fn test_path(name: &str) -> PathBuf {
@@ -336,6 +350,7 @@ mod tests {
         settings.keep_in_tray = false;
         settings.notifications = false;
         settings.theme = ThemeChoice::Light;
+        settings.language = LanguageChoice::Fixed(Language::English);
         settings.music_folder = Some(PathBuf::from("/data/Musique été"));
         settings.set_priority(&[SourceKind::YouTube, SourceKind::Local]);
         settings.set_enabled(SourceKind::Radio, false);

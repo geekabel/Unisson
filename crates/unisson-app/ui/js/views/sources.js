@@ -6,7 +6,8 @@
 import * as api from "../api.js";
 import { iconButton, section } from "../components.js";
 import { element, icon } from "../dom.js";
-import { countLabel, displayPath, moved, sourceName } from "../format.js";
+import { displayPath, moved, sourceName } from "../format.js";
+import { plural, t } from "../i18n.js";
 import { showNotice } from "../notice.js";
 import { SHORTCUT_GROUPS } from "../shortcut-list.js";
 import { currentSettings, onSettingsChange, useSettings } from "../settings.js";
@@ -24,7 +25,7 @@ let area = element("div");
 export async function render() {
   area = element("div", { class: "settings" });
   draw();
-  return [element("h1", { class: "view-title" }, ["Sources et réglages"]), area];
+  return [element("h1", { class: "view-title" }, [t("sources.title")]), area];
 }
 
 /**
@@ -39,7 +40,7 @@ async function apply(change) {
     showNotice({
       owner: "settings",
       tone: "error",
-      text: "Ce réglage n'a pas pu être enregistré.",
+      text: t("sources.settingNotSaved"),
       duration: 8000,
     });
   }
@@ -53,23 +54,21 @@ function draw() {
   // Keep the focus on the same control across the redraw.
   const focused = document.activeElement?.dataset?.focusKey;
   area.replaceChildren(
-    section("Sources", [
+    section(t("sources.sectionSources"), [
       element("div", { class: "source-cards" }, settings.sources.map((source) => {
         return sourceCard(source, settings);
       })),
     ]),
-    section("Priorité des sources", [
-      element("p", { class: "hint" }, [
-        "Si un titre existe dans plusieurs sources, la première de la liste est utilisée.",
-      ]),
+    section(t("sources.sectionPriority"), [
+      element("p", { class: "hint" }, [t("sources.priorityHint")]),
       element("ol", { class: "priority" }, settings.sources.map((source, index) => {
         return priorityRow(source, index, settings);
       })),
     ]),
-    section("Comportement", [
+    section(t("sources.sectionBehavior"), [
       settingRow({
         key: "resume-radio",
-        label: "Quand la file est vide, reprendre la dernière radio",
+        label: t("sources.resumeRadio"),
         checked: settings.resumeRadio,
         onChange: async (checked) => {
           await api.queueSetResumeRadio(checked);
@@ -78,27 +77,29 @@ function draw() {
       }),
       settingRow({
         key: "keep-in-tray",
-        label: "À la fermeture de la fenêtre, continuer la lecture",
-        detail: "L'icône de la barre du haut rouvre la fenêtre, et son menu permet de quitter.",
+        label: t("sources.keepInTray"),
+        detail: t("sources.keepInTrayDetail"),
         checked: settings.keepInTray,
         onChange: (checked) => api.settingsSetKeepInTray(checked),
       }),
       settingRow({
         key: "notifications",
-        label: "Annoncer chaque nouveau titre par une notification",
-        detail: "Elle s'affiche seulement quand Unisson n'est pas la fenêtre active.",
+        label: t("sources.notifications"),
+        detail: t("sources.notificationsDetail"),
         checked: settings.notifications,
         onChange: (checked) => api.settingsSetNotifications(checked),
       }),
     ]),
-    section("Apparence", [themeSetting(settings.theme)]),
-    section("Lanceur rapide", shortcutSettings(settings.shortcut)),
-    section("Raccourcis clavier", shortcutHelp()),
-    settings.configPath
-      ? element("p", { class: "section-note" }, [
-          `Réglages enregistrés dans ${displayPath(settings.configPath)}`,
-        ])
-      : element("p", { class: "section-note" }, ["Les réglages ne peuvent pas être enregistrés."]),
+    section(t("sources.sectionAppearance"), [
+      themeSetting(settings.theme),
+      languageSetting(settings.language),
+    ]),
+    section(t("sources.sectionLauncher"), shortcutSettings(settings.shortcut)),
+    section(t("sources.sectionShortcuts"), shortcutHelp()),
+    // Only worth a line when something is wrong.
+    ...(settings.configPath
+      ? []
+      : [element("p", { class: "section-note" }, [t("sources.settingsNotSavable")])]),
   );
   if (focused) {
     area.querySelector(`[data-focus-key="${focused}"]`)?.focus();
@@ -123,9 +124,9 @@ function shortcutHelp() {
 
 /** The themes offered, with their name for the user. */
 const THEMES = [
-  ["system", "Comme le système"],
-  ["dark", "Sombre"],
-  ["light", "Clair"],
+  ["system", t("sources.sameAsSystem")],
+  ["dark", t("sources.themeDark")],
+  ["light", t("sources.themeLight")],
 ];
 
 /**
@@ -142,10 +143,39 @@ function themeSetting(theme) {
   select.addEventListener("change", () => apply(() => api.settingsSetTheme(select.value)));
   return element("div", { class: "setting-row" }, [
     element("span", { class: "station-text" }, [
-      element("span", { class: "setting-label", id: "theme-label" }, ["Thème"]),
-      element("span", { class: "station-detail" }, [
-        "« Comme le système » suit le style clair ou sombre choisi dans les réglages du bureau.",
-      ]),
+      element("span", { class: "setting-label", id: "theme-label" }, [t("sources.theme")]),
+      element("span", { class: "station-detail" }, [t("sources.themeDetail")]),
+    ]),
+    select,
+  ]);
+}
+
+/** The languages offered. Each language keeps its own name, whatever the language in use. */
+const LANGUAGES = [
+  ["system", t("sources.sameAsSystem")],
+  ["fr", "Français"],
+  ["en", "English"],
+];
+
+/**
+ * Builds the choice of the language of the interface.
+ *
+ * @param {string} language The current choice.
+ */
+function languageSetting(language) {
+  const select = /** @type {HTMLSelectElement} */ (
+    element(
+      "select",
+      { class: "field field-compact", "aria-labelledby": "language-label", "data-focus-key": "language" },
+      LANGUAGES.map(([id, name]) => element("option", { value: id }, [name])),
+    )
+  );
+  select.value = LANGUAGES.some(([id]) => id === language) ? language : "system";
+  select.addEventListener("change", () => apply(() => api.settingsSetLanguage(select.value)));
+  return element("div", { class: "setting-row" }, [
+    element("span", { class: "station-text" }, [
+      element("span", { class: "setting-label", id: "language-label" }, [t("sources.language")]),
+      element("span", { class: "station-detail" }, [t("sources.languageDetail")]),
     ]),
     select,
   ]);
@@ -158,12 +188,9 @@ function themeSetting(theme) {
  * @returns {Node[]}
  */
 function shortcutSettings(shortcut) {
-  const intro = element("p", { class: "hint" }, [
-    "Le lanceur est une petite fenêtre de recherche qui s'ouvre par-dessus votre travail : " +
-      "quelques lettres, Entrée, et la lecture démarre.",
-  ]);
+  const intro = element("p", { class: "hint" }, [t("sources.launcherIntro")]);
   const open = element("button", { class: "text-button", type: "button", "data-focus-key": "open-launcher" }, [
-    "Ouvrir le lanceur",
+    t("sources.openLauncher"),
   ]);
   open.addEventListener("click", () => api.windowShowLauncher());
 
@@ -171,17 +198,18 @@ function shortcutSettings(shortcut) {
     // Not GNOME: the user binds the command in the settings of their desktop.
     return [
       intro,
-      element("p", { class: "station-detail" }, [
-        "Pour l'ouvrir au clavier, créez dans les réglages de votre bureau un raccourci qui lance cette commande :",
-      ]),
+      element("p", { class: "station-detail" }, [t("sources.shortcutManual")]),
       element("p", { class: "path" }, [shortcut.command]),
       element("div", { class: "inline-form" }, [open]),
     ];
   }
 
   const select = /** @type {HTMLSelectElement} */ (
-    element("select", { class: "field", "aria-label": "Raccourci clavier", "data-focus-key": "shortcut-choice" },
-      shortcut.choices.map(([binding, name]) => element("option", { value: binding }, [name])))
+    element(
+      "select",
+      { class: "field", "aria-label": t("sources.shortcutChoice"), "data-focus-key": "shortcut-choice" },
+      shortcut.choices.map(([binding, name]) => element("option", { value: binding }, [name])),
+    )
   );
   if (shortcut.binding && shortcut.choices.some(([binding]) => binding === shortcut.binding)) {
     select.value = shortcut.binding;
@@ -189,13 +217,13 @@ function shortcutSettings(shortcut) {
   const install = element(
     "button",
     { class: "text-button text-button-strong", type: "button", "data-focus-key": "install-shortcut" },
-    [shortcut.binding ? "Changer le raccourci" : "Installer le raccourci"],
+    [shortcut.binding ? t("sources.changeShortcut") : t("sources.installShortcut")],
   );
   install.addEventListener("click", () => apply(() => api.settingsInstallShortcut(select.value)));
   const controls = [select, install];
   if (shortcut.binding) {
     const remove = element("button", { class: "text-button", type: "button", "data-focus-key": "remove-shortcut" }, [
-      "Retirer",
+      t("sources.removeShortcut"),
     ]);
     remove.addEventListener("click", () => apply(api.settingsRemoveShortcut));
     controls.push(remove);
@@ -207,8 +235,8 @@ function shortcutSettings(shortcut) {
     intro,
     element("p", { class: "station-detail" }, [
       shortcut.binding
-        ? `Raccourci en place : ${name}. Il apparaît aussi dans les réglages de GNOME, sous Clavier.`
-        : "Aucun raccourci pour l'instant. Unisson peut l'ajouter aux raccourcis personnalisés de GNOME.",
+        ? t("sources.shortcutInPlace", { name })
+        : t("sources.noShortcut"),
     ]),
     element("div", { class: "inline-form" }, controls),
   ];
@@ -270,10 +298,10 @@ function toggle({ key, checked, label, labelledBy, onChange }) {
 function sourceCard(source, settings) {
   const missingTool = source.id === "youtube" && !settings.ytDlpVersion;
   const status = !source.enabled
-    ? "Coupée. Ses résultats n'apparaissent pas dans la recherche."
+    ? t("sources.statusOff")
     : missingTool
-      ? "Active, mais le programme yt-dlp est introuvable."
-      : "Active. Aucun compte requis.";
+      ? t("sources.statusMissingTool")
+      : t("sources.statusOn");
   return element("div", { class: "source-card", "data-enabled": String(source.enabled) }, [
     element("div", { class: "source-card-head" }, [
       element("span", { class: "cover", "data-source": source.id }, [icon(SOURCE_ICONS[source.id] ?? "note")]),
@@ -284,7 +312,7 @@ function sourceCard(source, settings) {
       toggle({
         key: `source-${source.id}`,
         checked: source.enabled,
-        label: `Activer la source ${sourceName(source.id)}`,
+        label: t("sources.enableSource", { name: sourceName(source.id) }),
         onChange: (checked) => api.settingsSetSourceEnabled(source.id, checked),
       }),
     ]),
@@ -293,34 +321,31 @@ function sourceCard(source, settings) {
   ]);
 }
 
+/** Where the installation guide is. It is shown as text, to copy. */
+const INSTALL_GUIDE = "github.com/geekabel/Unisson#youtube";
+
 /** @param {import("../api.js").Settings} settings */
 function youtubeDetails(settings) {
   const check = element(
     "button",
     { class: "text-button", type: "button", "data-focus-key": "check-yt-dlp" },
-    ["Vérifier à nouveau"],
+    [t("sources.checkAgain")],
   );
   check.addEventListener("click", () => apply(api.settingsCheckYtDlp));
-  const note = element("p", { class: "station-detail" }, [
-    "Le son est extrait des vidéos par yt-dlp. Cette méthode n'est pas prévue par les conditions " +
-      "d'utilisation de YouTube, et elle peut cesser de marcher tant que yt-dlp n'est pas mis à jour.",
-  ]);
   if (settings.ytDlpVersion) {
     return element("div", { class: "source-card-details" }, [
-      element("p", {}, [
-        element("span", { class: "station-detail" }, ["Programme : "]),
-        element("span", { class: "path" }, [`yt-dlp ${settings.ytDlpVersion}`]),
+      element("p", { class: "station-detail" }, [
+        t("sources.componentInstalled", { version: settings.ytDlpVersion }),
       ]),
-      note,
     ]);
   }
   return element("div", { class: "source-card-details" }, [
-    element("p", { class: "search-error", role: "alert" }, [
-      "YouTube ne peut pas être utilisé sans yt-dlp. Installez-le avec cette commande, dans un terminal :",
+    element("p", { class: "search-error", role: "alert" }, [t("sources.componentMissing")]),
+    element("p", { class: "station-detail" }, [
+      t("sources.installGuide"),
+      element("span", { class: "path" }, [INSTALL_GUIDE]),
     ]),
-    element("p", { class: "path" }, ['pipx install "yt-dlp[default]"']),
     element("div", { class: "inline-form" }, [check]),
-    note,
   ]);
 }
 
@@ -331,27 +356,28 @@ function localDetails(settings) {
     node.addEventListener("click", run);
     return node;
   };
-  const folder = settings.musicFolder
-    ? `${displayPath(settings.musicFolder)}${settings.musicFolderIsDefault ? " (dossier Musique du bureau)" : ""}`
-    : "aucun dossier connu";
+  const path = settings.musicFolder ? displayPath(settings.musicFolder) : "";
+  const folder = !settings.musicFolder
+    ? t("sources.noFolder")
+    : settings.musicFolderIsDefault
+      ? t("sources.folderDefault", { path })
+      : path;
   return element("div", { class: "source-card-details" }, [
     element("p", {}, [
-      element("span", { class: "station-detail" }, ["Dossier : "]),
+      element("span", { class: "station-detail" }, [t("sources.folder")]),
       element("span", { class: "path" }, [folder]),
     ]),
     settings.musicFolder && !settings.musicFolderExists
-      ? element("p", { class: "search-error", role: "alert" }, ["Ce dossier est introuvable."])
-      : element("p", { class: "station-detail" }, [
-          `${countLabel(settings.libraryTotal, "titre")} dans la bibliothèque.`,
-        ]),
+      ? element("p", { class: "search-error", role: "alert" }, [t("sources.folderMissing")])
+      : element("p", { class: "station-detail" }, [plural(settings.libraryTotal, "sources.tracksInLibrary")]),
     element("div", { class: "inline-form" }, [
-      button("pick-folder", "Changer de dossier", () => apply(api.settingsPickMusicFolder)),
+      button("pick-folder", t("sources.changeFolder"), () => apply(api.settingsPickMusicFolder)),
       settings.musicFolderIsDefault
         ? null
-        : button("reset-folder", "Revenir au dossier Musique", () => apply(api.settingsResetMusicFolder)),
-      button("rescan", "Analyser à nouveau", async () => {
+        : button("reset-folder", t("sources.resetFolder"), () => apply(api.settingsResetMusicFolder)),
+      button("rescan", t("sources.rescan"), async () => {
         await api.settingsRescanLibrary();
-        showNotice({ owner: "settings", text: "Analyse du dossier en cours.", duration: 3000 });
+        showNotice({ owner: "settings", text: t("sources.rescanStarted"), duration: 3000 });
       }),
     ]),
   ]);
@@ -364,10 +390,11 @@ function localDetails(settings) {
  */
 function priorityRow(source, index, settings) {
   const ids = settings.sources.map((other) => other.id);
+  const name = sourceName(source.id);
   const move = (step, label, iconName) => {
     const button = iconButton({
       icon: iconName,
-      label: `${label} ${sourceName(source.id)}`,
+      label,
       onClick: () => apply(() => api.settingsSetPriority(moved(ids, index, step))),
     });
     button.dataset.focusKey = `priority-${source.id}-${step}`;
@@ -378,10 +405,10 @@ function priorityRow(source, index, settings) {
     element("span", { class: "queue-number" }, [String(index + 1)]),
     element("span", { class: "priority-name" }, [
       sourceName(source.id),
-      source.enabled ? null : element("span", { class: "station-detail" }, [" (coupée)"]),
+      source.enabled ? null : element("span", { class: "station-detail" }, [t("sources.sourceOff")]),
     ]),
-    move(-1, "Monter", "up"),
-    move(1, "Descendre", "down"),
+    move(-1, t("sources.moveUp", { name }), "up"),
+    move(1, t("sources.moveDown", { name }), "down"),
   ]);
 }
 

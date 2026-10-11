@@ -7,6 +7,7 @@
  */
 
 import { byId } from "./dom.js";
+import { t } from "./i18n.js";
 
 const strip = byId("notice");
 const text = byId("notice-text");
@@ -34,6 +35,8 @@ export function showNotice({ owner: newOwner, text: message, tone = "info", deta
   owner = newOwner;
   text.textContent = message;
   text.title = detail ?? "";
+  // The style sheet writes this word before the message of an error.
+  text.dataset.prefix = `${t("shell.errorPrefix")} `;
   strip.dataset.tone = tone;
   // An error interrupts a screen reader. Anything else waits for its turn.
   strip.setAttribute("role", tone === "error" ? "alert" : "status");

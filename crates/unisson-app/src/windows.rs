@@ -28,10 +28,10 @@ use gtk::prelude::{Cast, GtkWindowExt, WidgetExt};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 use crate::events::LAUNCHER_OPENED;
-use crate::shortcut::LAUNCHER_ARGUMENT;
 
 use crate::settings::ThemeChoice;
 use crate::state::AppState;
+use crate::texts::Texts;
 use crate::tray::Tray;
 
 /// The label of the main window.
@@ -68,6 +68,24 @@ pub fn apply_theme(app: &AppHandle) {
     }
 }
 
+/// Returns the words of the language in use.
+fn texts(app: &AppHandle) -> &'static Texts {
+    app.state::<AppState>().language().texts()
+}
+
+/// Puts the parts drawn outside the web pages in the language the user
+/// chose: the titles of the small windows, and the menu of the tray icon.
+/// The pages themselves reload when the settings change.
+pub fn apply_language(app: &AppHandle) {
+    let texts = texts(app);
+    for (label, title) in [(MINI, texts.mini_title), (LAUNCHER, texts.launcher_title)] {
+        if let Some(window) = app.get_webview_window(label) {
+            let _ = window.set_title(title);
+        }
+    }
+    crate::tray::refresh(app);
+}
+
 /// Brings the main window back in front of the user, and puts the
 /// mini-player away.
 pub fn show_main(app: &AppHandle) {
@@ -82,7 +100,7 @@ pub fn show_mini(app: &AppHandle) {
     let window = app.get_webview_window(MINI).map_or_else(
         || {
             WebviewWindowBuilder::new(app, MINI, WebviewUrl::App("mini.html".into()))
-                .title("Unisson, mini-lecteur")
+                .title(texts(app).mini_title)
                 .inner_size(520.0, 96.0)
                 .resizable(false)
                 .decorations(false)
@@ -161,7 +179,7 @@ pub fn show_launcher(app: &AppHandle) {
     let window = app.get_webview_window(LAUNCHER).map_or_else(
         || {
             WebviewWindowBuilder::new(app, LAUNCHER, WebviewUrl::App("launcher.html".into()))
-                .title("Unisson, lanceur rapide")
+                .title(texts(app).launcher_title)
                 .inner_size(640.0, 460.0)
                 .resizable(false)
                 .decorations(false)
@@ -207,7 +225,7 @@ pub fn handle_launch(app: &AppHandle, arguments: &[String]) {
     }
     if arguments
         .iter()
-        .any(|argument| argument == LAUNCHER_ARGUMENT)
+        .any(|argument| crate::shortcut::asks_for_launcher(argument))
     {
         show_launcher(app);
     } else {

@@ -5,7 +5,8 @@
 import * as api from "../api.js";
 import { iconButton, mediaActions, mediaRow, section, stationChip } from "../components.js";
 import { element } from "../dom.js";
-import { countLabel, stationMedia } from "../format.js";
+import { stationMedia } from "../format.js";
+import { plural, t } from "../i18n.js";
 import { favoriteStations } from "../stations.js";
 
 /**
@@ -17,24 +18,21 @@ import { favoriteStations } from "../stations.js";
 export async function render({ showView }) {
   const favorites = await api.favoritesList();
   const stations = favoriteStations();
-  const content = [element("h1", { class: "view-title" }, ["Favoris"])];
+  const content = [element("h1", { class: "view-title" }, [t("home.favorites")])];
 
   if (favorites.length === 0 && stations.length === 0) {
     content.push(
-      element("p", { class: "hint" }, [
-        "Aucun favori pour l'instant. Pendant une écoute, cliquez sur le cœur de la barre de lecture " +
-          "pour garder le titre ou la station ici.",
-      ]),
+      element("p", { class: "hint" }, [t("home.favoritesEmpty")]),
     );
     return content;
   }
 
   if (favorites.length > 0) {
-    const playAll = element("button", { class: "text-button", type: "button" }, ["Tout lire"]);
+    const playAll = element("button", { class: "text-button", type: "button" }, [t("home.playAll")]);
     playAll.addEventListener("click", () => api.playList(favorites, 0));
     content.push(
       section(
-        `Titres, ${countLabel(favorites.length, "favori")}`,
+        plural(favorites.length, "home.favoriteTracks"),
         [
           element("div", { class: "rows" }, favorites.map((media, index) => {
             return mediaRow(media, {
@@ -43,7 +41,7 @@ export async function render({ showView }) {
                 ...mediaActions(media),
                 iconButton({
                   icon: "close",
-                  label: `Retirer ${media.title} des favoris`,
+                  label: t("home.removeFavorite", { title: media.title }),
                   onClick: () => api.favoriteSet(media, false),
                 }),
               ],
@@ -57,11 +55,11 @@ export async function render({ showView }) {
 
   if (stations.length > 0) {
     const media = stations.map(stationMedia);
-    const all = element("button", { class: "link-button", type: "button" }, ["Gérer les radios"]);
+    const all = element("button", { class: "link-button", type: "button" }, [t("home.manageStations")]);
     all.addEventListener("click", () => showView("radios"));
     content.push(
       section(
-        "Radios",
+        t("home.stations"),
         [
           element("div", { class: "chips" }, stations.map((station, index) => {
             return stationChip(station, () => api.playList(media, index));

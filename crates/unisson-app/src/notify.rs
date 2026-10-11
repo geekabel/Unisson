@@ -33,6 +33,7 @@ use unisson_playback::{ErrorKind, PlaybackError, Snapshot, Status};
 
 use crate::now_playing::NowPlaying;
 use crate::state::AppState;
+use crate::texts::Texts;
 use crate::windows;
 
 /// The name the desktop shows above the message.
@@ -62,19 +63,18 @@ impl Announcement {
         }
     }
 
-    /// Tells that playback stopped on a failure. The texts are in French,
-    /// like the rest of the interface.
-    fn of_failure(title: &str, error: &PlaybackError) -> Self {
+    /// Tells that playback stopped on a failure.
+    fn of_failure(title: &str, error: &PlaybackError, texts: &Texts) -> Self {
         let reason = match error.kind {
-            ErrorKind::NotFound => "introuvable",
-            ErrorKind::Network => "le réseau ne répond pas",
-            ErrorKind::Unavailable => "source indisponible",
-            ErrorKind::Unsupported => "format non pris en charge",
-            ErrorKind::Playback => "lecture impossible",
+            ErrorKind::NotFound => texts.reason_not_found,
+            ErrorKind::Network => texts.reason_network,
+            ErrorKind::Unavailable => texts.reason_unavailable,
+            ErrorKind::Unsupported => texts.reason_unsupported,
+            ErrorKind::Playback => texts.reason_playback,
         };
         Self {
-            summary: "Lecture interrompue".into(),
-            body: format!("{title} : {reason}"),
+            summary: texts.playback_stopped.into(),
+            body: format!("{title}{}{reason}", texts.colon),
         }
     }
 }
@@ -96,7 +96,7 @@ impl Announcer {
     /// fail, and a message for something that never plays would be noise.
     /// A radio station brings a message each time it announces a new
     /// title on air.
-    pub fn observe(&mut self, snapshot: &Snapshot) -> Option<Announcement> {
+    pub fn observe(&mut self, snapshot: &Snapshot, texts: &Texts) -> Option<Announcement> {
         let Some(media) = &snapshot.current else {
             // The queue ran out: the same track played again later is news.
             self.last = None;
@@ -106,7 +106,7 @@ impl Announcer {
         if snapshot.error != self.last_error {
             self.last_error.clone_from(&snapshot.error);
             if let Some(error) = &snapshot.error {
-                return Some(Announcement::of_failure(&media.title, error));
+                return Some(Announcement::of_failure(&media.title, error, texts));
             }
         }
         if snapshot.status != Status::Playing {
@@ -157,7 +157,9 @@ impl Notifier {
         // an old title would be announced when the window loses the
         // keyboard, or when the setting is switched on.
         let announcement = match self.announcer.lock() {
-            Ok(mut announcer) => announcer.observe(snapshot),
+            Ok(mut announcer) => {
+                announcer.observe(snapshot, app.state::<AppState>().language().texts())
+            }
             Err(_) => return,
         };
         let Some(announcement) = announcement else {
@@ -257,6 +259,14 @@ mod tests {
     use unisson_core::{Media, SourceKind};
 
     use super::*;
+    use crate::texts::Language;
+
+    impl Announcer {
+        /// Observes a state with the French texts, which the tests read.
+        fn seen(&mut self, snapshot: &Snapshot) -> Option<Announcement> {
+            self.observe(snapshot, Language::French.texts())
+        }
+    }
 
     fn track(path: &str, title: &str, artist: &str) -> Media {
         Media::track(MediaId::new(SourceKind::Local, path), title).with_artist(artist)
@@ -275,14 +285,14 @@ mod tests {
         let so_what = track("/m/a.flac", "So What", "Miles Davis");
         let mut announcer = Announcer::default();
 
-        assert_eq!(announcer.observe(&Snapshot::default()), None);
+        assert_eq!(announcer.seen(&Snapshot::default()), None);
         assert_eq!(
-            announcer.observe(&state(&so_what, Status::Loading)),
+            announcer.seen(&state(&so_what, Status::Loading)),
             None,
             "a media that is loading may still fail"
         );
         assert_eq!(
-            announcer.observe(&state(&so_what, Status::Playing)),
+            announcer.seen(&state(&so_what, Status::Playing)),
             Some(Announcement {
                 summary: "So What".into(),
                 body: "Miles Davis".into(),
@@ -294,19 +304,15 @@ mod tests {
     fn a_pause_or_a_volume_change_is_not_news() {
         let so_what = track("/m/a.flac", "So What", "Miles Davis");
         let mut announcer = Announcer::default();
-        assert!(
-            announcer
-                .observe(&state(&so_what, Status::Playing))
-                .is_some()
-        );
+        assert!(announcer.seen(&state(&so_what, Status::Playing)).is_some());
 
-        assert_eq!(announcer.observe(&state(&so_what, Status::Paused)), None);
-        assert_eq!(announcer.observe(&state(&so_what, Status::Playing)), None);
+        assert_eq!(announcer.seen(&state(&so_what, Status::Paused)), None);
+        assert_eq!(announcer.seen(&state(&so_what, Status::Playing)), None);
         let louder = Snapshot {
             volume: 0.2,
             ..state(&so_what, Status::Playing)
         };
-        assert_eq!(announcer.observe(&louder), None);
+        assert_eq!(announcer.seen(&louder), None);
     }
 
     #[test]
@@ -314,18 +320,14 @@ mod tests {
         let first = track("/m/a.flac", "So What", "Miles Davis");
         let second = track("/m/b.flac", "Blue in Green", "Miles Davis");
         let mut announcer = Announcer::default();
-        assert!(announcer.observe(&state(&first, Status::Playing)).is_some());
+        assert!(announcer.seen(&state(&first, Status::Playing)).is_some());
 
-        let next = announcer.observe(&state(&second, Status::Playing));
+        let next = announcer.seen(&state(&second, Status::Playing));
         assert_eq!(next.unwrap().summary, "Blue in Green");
 
         // The queue ran out, then the same track is chosen again.
-        assert_eq!(announcer.observe(&Snapshot::default()), None);
-        assert!(
-            announcer
-                .observe(&state(&second, Status::Playing))
-                .is_some()
-        );
+        assert_eq!(announcer.seen(&Snapshot::default()), None);
+        assert!(announcer.seen(&state(&second, Status::Playing)).is_some());
     }
 
     #[test]
@@ -334,24 +336,24 @@ mod tests {
         let mut announcer = Announcer::default();
         let mut on_air = state(&fip, Status::Playing);
 
-        let start = announcer.observe(&on_air).unwrap();
+        let start = announcer.seen(&on_air).unwrap();
         assert_eq!((start.summary.as_str(), start.body.as_str()), ("FIP", ""));
 
         on_air.stream_title = Some("Nina Simone - Sinnerman".into());
-        let song = announcer.observe(&on_air).unwrap();
+        let song = announcer.seen(&on_air).unwrap();
         assert_eq!(song.summary, "Nina Simone - Sinnerman");
         assert_eq!(song.body, "FIP");
-        assert_eq!(announcer.observe(&on_air), None);
+        assert_eq!(announcer.seen(&on_air), None);
 
         on_air.stream_title = Some("Air - La femme d'argent".into());
-        assert!(announcer.observe(&on_air).is_some());
+        assert!(announcer.seen(&on_air).is_some());
     }
 
     #[test]
     fn a_failure_is_told_once() {
         let fip = Media::station(MediaId::new(SourceKind::Radio, "fip"), "FIP");
         let mut announcer = Announcer::default();
-        assert!(announcer.observe(&state(&fip, Status::Playing)).is_some());
+        assert!(announcer.seen(&state(&fip, Status::Playing)).is_some());
 
         let failed = Snapshot {
             error: Some(PlaybackError {
@@ -361,19 +363,19 @@ mod tests {
             ..state(&fip, Status::Stopped)
         };
         assert_eq!(
-            announcer.observe(&failed),
+            announcer.seen(&failed),
             Some(Announcement {
                 summary: "Lecture interrompue".into(),
                 body: "FIP : le réseau ne répond pas".into(),
             })
         );
-        assert_eq!(announcer.observe(&failed), None);
+        assert_eq!(announcer.seen(&failed), None);
 
         // Trying again clears the failure. The same station is not news,
         // but a second failure is.
-        assert_eq!(announcer.observe(&state(&fip, Status::Loading)), None);
-        assert_eq!(announcer.observe(&state(&fip, Status::Playing)), None);
-        assert!(announcer.observe(&failed).is_some());
+        assert_eq!(announcer.seen(&state(&fip, Status::Loading)), None);
+        assert_eq!(announcer.seen(&state(&fip, Status::Playing)), None);
+        assert!(announcer.seen(&failed).is_some());
     }
 
     #[test]

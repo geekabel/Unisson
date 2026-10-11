@@ -13,6 +13,7 @@
 import * as api from "./api.js";
 import { byId } from "./dom.js";
 import { looksLikeTarget, openErrorMessage } from "./format.js";
+import { t } from "./i18n.js";
 import { hideNotice, showNotice } from "./notice.js";
 import { activeView, onViewChange, showView } from "./views.js";
 import { activateSelection, clearQuery, moveSelection, setQuery } from "./views/search.js";
@@ -54,7 +55,7 @@ function leaveSearch() {
 
 async function openTarget(text) {
   // A YouTube link takes a few seconds: say that something is happening.
-  showNotice({ owner: "search", text: "Ouverture du lien…" });
+  showNotice({ owner: "search", text: t("shell.openingLink") });
   try {
     await api.open(text);
     hideNotice("search");

@@ -17,4 +17,4 @@ Actions=launcher;
 [Desktop Action launcher]
 Name=Quick Launcher
 Name[fr]=Lanceur rapide
-Exec={{exec}} --lanceur
+Exec={{exec}} --launcher

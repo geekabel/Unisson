@@ -87,6 +87,25 @@
   }
 }
 
+/* Scrollbars: thin, in the colors of the theme, and with a width that is
+ * known, so that a layout can leave room for them. */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 5px;
+  background: var(--color-control);
+  background-clip: content-box;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* ---------- Base ---------- */
 
 *,
@@ -331,7 +350,9 @@ p {
   flex-direction: column;
   gap: 24px;
   min-height: 0;
-  padding: 24px 24px 0;
+  /* The margin around the content. A narrow window makes it smaller. */
+  --content-margin: 24px;
+  padding: var(--content-margin) var(--content-margin) 0;
 }
 
 .search {
@@ -389,8 +410,14 @@ kbd {
   flex-direction: column;
   gap: 24px;
   min-height: 0;
+  /* The view reaches the edge of the window, and keeps a margin of its own
+   * there. The scrollbar sits in that margin, not over the content: the
+   * 10 px of the scrollbar and the padding make the margin of the other
+   * sides. */
+  margin-right: calc(-1 * var(--content-margin));
+  padding-right: calc(var(--content-margin) - 10px);
   padding-bottom: 24px;
-  overflow-y: auto;
+  overflow-y: scroll;
   outline: 0;
 }
 
@@ -1334,7 +1361,8 @@ kbd {
 }
 
 .notice[data-tone="error"] .notice-text::before {
-  content: "Erreur. ";
+  /* The word "Error", in the language of the interface: see notice.js. */
+  content: attr(data-prefix);
   color: var(--color-danger);
   font-weight: 500;
 }
@@ -1631,7 +1659,7 @@ kbd {
   }
 
   .content {
-    padding: 16px 16px 0;
+    --content-margin: 16px;
   }
 
   .search kbd {

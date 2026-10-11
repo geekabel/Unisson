@@ -25,6 +25,7 @@ pub mod settings;
 pub mod shortcut;
 pub mod startup;
 pub mod state;
+pub mod texts;
 pub mod tray;
 pub mod windows;
 
@@ -93,7 +94,7 @@ pub fn run() {
             let arguments: Vec<String> = std::env::args().collect();
             if arguments
                 .iter()
-                .any(|argument| argument == shortcut::LAUNCHER_ARGUMENT)
+                .any(|argument| shortcut::asks_for_launcher(argument))
             {
                 windows::show_launcher(handle);
             }
@@ -179,6 +180,8 @@ pub fn run() {
             commands::settings::settings_check_yt_dlp,
             commands::settings::settings_set_keep_in_tray,
             commands::settings::settings_set_notifications,
+            commands::settings::settings_language,
+            commands::settings::settings_set_language,
             commands::settings::settings_theme,
             commands::settings::settings_set_theme,
             commands::settings::settings_install_shortcut,

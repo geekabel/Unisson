@@ -10,6 +10,7 @@
 import * as api from "./api.js";
 import { byId, element } from "./dom.js";
 import { launcherGroups, mediaSubtitle, sourceLabel, stationMedia } from "./format.js";
+import { t } from "./i18n.js";
 
 /** Pause in the typing after which the sources are asked. */
 const TYPING_PAUSE = 200;
@@ -88,14 +89,16 @@ function entryRow(entry, index) {
             element("span", { class: "station-detail truncate" }, [mediaSubtitle(media)]),
           ]),
           element("span", { class: "badge" }, [sourceLabel(media.source)]),
-          element("kbd", {}, ["Entrée"]),
+          element("kbd", {}, [t("launcher.keyEnter")]),
         ]
       : [
           element("span", { class: "station-text" }, [
-            element("span", { class: "queue-title truncate" }, [`Voir tous les résultats pour « ${entry.more} »`]),
-            element("span", { class: "station-detail" }, ["Ouvre la fenêtre principale"]),
+            element("span", { class: "queue-title truncate" }, [
+              t("launcher.seeAllResults", { text: entry.more }),
+            ]),
+            element("span", { class: "station-detail" }, [t("launcher.opensMainWindow")]),
           ]),
-          element("kbd", {}, ["Entrée"]),
+          element("kbd", {}, [t("launcher.keyEnter")]),
         ],
   );
   row.addEventListener("click", () => act(entry, "now"));
@@ -113,14 +116,14 @@ async function showSuggestions() {
   }
   entries = [
     ...home.stations.slice(0, SUGGESTION_LIMIT).map((station) => {
-      return { group: "Radios favorites", media: stationMedia(station) };
+      return { group: t("launcher.groupFavoriteStations"), media: stationMedia(station) };
     }),
-    ...home.recent.slice(0, SUGGESTION_LIMIT).map((media) => ({ group: "Écoutés récemment", media })),
+    ...home.recent.slice(0, SUGGESTION_LIMIT).map((media) => ({ group: t("launcher.groupRecent"), media })),
   ];
   selected = 0;
   draw();
   if (entries.length === 0) {
-    status.textContent = "Tapez quelques lettres pour chercher un titre ou une radio.";
+    status.textContent = t("launcher.typeToSearch");
   }
 }
 
@@ -136,13 +139,13 @@ function searchNow() {
       searchCount += 1;
       entries = [];
       draw();
-      status.textContent = `Tapez au moins ${MIN_LENGTH} lettres.`;
+      status.textContent = t("launcher.typeAtLeast", { count: MIN_LENGTH });
     }
     return;
   }
   const count = ++searchCount;
   complete = false;
-  status.textContent = "Recherche en cours…";
+  status.textContent = t("launcher.searching");
   api
     .search(text, (update) => {
       if (count !== searchCount) {
@@ -151,21 +154,21 @@ function searchNow() {
       complete = update.done;
       entries = [
         ...launcherGroups(update.hits, RESULT_LIMIT),
-        { group: "Aller plus loin", more: text },
+        { group: t("launcher.groupMore"), more: text },
       ];
       selected = 0;
       draw();
       status.textContent = update.done
         ? update.hits.length === 0
-          ? `Aucun résultat pour « ${text} ».`
+          ? t("launcher.noResults", { text })
           : ""
-        : "Recherche en cours…";
+        : t("launcher.searching");
       runWhenReady({ patient: true });
     })
     .catch(() => {
       if (count === searchCount) {
         complete = true;
-        status.textContent = "La recherche a échoué.";
+        status.textContent = t("launcher.searchFailed");
       }
     });
 }
@@ -211,7 +214,9 @@ function act(entry, mode) {
   } else {
     api.enqueue(entry.media);
   }
-  status.textContent = `${mode === "next" ? "À lire juste après" : "Ajouté à la file"} : ${entry.media.title}`;
+  status.textContent = t(mode === "next" ? "launcher.playingNext" : "launcher.addedToQueue", {
+    title: entry.media.title,
+  });
 }
 
 /** @param {import("./api.js").Snapshot} snapshot */
@@ -224,7 +229,7 @@ function renderNow(snapshot) {
   nowText.textContent = `${media.title}, ${mediaSubtitle(media, snapshot.streamTitle)}`;
   const sounding = snapshot.status === "playing" || snapshot.status === "reconnecting";
   toggleIcon.setAttribute("href", sounding ? "#icon-pause" : "#icon-play");
-  toggleButton.setAttribute("aria-label", sounding ? "Mettre en pause" : "Lire");
+  toggleButton.setAttribute("aria-label", sounding ? t("launcher.pause") : t("launcher.play"));
   nextButton.disabled = !snapshot.hasNext;
 }
 

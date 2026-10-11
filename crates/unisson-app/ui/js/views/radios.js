@@ -17,21 +17,22 @@ import {
   stationMedia,
   stationQuality,
 } from "../format.js";
+import { getLanguage, t } from "../i18n.js";
 import { showNotice } from "../notice.js";
 import { favoriteStations, isFavorite, onStationsChange } from "../stations.js";
 
 /** Tags offered as shortcuts: the label shown, and the tag searched. */
 const TAGS = [
-  ["Jazz", "jazz"],
-  ["Classique", "classical"],
-  ["Info", "news"],
-  ["Électro", "electronic"],
-  ["Rock", "rock"],
-  ["Pop", "pop"],
-  ["Hip-hop", "hip hop"],
-  ["Reggae", "reggae"],
-  ["Musiques du monde", "world music"],
-  ["Ambient", "ambient"],
+  [t("radios.tagJazz"), "jazz"],
+  [t("radios.tagClassical"), "classical"],
+  [t("radios.tagNews"), "news"],
+  [t("radios.tagElectronic"), "electronic"],
+  [t("radios.tagRock"), "rock"],
+  [t("radios.tagPop"), "pop"],
+  [t("radios.tagHipHop"), "hip hop"],
+  [t("radios.tagReggae"), "reggae"],
+  [t("radios.tagWorld"), "world music"],
+  [t("radios.tagAmbient"), "ambient"],
 ];
 
 /** Countries offered in the list, as two-letter codes. */
@@ -43,8 +44,8 @@ const COUNTRY_CODES = [
 ];
 
 const SEARCH_ERRORS = {
-  network: "L'annuaire ne répond pas. Vérifiez votre connexion.",
-  unavailable: "L'annuaire est indisponible pour le moment.",
+  network: t("radios.directoryNetwork"),
+  unavailable: t("radios.directoryUnavailable"),
 };
 
 const state = {
@@ -96,7 +97,7 @@ export async function render() {
   }
 
   const addButton = element("button", { class: "text-button", type: "button" }, [
-    "Ajouter par adresse de flux",
+    t("radios.addByAddress"),
   ]);
   addButton.addEventListener("click", () => {
     state.formOpen = !state.formOpen;
@@ -106,11 +107,11 @@ export async function render() {
 
   return [
     liveArea,
-    section("Mes stations", [favoritesArea], addButton),
+    section(t("radios.myStations"), [favoritesArea], addButton),
     section(
-      "Explorer l'annuaire",
+      t("radios.exploreDirectory"),
       [criteriaForm(), resultsArea],
-      element("span", { class: "section-note" }, ["Annuaire libre Radio Browser"]),
+      element("span", { class: "section-note" }, [t("radios.directoryCredit")]),
     ),
   ];
 }
@@ -140,12 +141,16 @@ function drawLive() {
   }
   const { status, streamTitle } = state.snapshot;
   const sounding = status === "playing" || status === "reconnecting";
-  const label = sounding ? "En direct" : status === "loading" ? "Connexion" : "À l'arrêt";
+  const label = sounding
+    ? t("radios.live")
+    : status === "loading"
+      ? t("radios.connecting")
+      : t("radios.stopped");
   const onAir = !sounding
     ? ""
     : streamTitle
-      ? `À l'antenne : ${streamTitle}`
-      : "Le titre à l'antenne n'est pas annoncé.";
+      ? t("radios.onAir", { title: streamTitle })
+      : t("radios.onAirUnknown");
   replaceKeepingFocus(liveArea,
     element("div", { class: "live-card" }, [
       element("div", { class: "live-card-cover" }, [icon("radio")]),
@@ -165,7 +170,7 @@ function drawLive() {
 
 /** Builds the link that searches the title on air in every source. */
 function findTitleButton(title) {
-  const button = element("button", { class: "link-button", type: "button" }, ["Retrouver ce titre"]);
+  const button = element("button", { class: "link-button", type: "button" }, [t("radios.findTrack")]);
   button.addEventListener("click", () => {
     document.dispatchEvent(new CustomEvent("unisson:search", { detail: title }));
   });
@@ -190,8 +195,7 @@ function drawFavorites() {
   } else if (!state.formOpen) {
     content.push(
       element("p", { class: "hint" }, [
-        "Aucune station favorite pour l'instant. Cherchez une station ci-dessous, " +
-          "puis cliquez sur le cœur pour la garder ici.",
+        t("radios.noFavorites"),
       ]),
     );
   }
@@ -205,13 +209,13 @@ function drawResults() {
   }
   let content;
   if (state.status === "loading" || state.status === "idle") {
-    content = [element("p", { class: "hint" }, ["Recherche en cours…"])];
+    content = [element("p", { class: "hint" }, [t("radios.searching")])];
   } else if (state.status === "error") {
-    const retry = element("button", { class: "text-button", type: "button" }, ["Réessayer"]);
+    const retry = element("button", { class: "text-button", type: "button" }, [t("radios.retry")]);
     retry.addEventListener("click", search);
     content = [element("p", { class: "hint", role: "alert" }, [state.error]), retry];
   } else if (state.results.length === 0) {
-    content = [element("p", { class: "hint" }, ["Aucune station ne correspond à cette recherche."])];
+    content = [element("p", { class: "hint" }, [t("radios.noResult")])];
   } else {
     content = [
       element("div", { class: "rows" }, state.results.map((station) => {
@@ -247,8 +251,8 @@ function syncFavoriteButtons() {
 function setFavoriteLook(button, station) {
   const favorite = isFavorite(station.uuid);
   const label = favorite
-    ? `Retirer ${station.name} des favoris`
-    : `Ajouter ${station.name} aux favoris`;
+    ? t("radios.removeFavorite", { name: station.name })
+    : t("radios.addFavorite", { name: station.name });
   button.setAttribute("aria-pressed", String(favorite));
   button.setAttribute("aria-label", label);
   button.title = label;
@@ -267,7 +271,7 @@ function favoriteButton(station) {
         showNotice({
           owner: "radios",
           tone: "error",
-          text: "Les favoris n'ont pas pu être enregistrés.",
+          text: t("radios.favoritesNotSaved"),
           duration: 8000,
         });
       }
@@ -292,7 +296,7 @@ function stationRow(station, play, { detailed = false } = {}) {
   const description = stationDescription(station, detailed ? 3 : 1);
   const main = element(
     "button",
-    { class: "row-main", type: "button", "aria-label": `Écouter ${station.name}` },
+    { class: "row-main", type: "button", "aria-label": t("radios.listenTo", { name: station.name }) },
     [
       element("span", { class: "row-play" }, [icon("play", { filled: true })]),
       element("span", { class: "station-text" }, [
@@ -317,21 +321,21 @@ function customStationForm() {
     class: "field",
     type: "text",
     required: true,
-    placeholder: "Nom de la station",
-    "aria-label": "Nom de la station",
+    placeholder: t("radios.stationName"),
+    "aria-label": t("radios.stationName"),
   });
   const address = element("input", {
     class: "field field-wide",
     type: "url",
     required: true,
-    placeholder: "https://exemple.fr/flux.mp3",
-    "aria-label": "Adresse du flux",
+    placeholder: t("radios.addressPlaceholder"),
+    "aria-label": t("radios.streamAddress"),
   });
-  const cancel = element("button", { class: "text-button", type: "button" }, ["Annuler"]);
+  const cancel = element("button", { class: "text-button", type: "button" }, [t("radios.cancel")]);
   const form = element("form", { class: "inline-form" }, [
     name,
     address,
-    element("button", { class: "text-button text-button-strong", type: "submit" }, ["Ajouter"]),
+    element("button", { class: "text-button text-button-strong", type: "submit" }, [t("radios.add")]),
     cancel,
   ]);
   cancel.addEventListener("click", () => {
@@ -350,8 +354,8 @@ function customStationForm() {
         tone: "error",
         text:
           error?.kind === "invalid"
-            ? "Donnez un nom, et une adresse qui commence par http:// ou https://."
-            : "La station n'a pas pu être ajoutée.",
+            ? t("radios.invalidStation")
+            : t("radios.stationNotAdded"),
         duration: 8000,
       });
     }
@@ -363,8 +367,8 @@ function criteriaForm() {
   const name = element("input", {
     class: "field field-wide",
     type: "search",
-    placeholder: "Nom d'une station",
-    "aria-label": "Nom d'une station",
+    placeholder: t("radios.searchName"),
+    "aria-label": t("radios.searchName"),
     autocomplete: "off",
     spellcheck: "false",
   });
@@ -376,10 +380,10 @@ function criteriaForm() {
     searchTimer = setTimeout(search, 400);
   });
 
-  const country = element("select", { class: "field", "aria-label": "Pays" }, [
-    element("option", { value: "" }, ["Tous les pays"]),
+  const country = element("select", { class: "field", "aria-label": t("radios.country") }, [
+    element("option", { value: "" }, [t("radios.allCountries")]),
     ...COUNTRY_CODES.map((code) => ({ code, name: countryName(code) || code }))
-      .sort((a, b) => a.name.localeCompare(b.name, "fr"))
+      .sort((a, b) => a.name.localeCompare(b.name, getLanguage()))
       .map(({ code, name: label }) => element("option", { value: code }, [label])),
   ]);
   country.value = state.countryCode;
@@ -388,7 +392,7 @@ function criteriaForm() {
     search();
   });
 
-  const tags = element("div", { class: "filter-chips", role: "group", "aria-label": "Genre" });
+  const tags = element("div", { class: "filter-chips", role: "group", "aria-label": t("radios.genre") });
   const drawTags = () => {
     replaceKeepingFocus(tags,
       ...TAGS.map(([label, tag]) => {

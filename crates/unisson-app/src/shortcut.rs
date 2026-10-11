@@ -5,7 +5,7 @@
 //! An application cannot grab a key by itself under Wayland, the display
 //! system of Ubuntu: only the desktop can. GNOME lets the user define
 //! "custom shortcuts", each one a key combination and a command to run.
-//! Unisson registers one that runs `unisson --lanceur`. The copy of Unisson
+//! Unisson registers one that runs `unisson --launcher`. The copy of Unisson
 //! that is already open receives that request and shows the launcher.
 //!
 //! The same shortcuts are listed in the Settings of GNOME, under Keyboard,
@@ -44,8 +44,16 @@ const ENTRY_PREFIX: &str =
 /// milliseconds before acting.
 const RELEASE_TIME: Duration = Duration::from_millis(400);
 
-/// The argument that asks for the launcher: `unisson --lanceur`.
-pub const LAUNCHER_ARGUMENT: &str = "--lanceur";
+/// The argument that asks for the launcher: `unisson --launcher`.
+pub const LAUNCHER_ARGUMENT: &str = "--launcher";
+/// The first name of that argument. Shortcuts installed by the first
+/// versions still use it.
+const OLD_LAUNCHER_ARGUMENT: &str = "--lanceur";
+
+/// Tells whether an argument of the command line asks for the launcher.
+pub fn asks_for_launcher(argument: &str) -> bool {
+    argument == LAUNCHER_ARGUMENT || argument == OLD_LAUNCHER_ARGUMENT
+}
 
 /// The key combinations offered, as GNOME writes them, with their name for
 /// the user. Super+M, drawn in the first sketch, is already taken by GNOME
@@ -111,13 +119,13 @@ pub fn status() -> ShortcutStatus {
 ///
 /// Returns a [`ShortcutError`] if GNOME refuses, or if this desktop has no
 /// custom shortcuts.
-pub fn install(program: &Path, binding: &str) -> Result<(), ShortcutError> {
+pub fn install(program: &Path, binding: &str, name: &str) -> Result<(), ShortcutError> {
     let list = gsettings(&["get", LIST_SCHEMA, LIST_KEY])?;
     let paths = parse_list(&list);
     let path = next_path(&paths);
     let mut others = unlist_ours(&paths)?;
 
-    gsettings(&["set", &entry(&path), "name", "Unisson, lanceur rapide"])?;
+    gsettings(&["set", &entry(&path), "name", name])?;
     gsettings(&["set", &entry(&path), "command", &launcher_command(program)])?;
     gsettings(&["set", &entry(&path), "binding", binding])?;
     // The list is written last: GNOME reads the entry when it sees its path.
@@ -297,15 +305,15 @@ mod tests {
     fn the_command_quotes_an_awkward_path() {
         assert_eq!(
             launcher_command(Path::new("/usr/bin/unisson")),
-            "/usr/bin/unisson --lanceur"
+            "/usr/bin/unisson --launcher"
         );
         assert_eq!(
             launcher_command(Path::new("/home/me/Mes projets/unisson")),
-            "'/home/me/Mes projets/unisson' --lanceur"
+            "'/home/me/Mes projets/unisson' --launcher"
         );
         assert_eq!(
             launcher_command(Path::new("/home/me/l'app/unisson")),
-            r"'/home/me/l'\''app/unisson' --lanceur"
+            r"'/home/me/l'\''app/unisson' --launcher"
         );
     }
 
@@ -313,6 +321,13 @@ mod tests {
     fn quotes_around_a_value_are_removed() {
         assert_eq!(unquoted("'<Control><Alt>m'"), "<Control><Alt>m");
         assert_eq!(unquoted("  ''  "), "");
+    }
+
+    #[test]
+    fn both_names_of_the_launcher_argument_are_understood() {
+        assert!(asks_for_launcher("--launcher"));
+        assert!(asks_for_launcher("--lanceur"));
+        assert!(!asks_for_launcher("--help"));
     }
 
     #[test]

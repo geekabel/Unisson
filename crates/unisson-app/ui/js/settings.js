@@ -7,7 +7,7 @@
 
 import * as api from "./api.js";
 import { byId } from "./dom.js";
-import { countLabel } from "./format.js";
+import { plural } from "./i18n.js";
 
 const sourcesCount = byId("sources-count");
 
@@ -28,7 +28,7 @@ export async function loadSettings() {
 export function useSettings(fresh) {
   settings = fresh;
   const active = fresh.sources.filter((source) => source.enabled).length;
-  sourcesCount.textContent = countLabel(active, "active");
+  sourcesCount.textContent = plural(active, "shell.activeSources");
   for (const listener of listeners) {
     listener();
   }

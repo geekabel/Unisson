@@ -8,7 +8,8 @@
 import * as api from "./api.js";
 import { iconButton, sourceBadge } from "./components.js";
 import { byId, element, icon, replaceKeepingFocus } from "./dom.js";
-import { countLabel, mediaSubtitle } from "./format.js";
+import { mediaSubtitle } from "./format.js";
+import { plural, t } from "./i18n.js";
 
 /** Where the choice to show or hide the panel is remembered. */
 const STORAGE_KEY = "unisson.queue.open";
@@ -46,7 +47,7 @@ function wasOpen() {
 function setOpen(open) {
   panel.hidden = !open;
   toggleButton.setAttribute("aria-pressed", String(open));
-  toggleButton.title = open ? "Masquer la file d'attente" : "Afficher la file d'attente";
+  toggleButton.title = open ? t("shell.hideQueue") : t("shell.showQueue");
   toggleButton.setAttribute("aria-label", toggleButton.title);
   try {
     localStorage.setItem(STORAGE_KEY, String(open));
@@ -75,19 +76,17 @@ async function draw() {
   }
   clearButton.disabled = queue.upcomingTotal === 0;
 
-  const content = [element("h3", { class: "group-title" }, ["En cours"])];
+  const content = [element("h3", { class: "group-title" }, [t("shell.queueCurrent")])];
   content.push(
     queue.current
       ? currentItem(queue.current)
-      : element("p", { class: "hint" }, ["Rien en lecture."]),
+      : element("p", { class: "hint" }, [t("shell.queueNothingPlaying")]),
   );
 
-  content.push(element("h3", { class: "group-title" }, ["Ensuite"]));
+  content.push(element("h3", { class: "group-title" }, [t("shell.queueNext")]));
   if (queue.upcoming.length === 0) {
     content.push(
-      element("p", { class: "hint" }, [
-        "Rien ensuite. Ajoutez un titre avec le bouton + de la recherche, ou avec Maj Entrée.",
-      ]),
+      element("p", { class: "hint" }, [t("shell.queueNothingNext")]),
     );
   } else {
     content.push(
@@ -98,7 +97,7 @@ async function draw() {
     const hidden = queue.upcomingTotal - queue.upcoming.length;
     if (hidden > 0) {
       content.push(
-        element("p", { class: "section-note" }, [`et ${countLabel(hidden, "autre titre", "autres titres")}`]),
+        element("p", { class: "section-note" }, [plural(hidden, "shell.otherTracks")]),
       );
     }
   }
@@ -139,7 +138,12 @@ function currentItem(media) {
 function upcomingItem(media, index, count) {
   const main = element(
     "button",
-    { class: "queue-main", type: "button", "aria-label": `Passer à ${media.title}`, title: "Lire maintenant" },
+    {
+      class: "queue-main",
+      type: "button",
+      "aria-label": t("shell.jumpTo", { title: media.title }),
+      title: t("shell.playNow"),
+    },
     [element("span", { class: "queue-number" }, [String(index + 1)]), itemText(media)],
   );
   main.addEventListener("click", () => api.queueJump(index));
@@ -157,9 +161,9 @@ function upcomingItem(media, index, count) {
   return element("li", { class: "queue-row" }, [
     main,
     element("span", { class: "queue-actions" }, [
-      action("up", `Monter ${media.title}`, "up", move(index - 1), index === 0),
-      action("down", `Descendre ${media.title}`, "down", move(index + 1), index === count - 1),
-      action("remove", `Retirer ${media.title} de la file`, "close", () => {
+      action("up", t("shell.moveUp", { title: media.title }), "up", move(index - 1), index === 0),
+      action("down", t("shell.moveDown", { title: media.title }), "down", move(index + 1), index === count - 1),
+      action("remove", t("shell.removeFromQueue", { title: media.title }), "close", () => {
         focusAfterDraw = { index, action: "remove" };
         api.queueRemove(index);
       }),
@@ -171,13 +175,13 @@ function upcomingItem(media, index, count) {
 function drawFallback(queue) {
   const radio = queue.lastRadio;
   const text = element("span", { class: "station-text" }, [
-    element("span", { class: "station-detail" }, ["Quand la file est vide"]),
+    element("span", { class: "station-detail" }, [t("shell.whenQueueEmpty")]),
     element("span", { class: "queue-title" }, [
       !radio
-        ? "La lecture s'arrête. Écoutez une radio pour qu'elle reprenne ici."
+        ? t("shell.playbackStopsHint")
         : queue.resumeRadio
-          ? `Reprendre la radio ${radio.title}`
-          : "La lecture s'arrête",
+          ? t("shell.resumeRadio", { title: radio.title })
+          : t("shell.playbackStops"),
     ]),
   ]);
   const content = [icon("radio"), text];
@@ -189,7 +193,7 @@ function drawFallback(queue) {
         type: "button",
         role: "switch",
         "aria-checked": String(queue.resumeRadio),
-        "aria-label": `Reprendre la radio ${radio.title} quand la file est vide`,
+        "aria-label": t("shell.resumeRadioSwitch", { title: radio.title }),
       },
       [element("span", { class: "switch-knob" })],
     );

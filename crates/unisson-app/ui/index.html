@@ -41,38 +41,39 @@
 
 <div class="app">
 
-  <nav class="sidebar" aria-label="Navigation principale">
+  <nav class="sidebar" aria-label="Navigation principale" data-i18n-attrs="aria-label:shell.mainNavigation">
     <div class="brand">
       <svg width="28" height="28" viewBox="0 0 28 28" aria-hidden="true"><circle cx="14" cy="14" r="13" fill="#F5B841"/><path d="M8 17v-6M12 20V8M16 18v-8M20 16v-4" stroke="#1A1300" stroke-width="2.2" stroke-linecap="round"/></svg>
       <span class="brand-name">Unisson</span>
     </div>
 
     <div class="nav-group">
-      <button class="nav-item" type="button" data-view="home" title="Accueil">
-        <svg class="icon" aria-hidden="true"><use href="#icon-home"/></svg><span class="nav-label">Accueil</span>
+      <button class="nav-item" type="button" data-view="home" title="Accueil" data-i18n-attrs="title:shell.navHome">
+        <svg class="icon" aria-hidden="true"><use href="#icon-home"/></svg><span class="nav-label" data-i18n="shell.navHome">Accueil</span>
       </button>
-      <button class="nav-item" type="button" data-view="radios" title="Radios">
-        <svg class="icon" aria-hidden="true"><use href="#icon-radio"/></svg><span class="nav-label">Radios</span>
+      <button class="nav-item" type="button" data-view="radios" title="Radios" data-i18n-attrs="title:shell.navRadios">
+        <svg class="icon" aria-hidden="true"><use href="#icon-radio"/></svg><span class="nav-label" data-i18n="shell.navRadios">Radios</span>
       </button>
-      <button class="nav-item" type="button" data-view="favorites" title="Favoris">
-        <svg class="icon" aria-hidden="true"><use href="#icon-heart"/></svg><span class="nav-label">Favoris</span>
+      <button class="nav-item" type="button" data-view="favorites" title="Favoris" data-i18n-attrs="title:shell.navFavorites">
+        <svg class="icon" aria-hidden="true"><use href="#icon-heart"/></svg><span class="nav-label" data-i18n="shell.navFavorites">Favoris</span>
       </button>
-      <button class="nav-item" type="button" data-view="history" title="Historique">
-        <svg class="icon" aria-hidden="true"><use href="#icon-history"/></svg><span class="nav-label">Historique</span>
+      <button class="nav-item" type="button" data-view="history" title="Historique" data-i18n-attrs="title:shell.navHistory">
+        <svg class="icon" aria-hidden="true"><use href="#icon-history"/></svg><span class="nav-label" data-i18n="shell.navHistory">Historique</span>
       </button>
     </div>
 
     <div class="nav-group" id="playlists-nav" hidden>
-      <div class="nav-heading">Mes listes</div>
+      <div class="nav-heading" data-i18n="shell.myPlaylists">Mes listes</div>
       <div class="nav-group" id="playlists-list"></div>
-      <button class="nav-item nav-item-soft" id="playlist-new" type="button" title="Nouvelle liste">
-        <svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg><span class="nav-label">Nouvelle liste</span>
+      <button class="nav-item nav-item-soft" id="playlist-new" type="button" title="Nouvelle liste"
+        data-i18n-attrs="title:shell.newPlaylist">
+        <svg class="icon" aria-hidden="true"><use href="#icon-plus"/></svg><span class="nav-label" data-i18n="shell.newPlaylist">Nouvelle liste</span>
       </button>
     </div>
 
     <div class="nav-group nav-group-end">
-      <button class="nav-item" type="button" data-view="sources" title="Sources">
-        <svg class="icon" aria-hidden="true"><use href="#icon-sources"/></svg><span class="nav-label">Sources</span><span class="nav-count" id="sources-count"></span>
+      <button class="nav-item" type="button" data-view="sources" title="Sources" data-i18n-attrs="title:shell.navSources">
+        <svg class="icon" aria-hidden="true"><use href="#icon-sources"/></svg><span class="nav-label" data-i18n="shell.navSources">Sources</span><span class="nav-count" id="sources-count"></span>
       </button>
     </div>
   </nav>
@@ -82,16 +83,17 @@
       <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
       <input id="search-input" type="search" autocomplete="off" spellcheck="false"
         aria-label="Rechercher dans toutes les sources"
-        placeholder="Un titre, un artiste, une radio, ou collez un lien">
+        placeholder="Un titre, un artiste, une radio, ou collez un lien"
+        data-i18n-attrs="aria-label:shell.searchLabel, placeholder:shell.searchPlaceholder">
       <kbd>Ctrl K</kbd>
     </form>
     <div class="view" id="view" tabindex="-1"></div>
   </main>
 
-  <aside class="queue" id="queue" aria-label="File d'attente" hidden>
+  <aside class="queue" id="queue" aria-label="File d'attente" data-i18n-attrs="aria-label:shell.queueTitle" hidden>
     <div class="queue-head">
-      <h2 class="section-title">File d'attente</h2>
-      <button class="text-button" id="queue-clear" type="button">Vider</button>
+      <h2 class="section-title" data-i18n="shell.queueTitle">File d'attente</h2>
+      <button class="text-button" id="queue-clear" type="button" data-i18n="common.clear">Vider</button>
     </div>
     <div class="queue-body" id="queue-body"></div>
     <div class="queue-fallback" id="queue-fallback"></div>
@@ -100,62 +102,70 @@
   <div class="notice" id="notice" role="status" aria-live="polite" hidden>
     <span class="notice-text" id="notice-text"></span>
     <button class="text-button" id="notice-action" type="button" hidden></button>
-    <button class="icon-button" id="notice-close" type="button" aria-label="Fermer le message">
+    <button class="icon-button" id="notice-close" type="button" aria-label="Fermer le message"
+      data-i18n-attrs="aria-label:shell.closeNotice">
       <svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg>
     </button>
   </div>
 
-  <footer class="player" aria-label="Lecteur">
+  <footer class="player" aria-label="Lecteur" data-i18n-attrs="aria-label:shell.player">
     <div class="player-media">
       <div class="cover" id="player-cover" data-source="none">
         <svg class="icon" aria-hidden="true"><use id="player-cover-icon" href="#icon-note"/></svg>
         <img id="player-cover-image" alt="" hidden>
       </div>
       <div class="player-text">
-        <div class="player-title" id="player-title">Rien en lecture</div>
-        <div class="player-subtitle" id="player-subtitle">Choisissez un titre ou collez un lien</div>
+        <div class="player-title" id="player-title" data-i18n="shell.nothingPlaying">Rien en lecture</div>
+        <div class="player-subtitle" id="player-subtitle" data-i18n="shell.nothingPlayingHint">Choisissez un titre ou collez un lien</div>
       </div>
       <span class="badge" id="player-source" hidden></span>
     </div>
 
     <div class="player-center">
       <div class="transport">
-        <button class="icon-button" id="player-previous" type="button" aria-label="Titre précédent" disabled>
+        <button class="icon-button" id="player-previous" type="button" aria-label="Titre précédent"
+          data-i18n-attrs="aria-label:shell.previousTrack" disabled>
           <svg class="icon icon-filled" aria-hidden="true"><use href="#icon-previous"/></svg>
         </button>
-        <button class="play-button" id="player-toggle" type="button" aria-label="Lire" disabled>
+        <button class="play-button" id="player-toggle" type="button" aria-label="Lire"
+          data-i18n-attrs="aria-label:shell.play" disabled>
           <svg class="icon icon-filled" aria-hidden="true"><use id="player-toggle-icon" href="#icon-play"/></svg>
           <span class="spinner" aria-hidden="true"></span>
         </button>
-        <button class="icon-button" id="player-next" type="button" aria-label="Titre suivant" disabled>
+        <button class="icon-button" id="player-next" type="button" aria-label="Titre suivant"
+          data-i18n-attrs="aria-label:shell.nextTrack" disabled>
           <svg class="icon icon-filled" aria-hidden="true"><use href="#icon-next"/></svg>
         </button>
       </div>
       <div class="progress" id="player-progress">
         <span class="time" id="player-position">0:00</span>
         <input class="slider" id="player-seek" type="range" min="0" max="0" step="1000" value="0"
-          aria-label="Position dans le titre" disabled>
+          aria-label="Position dans le titre" data-i18n-attrs="aria-label:shell.seekLabel" disabled>
         <span class="time" id="player-duration">0:00</span>
       </div>
-      <div class="live" id="player-live" hidden><span class="live-dot" aria-hidden="true"></span>En direct</div>
+      <div class="live" id="player-live" hidden><span class="live-dot" aria-hidden="true"></span><span data-i18n="common.live">En direct</span></div>
     </div>
 
     <div class="player-tools">
       <button class="icon-button favorite-button" id="player-favorite" type="button"
-        aria-label="Ajouter aux favoris" title="Ajouter aux favoris" aria-pressed="false" disabled>
+        aria-label="Ajouter aux favoris" title="Ajouter aux favoris" aria-pressed="false"
+        data-i18n-attrs="aria-label:shell.addToFavorites, title:shell.addToFavorites" disabled>
         <svg class="icon" aria-hidden="true"><use href="#icon-heart"/></svg>
       </button>
-      <button class="icon-button" id="player-mute" type="button" aria-label="Couper le son" aria-pressed="false">
+      <button class="icon-button" id="player-mute" type="button" aria-label="Couper le son" aria-pressed="false"
+        data-i18n-attrs="aria-label:shell.mute">
         <svg class="icon" aria-hidden="true"><use id="player-mute-icon" href="#icon-volume"/></svg>
       </button>
       <input class="slider slider-volume" id="player-volume" type="range" min="0" max="100" step="1" value="100"
-        aria-label="Volume">
+        aria-label="Volume" data-i18n-attrs="aria-label:shell.volume">
       <button class="icon-button" id="player-mini" type="button"
-        aria-label="Réduire en mini-lecteur" title="Réduire en mini-lecteur">
+        aria-label="Réduire en mini-lecteur" title="Réduire en mini-lecteur"
+        data-i18n-attrs="aria-label:shell.showMini, title:shell.showMini">
         <svg class="icon" aria-hidden="true"><use href="#icon-mini"/></svg>
       </button>
       <button class="icon-button toggle-button" id="player-queue" type="button"
-        aria-label="File d'attente" title="File d'attente" aria-pressed="false" aria-controls="queue">
+        aria-label="File d'attente" title="File d'attente" aria-pressed="false" aria-controls="queue"
+        data-i18n-attrs="aria-label:shell.queueTitle, title:shell.queueTitle">
         <svg class="icon" aria-hidden="true"><use href="#icon-queue"/></svg>
       </button>
     </div>

@@ -15,6 +15,7 @@ import {
   playbackProblem,
   sourceLabel,
 } from "./format.js";
+import { t } from "./i18n.js";
 import { hideNotice, showNotice } from "./notice.js";
 import { showView } from "./views.js";
 
@@ -38,6 +39,7 @@ const muteButton = byId("player-mute");
 const muteIcon = byId("player-mute-icon");
 const volumeSlider = /** @type {HTMLInputElement} */ (byId("player-volume"));
 
+// The page is already translated here: `i18n.js` runs before this module.
 const EMPTY_TITLE = title.textContent;
 const EMPTY_SUBTITLE = subtitle.textContent;
 
@@ -76,7 +78,7 @@ export function renderPlayer(snapshot) {
   toggleButton.setAttribute("aria-busy", String(busy));
   toggleButton.setAttribute(
     "aria-label",
-    busy ? "Chargement" : sounding ? "Mettre en pause" : "Lire",
+    busy ? t("shell.loading") : sounding ? t("shell.pause") : t("shell.play"),
   );
   toggleIcon.setAttribute("href", sounding ? "#icon-pause" : "#icon-play");
 
@@ -94,7 +96,7 @@ export function renderPlayer(snapshot) {
   isFavorite = snapshot.currentIsFavorite;
   favoriteButton.disabled = !media;
   favoriteButton.setAttribute("aria-pressed", String(Boolean(media) && isFavorite));
-  favoriteButton.title = isFavorite && media ? "Retirer des favoris" : "Ajouter aux favoris";
+  favoriteButton.title = isFavorite && media ? t("shell.removeFromFavorites") : t("shell.addToFavorites");
   favoriteButton.setAttribute("aria-label", favoriteButton.title);
 
   if (!settingVolume) {
@@ -122,7 +124,10 @@ export function renderPosition({ positionMs, durationMs }) {
 function showSeekValue(positionMs) {
   positionLabel.textContent = formatTime(positionMs) || "0:00";
   seekSlider.style.setProperty("--fill", fillPercent(positionMs, Number(seekSlider.max)));
-  seekSlider.setAttribute("aria-valuetext", `${positionLabel.textContent} sur ${durationLabel.textContent}`);
+  seekSlider.setAttribute(
+    "aria-valuetext",
+    t("shell.seekValue", { position: positionLabel.textContent, duration: durationLabel.textContent }),
+  );
 }
 
 function renderCover(media) {
@@ -143,10 +148,10 @@ function renderVolume(volume) {
   const percent = Math.round(volume * 100);
   volumeSlider.value = String(percent);
   volumeSlider.style.setProperty("--fill", `${percent}%`);
-  volumeSlider.setAttribute("aria-valuetext", `${percent} %`);
+  volumeSlider.setAttribute("aria-valuetext", t("shell.volumeValue", { percent }));
   const muted = percent === 0;
   muteButton.setAttribute("aria-pressed", String(muted));
-  muteButton.setAttribute("aria-label", muted ? "Rétablir le son" : "Couper le son");
+  muteButton.setAttribute("aria-label", muted ? t("shell.unmute") : t("shell.mute"));
   muteIcon.setAttribute("href", muted ? "#icon-muted" : "#icon-volume");
   if (!muted) {
     volumeBeforeMute = volume;
@@ -158,7 +163,7 @@ function renderNotice(snapshot) {
     const { attempt, maxAttempts } = snapshot.reconnect;
     showNotice({
       owner: "player",
-      text: `Connexion perdue. Nouvelle tentative, ${attempt} sur ${maxAttempts}.`,
+      text: t("shell.reconnecting", { attempt, maxAttempts }),
     });
     return;
   }
@@ -182,8 +187,8 @@ function renderNotice(snapshot) {
     detail: error.detail,
     action:
       problem.action === "sources"
-        ? { label: "Voir les sources", run: () => showView("sources") }
-        : { label: "Réessayer", run: () => api.toggle() },
+        ? { label: t("shell.showSources"), run: () => showView("sources") }
+        : { label: t("common.tryAgain"), run: () => api.toggle() },
   });
 }
 
@@ -207,8 +212,8 @@ favoriteButton.addEventListener("click", async () => {
       tone: "error",
       text:
         error?.kind === "notFound"
-          ? "Cette station ne peut pas être gardée : son adresse n'est plus connue."
-          : "Les favoris n'ont pas pu être enregistrés.",
+          ? t("shell.stationNotSaved")
+          : t("shell.favoritesNotSaved"),
       duration: 8000,
     });
   }

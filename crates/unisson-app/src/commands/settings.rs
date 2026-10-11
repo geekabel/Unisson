@@ -11,6 +11,7 @@ use crate::library::LibrarySync;
 use crate::settings::ThemeChoice;
 use crate::shortcut;
 use crate::state::AppState;
+use crate::texts::LanguageChoice;
 use crate::windows;
 
 /// One source, as the settings screen shows it.
@@ -47,6 +48,8 @@ pub struct SettingsDto {
     pub notifications: bool,
     /// The colors of the interface: `system`, `dark` or `light`.
     pub theme: &'static str,
+    /// The language of the interface: `system`, `fr` or `en`.
+    pub language: &'static str,
     /// Where the settings are saved.
     pub config_path: Option<String>,
     /// The version of the yt-dlp program, which YouTube needs. `None` when
@@ -113,6 +116,7 @@ fn describe(state: &AppState) -> Result<SettingsDto, CommandError> {
         keep_in_tray: settings.keep_in_tray,
         notifications: settings.notifications,
         theme: settings.theme.id(),
+        language: settings.language.id(),
         config_path: state
             .settings_path()
             .map(|path| path.to_string_lossy().into_owned()),
@@ -221,6 +225,29 @@ pub fn settings_set_keep_in_tray(
     changed(&app, &state)
 }
 
+/// Returns the language the interface must use: `fr` or `en`.
+///
+/// "Like the desktop" is already worked out: every window asks this when
+/// it opens, before it writes its first word.
+#[tauri::command]
+pub fn settings_language(state: State<'_, AppState>) -> &'static str {
+    state.language().id()
+}
+
+/// Chooses the language of the interface: `system`, `fr` or `en`.
+#[tauri::command(async)]
+pub fn settings_set_language(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    language: String,
+) -> Result<SettingsDto, CommandError> {
+    let choice = LanguageChoice::from_id(&language)
+        .ok_or_else(|| CommandError::invalid(format!("unknown language: {language}")))?;
+    state.update_settings(|settings| settings.language = choice)?;
+    windows::apply_language(&app);
+    changed(&app, &state)
+}
+
 /// Returns the colors of the interface: `system`, `dark` or `light`.
 ///
 /// Every window asks this when it opens. It is much cheaper than
@@ -270,7 +297,7 @@ pub fn settings_install_shortcut(
     }
     let program = std::env::current_exe()
         .map_err(|error| CommandError::new("unavailable", error.to_string()))?;
-    shortcut::install(&program, &binding)
+    shortcut::install(&program, &binding, state.language().texts().launcher_title)
         .map_err(|error| CommandError::new("unavailable", error.to_string()))?;
     changed(&app, &state)
 }

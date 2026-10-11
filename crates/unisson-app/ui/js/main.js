@@ -4,6 +4,7 @@
 
 import * as api from "./api.js";
 import { skippedMessage } from "./format.js";
+import { t } from "./i18n.js";
 import { showNotice } from "./notice.js";
 import { renderPlayer, renderPosition } from "./player-bar.js";
 import { drawPlaylistsSidebar, loadPlaylists } from "./playlists.js";
@@ -68,6 +69,6 @@ start().catch((error) => {
   showNotice({
     owner: "startup",
     tone: "error",
-    text: "L'interface n'a pas pu démarrer. Relancez Unisson.",
+    text: t("shell.startFailed"),
   });
 });

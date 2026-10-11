@@ -15,6 +15,7 @@ use unisson_youtube::YouTubeSource;
 
 use crate::dto::SnapshotDto;
 use crate::settings::{Settings, SettingsError};
+use crate::texts::Language;
 
 /// Which way "previous" and "next" go.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -181,6 +182,11 @@ impl AppState {
     /// Returns a copy of the settings.
     pub fn settings(&self) -> Settings {
         self.lock_settings().clone()
+    }
+
+    /// Returns the language of the interface.
+    pub fn language(&self) -> Language {
+        self.lock_settings().language.resolve()
     }
 
     /// Returns where the settings are saved, when a home directory is known.

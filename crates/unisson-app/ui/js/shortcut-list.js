@@ -6,6 +6,13 @@
  * loading them.
  */
 
+import { t } from "./i18n.js";
+
+const SPACE = t("shell.keySpace");
+const SHIFT = t("shell.keyShift");
+const ENTER = t("shell.keyEnter");
+const ESCAPE = t("shell.keyEscape");
+
 /**
  * Groups of shortcuts. Each shortcut has its keys, one array per
  * alternative, and what it does.
@@ -14,32 +21,32 @@
  */
 export const SHORTCUT_GROUPS = [
   {
-    title: "Lecture",
+    title: t("shell.shortcutsPlayback"),
     items: [
-      { keys: [["Espace"]], text: "Lire ou mettre en pause" },
-      { keys: [["Ctrl", "→"]], text: "Titre suivant" },
-      { keys: [["Ctrl", "←"]], text: "Titre précédent, ou retour au début" },
-      { keys: [["Ctrl", "↑"], ["Ctrl", "↓"]], text: "Monter ou baisser le volume" },
+      { keys: [[SPACE]], text: t("shell.shortcutToggle") },
+      { keys: [["Ctrl", "→"]], text: t("shell.nextTrack") },
+      { keys: [["Ctrl", "←"]], text: t("shell.shortcutPrevious") },
+      { keys: [["Ctrl", "↑"], ["Ctrl", "↓"]], text: t("shell.shortcutVolume") },
     ],
   },
   {
-    title: "Se déplacer",
+    title: t("shell.shortcutsMoving"),
     items: [
-      { keys: [["Ctrl", "K"], ["/"]], text: "Aller au champ de recherche" },
-      { keys: [["Alt", "1"], ["…"], ["Alt", "5"]], text: "Accueil, Radios, Favoris, Historique, Sources" },
-      { keys: [["F6"], ["Maj", "F6"]], text: "Passer d'une zone à l'autre : menu, recherche, contenu, file, lecteur" },
-      { keys: [["Tab"], ["Maj", "Tab"]], text: "Passer d'un élément au suivant, ou au précédent" },
-      { keys: [["Ctrl", "+"], ["Ctrl", "-"], ["Ctrl", "0"]], text: "Agrandir ou réduire l'affichage, ou revenir à la taille normale" },
+      { keys: [["Ctrl", "K"], ["/"]], text: t("shell.shortcutSearch") },
+      { keys: [["Alt", "1"], ["…"], ["Alt", "5"]], text: t("shell.shortcutViews") },
+      { keys: [["F6"], [SHIFT, "F6"]], text: t("shell.shortcutZones") },
+      { keys: [["Tab"], [SHIFT, "Tab"]], text: t("shell.shortcutTab") },
+      { keys: [["Ctrl", "+"], ["Ctrl", "-"], ["Ctrl", "0"]], text: t("shell.shortcutZoom") },
     ],
   },
   {
-    title: "Dans la recherche",
+    title: t("shell.shortcutsSearch"),
     items: [
-      { keys: [["↑"], ["↓"]], text: "Choisir un résultat" },
-      { keys: [["Entrée"]], text: "Lire tout de suite" },
-      { keys: [["Maj", "Entrée"]], text: "Ajouter à la file" },
-      { keys: [["Ctrl", "Entrée"]], text: "Lire juste après le titre en cours" },
-      { keys: [["Échap"]], text: "Effacer la recherche" },
+      { keys: [["↑"], ["↓"]], text: t("shell.shortcutChoose") },
+      { keys: [[ENTER]], text: t("shell.shortcutPlayNow") },
+      { keys: [[SHIFT, ENTER]], text: t("shell.shortcutEnqueue") },
+      { keys: [["Ctrl", ENTER]], text: t("shell.shortcutPlayNext") },
+      { keys: [[ESCAPE]], text: t("shell.shortcutClear") },
     ],
   },
 ];

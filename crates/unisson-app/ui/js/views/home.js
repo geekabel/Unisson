@@ -5,7 +5,8 @@
 import * as api from "../api.js";
 import { mediaActions, mediaRow, section, stationChip } from "../components.js";
 import { element, icon } from "../dom.js";
-import { countLabel, mediaKey, stationMedia, tileText } from "../format.js";
+import { mediaKey, stationMedia, tileText } from "../format.js";
+import { plural, t } from "../i18n.js";
 
 /**
  * Builds the view.
@@ -19,7 +20,7 @@ export async function render({ showView }) {
 
   if (home.resume.length > 0) {
     sections.push(
-      section("Reprendre en un clic", [
+      section(t("home.resume"), [
         element("div", { class: "tiles" }, home.resume.map(resumeTile)),
       ]),
     );
@@ -27,11 +28,11 @@ export async function render({ showView }) {
 
   if (home.stations.length > 0) {
     const media = home.stations.map(stationMedia);
-    const all = element("button", { class: "link-button", type: "button" }, ["Toutes les radios"]);
+    const all = element("button", { class: "link-button", type: "button" }, [t("home.allStations")]);
     all.addEventListener("click", () => showView("radios"));
     sections.push(
       section(
-        "Radios favorites",
+        t("home.favoriteStations"),
         [
           element("div", { class: "chips" }, home.stations.map((station, index) => {
             return stationChip(station, () => api.playList(media, index));
@@ -44,7 +45,7 @@ export async function render({ showView }) {
 
   if (home.recent.length > 0) {
     sections.push(
-      section("Écoutés récemment", [
+      section(t("home.recent"), [
         element("div", { class: "rows" }, home.recent.map((media) => {
           return mediaRow(media, { onPlay: () => api.playNow(media), actions: mediaActions(media) });
         })),
@@ -54,11 +55,11 @@ export async function render({ showView }) {
 
   if (home.library.length > 0) {
     const shown = home.library.length < home.libraryTotal
-      ? `${home.library.length} premiers titres sur ${home.libraryTotal}`
-      : countLabel(home.libraryTotal, "titre");
+      ? t("home.libraryFirst", { shown: home.library.length, total: home.libraryTotal })
+      : plural(home.libraryTotal, "home.tracks");
     sections.push(
       section(
-        "Bibliothèque locale",
+        t("home.library"),
         [
           element("div", { class: "rows" }, home.library.map((media, index) => {
             return mediaRow(media, {
@@ -74,12 +75,8 @@ export async function render({ showView }) {
 
   if (sections.length === 0) {
     return [
-      element("h1", { class: "view-title" }, ["Bienvenue dans Unisson"]),
-      element("p", { class: "hint" }, [
-        "Votre dossier Musique est vide, et vous n'avez pas encore de radio favorite. " +
-          "Ouvrez Radios pour choisir une station, ou collez l'adresse d'un flux " +
-          "dans le champ ci-dessus, puis appuyez sur Entrée.",
-      ]),
+      element("h1", { class: "view-title" }, [t("home.welcome")]),
+      element("p", { class: "hint" }, [t("home.welcomeHint")]),
     ];
   }
   return sections;
@@ -95,7 +92,7 @@ function resumeTile(tile) {
       type: "button",
       "data-source": tile.source,
       "data-media-key": mediaKey(tile.items[tile.start]),
-      "aria-label": `Lire ${tile.title}, ${subtitle}`,
+      "aria-label": t("home.playTile", { title: tile.title, subtitle }),
     },
     [
       element("span", { class: "tile-band" }, [

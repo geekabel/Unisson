@@ -7,6 +7,7 @@
 
 import { byId, element, replaceKeepingFocus } from "./dom.js";
 import { mediaKey } from "./format.js";
+import { t } from "./i18n.js";
 import * as favorites from "./views/favorites.js";
 import * as history from "./views/history.js";
 import * as home from "./views/home.js";
@@ -76,9 +77,7 @@ export async function showView(name, options = {}) {
     content = await VIEWS[name].render({ showView, param, options });
   } catch (error) {
     console.error(error);
-    content = [
-      element("p", { class: "hint" }, ["Cette page n'a pas pu s'afficher. Réessayez dans un instant."]),
-    ];
+    content = [element("p", { class: "hint" }, [t("shell.viewFailed")])];
   }
   if (render !== renderCount) {
     return;

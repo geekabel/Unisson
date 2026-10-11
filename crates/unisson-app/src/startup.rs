@@ -10,6 +10,7 @@ use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 use unisson_audio::AudioError;
 use unisson_store::StoreError;
 
+use crate::texts::{Language, Texts};
 use crate::windows;
 
 /// Explains to the user why Unisson cannot start, then ends the program.
@@ -22,7 +23,9 @@ pub fn report_failure(app: &AppHandle, error: &(dyn std::error::Error + 'static)
     if let Some(window) = app.get_webview_window(windows::MAIN) {
         let _ = window.hide();
     }
-    let text = message(error);
+    // The settings were not read: the language of the desktop is used.
+    let texts = Language::of_system().texts();
+    let text = message(error, texts);
     let dialog = app.clone();
     let spawned = std::thread::Builder::new()
         .name("unisson-startup-failure".into())
@@ -30,7 +33,7 @@ pub fn report_failure(app: &AppHandle, error: &(dyn std::error::Error + 'static)
             dialog
                 .dialog()
                 .message(text)
-                .title("Unisson ne peut pas démarrer")
+                .title(texts.cannot_start)
                 .kind(MessageDialogKind::Error)
                 .blocking_show();
             dialog.exit(1);
@@ -40,22 +43,17 @@ pub fn report_failure(app: &AppHandle, error: &(dyn std::error::Error + 'static)
     }
 }
 
-/// Builds the text of the dialog: what is wrong in plain words, what to
-/// do, then the technical reason for a bug report. The text is in French,
-/// like the rest of the interface.
-fn message(error: &(dyn std::error::Error + 'static)) -> String {
+/// Builds the text of the dialog: what is wrong in plain words, then the
+/// technical reason for a bug report.
+fn message(error: &(dyn std::error::Error + 'static), texts: &Texts) -> String {
     let advice = if error.downcast_ref::<AudioError>().is_some() {
-        "Le moteur audio GStreamer n'a pas pu démarrer.\n\n\
-         Vérifiez que ses greffons sont installés :\n\
-         sudo apt install gstreamer1.0-plugins-base gstreamer1.0-plugins-good"
+        texts.cannot_start_audio
     } else if error.downcast_ref::<StoreError>().is_some() {
-        "La base de données d'Unisson n'a pas pu être ouverte.\n\n\
-         Vérifiez que le dossier ~/.local/share/unisson existe, que vous \
-         pouvez y écrire, et que le disque n'est pas plein."
+        texts.cannot_start_store
     } else {
-        "Une erreur inattendue empêche le démarrage."
+        texts.cannot_start_other
     };
-    format!("{advice}\n\nDétail technique : {error}")
+    format!("{advice}\n\n{}{error}", texts.technical_detail)
 }
 
 #[cfg(test)]
@@ -65,17 +63,19 @@ mod tests {
     #[test]
     fn the_message_gives_advice_and_keeps_the_technical_reason() {
         let audio = AudioError::MissingElement("playbin");
-        let text = message(&audio);
-        assert!(text.contains("GStreamer"), "{text}");
-        assert!(text.contains("sudo apt install"), "{text}");
-        assert!(
-            text.ends_with(&format!("Détail technique : {audio}")),
-            "{text}"
-        );
+        for language in Language::ALL {
+            let texts = language.texts();
+            let text = message(&audio, texts);
+            assert!(text.contains("GStreamer"), "{text}");
+            assert!(
+                text.ends_with(&format!("{}{audio}", texts.technical_detail)),
+                "{text}"
+            );
 
-        let other = std::io::Error::other("disk on fire");
-        let text = message(&other);
-        assert!(text.contains("inattendue"), "{text}");
-        assert!(text.contains("disk on fire"), "{text}");
+            let other = std::io::Error::other("disk on fire");
+            let text = message(&other, texts);
+            assert!(text.starts_with(texts.cannot_start_other), "{text}");
+            assert!(text.contains("disk on fire"), "{text}");
+        }
     }
 }
