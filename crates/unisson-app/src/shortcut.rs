@@ -93,6 +93,14 @@ pub fn is_offered(binding: &str) -> bool {
 
 /// Returns the state of the shortcut.
 pub fn status() -> ShortcutStatus {
+    // Only GNOME has these settings. Elsewhere, do not even look for the
+    // `gsettings` program.
+    if !cfg!(target_os = "linux") {
+        return ShortcutStatus {
+            supported: false,
+            binding: None,
+        };
+    }
     let Ok(list) = gsettings(&["get", LIST_SCHEMA, LIST_KEY]) else {
         return ShortcutStatus {
             supported: false,

@@ -9,8 +9,11 @@ use std::path::{Path, PathBuf};
 /// language of the system: `Music`, `Musique`, `Musik`... Without that file,
 /// `~/Music` is assumed.
 ///
+/// On Windows it is the `Music` folder of the user profile.
+///
 /// Returns `None` if the home folder is unknown, or if the user disabled the
 /// music folder by pointing it at the home folder itself.
+#[cfg(not(windows))]
 pub fn music_directory() -> Option<PathBuf> {
     let home = std::env::var_os("HOME")
         .map(PathBuf::from)
@@ -23,7 +26,17 @@ pub fn music_directory() -> Option<PathBuf> {
     music_directory_from(user_dirs.as_deref(), &home)
 }
 
+/// Returns the user's music folder: `Music` in the user profile.
+#[cfg(windows)]
+pub fn music_directory() -> Option<PathBuf> {
+    std::env::var_os("USERPROFILE")
+        .map(PathBuf::from)
+        .filter(|home| home.is_absolute())
+        .map(|home| home.join("Music"))
+}
+
 /// Finds the music folder in the content of `user-dirs.dirs`.
+#[cfg_attr(windows, allow(dead_code))]
 fn music_directory_from(user_dirs: Option<&str>, home: &Path) -> Option<PathBuf> {
     // The file is made of shell assignments such as:
     //     XDG_MUSIC_DIR="$HOME/Musique"

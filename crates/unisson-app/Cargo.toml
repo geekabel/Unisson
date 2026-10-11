@@ -4,6 +4,8 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 repository.workspace = true
+license.workspace = true
+publish.workspace = true
 description = "Unisson desktop application: the window, built with Tauri."
 # The program that `cargo run -p unisson-app` starts.
 default-run = "unisson"
@@ -31,24 +33,27 @@ serde.workspace = true
 tauri = { version = "2", features = ["tray-icon"] }
 # Native dialogs: the folder picker of the settings.
 tauri-plugin-dialog = "2"
-# GTK, the toolkit under Tauri on Linux. Used to give the keyboard to a
-# window that opens while the user works in another application.
-gtk = "0.18"
-gdkx11 = "0.18"
 # Starting Unisson again talks to the copy that is already open.
 tauri-plugin-single-instance = "2"
-# MPRIS: the D-Bus interface the desktop uses for the media keys and for
-# showing what plays. It runs on its own thread, with a small executor.
-mpris-server = "0.10"
-async-channel = "2"
-async-executor = "1"
-futures-lite = "2"
 # The settings file is written in TOML, which is easy to read and to edit.
 toml = "1"
 # The language of the desktop, on every platform.
 sys-locale = "0.3"
 # Desktop notifications, over the standard D-Bus interface.
 notify-rust = "4"
+
+# What only the Linux desktop has, or needs.
+[target.'cfg(target_os = "linux")'.dependencies]
+# MPRIS: the D-Bus interface the desktop uses for the media keys and for
+# showing what plays. It runs on its own thread, with a small executor.
+mpris-server = "0.10"
+async-channel = "2"
+async-executor = "1"
+futures-lite = "2"
+# GTK, the toolkit under Tauri on Linux. Used to give the keyboard to a
+# window that opens while the user works in another application.
+gtk = "0.18"
+gdkx11 = "0.18"
 
 [dev-dependencies]
 serde_json.workspace = true

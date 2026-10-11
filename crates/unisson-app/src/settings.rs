@@ -152,11 +152,7 @@ impl Settings {
     /// Returns the place of the settings file, or `None` when no home
     /// directory is known.
     pub fn default_path() -> Option<PathBuf> {
-        config_dir(
-            std::env::var_os("XDG_CONFIG_HOME"),
-            std::env::var_os("HOME"),
-        )
-        .map(|dir| dir.join("unisson").join("config.toml"))
+        user_config_dir().map(|dir| dir.join("unisson").join("config.toml"))
     }
 
     /// Reads the settings from a file.
@@ -305,6 +301,24 @@ fn clamp_volume(volume: f64) -> f64 {
     }
 }
 
+/// Returns the folder where the programs of the user keep their settings:
+/// the XDG one on Linux, `%APPDATA%` on Windows.
+#[cfg(not(windows))]
+fn user_config_dir() -> Option<PathBuf> {
+    config_dir(
+        std::env::var_os("XDG_CONFIG_HOME"),
+        std::env::var_os("HOME"),
+    )
+}
+
+#[cfg(windows)]
+fn user_config_dir() -> Option<PathBuf> {
+    std::env::var_os("APPDATA")
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute())
+}
+
+#[cfg_attr(windows, allow(dead_code))]
 fn config_dir(xdg_config_home: Option<OsString>, home: Option<OsString>) -> Option<PathBuf> {
     // The specification says a relative path is invalid and must be ignored.
     let absolute =

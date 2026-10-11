@@ -1,7 +1,6 @@
 //! The [`Store`]: the SQLite database of the application.
 
 use std::fs::DirBuilder;
-use std::os::unix::fs::DirBuilderExt;
 use std::path::Path;
 use std::sync::{Mutex, MutexGuard};
 
@@ -130,10 +129,16 @@ impl Store {
             .parent()
             .filter(|parent| !parent.as_os_str().is_empty())
         {
-            // 0700 is the mode the XDG specification asks for.
-            DirBuilder::new()
-                .recursive(true)
-                .mode(0o700)
+            let mut builder = DirBuilder::new();
+            builder.recursive(true);
+            // 0700 is the mode the XDG specification asks for. On Windows
+            // the profile of the user is already private.
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::DirBuilderExt;
+                builder.mode(0o700);
+            }
+            builder
                 .create(parent)
                 .map_err(|error| StoreError::Location(format!("{}: {error}", parent.display())))?;
         }
@@ -357,6 +362,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn the_data_directory_is_private() {
         use std::os::unix::fs::PermissionsExt;
 

@@ -189,18 +189,27 @@ impl YtDlp {
 
     /// Starts the program with some arguments.
     fn start(&self, arguments: &[&str]) -> Result<Arc<Run>, SourceError> {
-        let mut child = Command::new(&self.program)
+        let mut command = Command::new(&self.program);
+        command
             .args(arguments)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
-            .spawn()
-            .map_err(|error| match error.kind() {
-                std::io::ErrorKind::NotFound => {
-                    SourceError::Unavailable("the YouTube helper is not installed".into())
-                }
-                _ => SourceError::Unavailable(format!("cannot start the YouTube helper: {error}")),
-            })?;
+            .stderr(Stdio::piped());
+        // On Windows a console program started by a window program opens a
+        // console of its own: a black box would flash at each search.
+        #[cfg(windows)]
+        {
+            use std::os::windows::process::CommandExt;
+            /// `CREATE_NO_WINDOW`, from the Windows API.
+            const NO_WINDOW: u32 = 0x0800_0000;
+            command.creation_flags(NO_WINDOW);
+        }
+        let mut child = command.spawn().map_err(|error| match error.kind() {
+            std::io::ErrorKind::NotFound => {
+                SourceError::Unavailable("the YouTube helper is not installed".into())
+            }
+            _ => SourceError::Unavailable(format!("cannot start the YouTube helper: {error}")),
+        })?;
         // Read both outputs while the program runs: a program that fills
         // one of them and is not read would wait for ever.
         let stdout = read_in_background(child.stdout.take());

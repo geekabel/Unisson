@@ -12,8 +12,6 @@
 //! that key. SQLite's own text matching only ignores case for unaccented
 //! letters, which is not enough for names such as "Céline".
 
-use std::ffi::OsString;
-use std::os::unix::ffi::{OsStrExt, OsStringExt};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -52,7 +50,7 @@ fn insert_track(connection: &Connection, track: &LocalTrack) -> rusqlite::Result
         ),
         (
             // Paths are stored as raw bytes: they are not always valid text.
-            track.path.as_os_str().as_bytes(),
+            path_bytes(&track.path),
             &track.title,
             &track.artist,
             &track.album,
@@ -65,11 +63,45 @@ fn insert_track(connection: &Connection, track: &LocalTrack) -> rusqlite::Result
     Ok(())
 }
 
+/// Returns a path as the bytes the database stores.
+///
+/// On Unix a path is a string of bytes that is not always valid text, so
+/// the bytes are stored as they are.
+#[cfg(unix)]
+fn path_bytes(path: &Path) -> Vec<u8> {
+    use std::os::unix::ffi::OsStrExt;
+
+    path.as_os_str().as_bytes().to_vec()
+}
+
+/// Returns a path as the bytes the database stores.
+///
+/// On Windows a path is text: it is stored as UTF-8.
+#[cfg(not(unix))]
+fn path_bytes(path: &Path) -> Vec<u8> {
+    path.to_string_lossy().into_owned().into_bytes()
+}
+
+/// Builds a path back from the bytes of the database.
+#[cfg(unix)]
+fn path_from_bytes(bytes: Vec<u8>) -> PathBuf {
+    use std::ffi::OsString;
+    use std::os::unix::ffi::OsStringExt;
+
+    PathBuf::from(OsString::from_vec(bytes))
+}
+
+/// Builds a path back from the bytes of the database.
+#[cfg(not(unix))]
+fn path_from_bytes(bytes: Vec<u8>) -> PathBuf {
+    PathBuf::from(String::from_utf8_lossy(&bytes).into_owned())
+}
+
 fn track_from_row(row: &Row<'_>) -> rusqlite::Result<LocalTrack> {
     let path: Vec<u8> = row.get(0)?;
     let duration_ms: Option<i64> = row.get(5)?;
     Ok(LocalTrack {
-        path: PathBuf::from(OsString::from_vec(path)),
+        path: path_from_bytes(path),
         title: row.get(1)?,
         artist: row.get(2)?,
         album: row.get(3)?,
@@ -135,7 +167,7 @@ impl Store {
     pub fn remove_track(&self, path: impl AsRef<Path>) -> Result<bool, StoreError> {
         let removed = self.connection().execute(
             "DELETE FROM tracks WHERE path = ?1",
-            [path.as_ref().as_os_str().as_bytes()],
+            [path_bytes(path.as_ref())],
         )?;
         Ok(removed > 0)
     }
@@ -149,13 +181,15 @@ impl Store {
     ///
     /// Returns [`StoreError::Database`] if the tracks cannot be removed.
     pub fn remove_tracks_under(&self, path: impl AsRef<Path>) -> Result<usize, StoreError> {
-        let path = path.as_ref().as_os_str().as_bytes();
+        let path = path_bytes(path.as_ref());
         // Paths are compared byte by byte. Everything inside the folder
         // starts with "<path>/", so it sorts from "<path>/" up to, but not
         // including, "<path>0": `0` is the character right after `/`.
-        // A neighbor such as "<path> (live)" is outside that range.
-        let first_inside = [path, b"/"].concat();
-        let after_inside = [path, b"0"].concat();
+        // A neighbor such as "<path> (live)" is outside that range. On
+        // Windows the separator is `\`, and the character after it `]`.
+        let separator = std::path::MAIN_SEPARATOR as u8;
+        let first_inside = [path.as_slice(), &[separator]].concat();
+        let after_inside = [path.as_slice(), &[separator + 1]].concat();
         let removed = self.connection().execute(
             "DELETE FROM tracks WHERE path = ?1 OR (path >= ?2 AND path < ?3)",
             (path, first_inside, after_inside),
@@ -365,7 +399,11 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn a_path_that_is_not_valid_text_is_kept_exactly() {
+        use std::ffi::OsString;
+        use std::os::unix::ffi::OsStringExt;
+
         let store = Store::open_in_memory().unwrap();
         let odd_path = PathBuf::from(OsString::from_vec(b"/music/\xFF\xFE.mp3".to_vec()));
         let odd = LocalTrack {

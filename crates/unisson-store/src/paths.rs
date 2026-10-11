@@ -7,21 +7,34 @@ use crate::error::StoreError;
 
 /// Returns the default location of the database file.
 ///
-/// This is `unisson/unisson.db` under the user data directory of the XDG
-/// Base Directory specification: `$XDG_DATA_HOME`, or `~/.local/share` when
-/// that variable is unset, empty or not an absolute path.
+/// On Linux this is `unisson/unisson.db` under the user data directory of
+/// the XDG Base Directory specification: `$XDG_DATA_HOME`, or
+/// `~/.local/share` when that variable is unset, empty or not an absolute
+/// path. On Windows it is `unisson\unisson.db` under `%LOCALAPPDATA%`.
 ///
 /// # Errors
 ///
-/// Returns [`StoreError::Location`] if neither `$XDG_DATA_HOME` nor `$HOME`
-/// gives a usable directory.
+/// Returns [`StoreError::Location`] if no such directory is known.
 pub fn default_database_path() -> Result<PathBuf, StoreError> {
-    data_dir(std::env::var_os("XDG_DATA_HOME"), std::env::var_os("HOME"))
+    user_data_dir()
         .map(|dir| dir.join("unisson").join("unisson.db"))
         .ok_or_else(|| StoreError::Location("no home directory is known".into()))
 }
 
+#[cfg(not(windows))]
+fn user_data_dir() -> Option<PathBuf> {
+    data_dir(std::env::var_os("XDG_DATA_HOME"), std::env::var_os("HOME"))
+}
+
+#[cfg(windows)]
+fn user_data_dir() -> Option<PathBuf> {
+    std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute())
+}
+
 /// Applies the XDG rules to the values of `$XDG_DATA_HOME` and `$HOME`.
+#[cfg_attr(windows, allow(dead_code))]
 fn data_dir(xdg_data_home: Option<OsString>, home: Option<OsString>) -> Option<PathBuf> {
     // The specification says a relative path is invalid and must be ignored.
     let absolute =

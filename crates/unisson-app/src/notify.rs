@@ -26,7 +26,9 @@
 use std::sync::Mutex;
 use std::sync::mpsc::{self, Receiver, Sender};
 
-use notify_rust::{Hint, Notification, Timeout};
+use notify_rust::Notification;
+#[cfg(target_os = "linux")]
+use notify_rust::{Hint, Timeout};
 use tauri::{AppHandle, Manager};
 use unisson_core::MediaId;
 use unisson_playback::{ErrorKind, PlaybackError, Snapshot, Status};
@@ -39,10 +41,13 @@ use crate::windows;
 /// The name the desktop shows above the message.
 const APP_NAME: &str = "Unisson";
 /// The name of the desktop file: the package installs `Unisson.desktop`.
+#[cfg(target_os = "linux")]
 const DESKTOP_ENTRY: &str = "Unisson";
 /// The name of the icon in the icon theme of the desktop.
+#[cfg(target_os = "linux")]
 const ICON: &str = "unisson";
 /// How long a message stays on screen, in milliseconds.
+#[cfg(target_os = "linux")]
 const TIMEOUT_MS: u32 = 5_000;
 
 /// A message to show: what just started.
@@ -186,10 +191,7 @@ fn has_focus(app: &AppHandle) -> bool {
 
 /// Shows each message as it arrives, until the application ends.
 fn show_all(inbox: &Receiver<Announcement>) {
-    // Asked once: whether the desktop reads the second line as markup.
-    let mut markup: Option<bool> = None;
-    // The number the desktop gave to the last message, to replace it.
-    let mut last_id: Option<u32> = None;
+    let mut desktop = Desktop::default();
     let mut failed = false;
 
     for mut announcement in inbox {
@@ -197,7 +199,34 @@ fn show_all(inbox: &Receiver<Announcement>) {
         while let Ok(newer) = inbox.try_recv() {
             announcement = newer;
         }
-        let markup = *markup.get_or_insert_with(|| {
+        match desktop.show(announcement) {
+            Ok(()) => failed = false,
+            // One line is enough: every later message would say the same.
+            Err(error) if !failed => {
+                eprintln!("unisson: cannot show a notification: {error}");
+                failed = true;
+            }
+            Err(_) => {}
+        }
+    }
+}
+
+/// What is remembered about the notification service of the desktop.
+#[derive(Debug, Default)]
+struct Desktop {
+    /// Asked once: whether the desktop reads the second line as markup.
+    #[cfg(target_os = "linux")]
+    markup: Option<bool>,
+    /// The number the desktop gave to the last message, to replace it.
+    #[cfg(target_os = "linux")]
+    last_id: Option<u32>,
+}
+
+impl Desktop {
+    /// Shows a message, in place of the previous one.
+    #[cfg(target_os = "linux")]
+    fn show(&mut self, announcement: Announcement) -> notify_rust::error::Result<()> {
+        let markup = *self.markup.get_or_insert_with(|| {
             notify_rust::get_capabilities()
                 .is_ok_and(|capabilities| capabilities.iter().any(|name| name == "body-markup"))
         });
@@ -219,21 +248,24 @@ fn show_all(inbox: &Receiver<Announcement>) {
             // The music is the sound.
             .hint(Hint::SuppressSound(true))
             .timeout(Timeout::Milliseconds(TIMEOUT_MS));
-        if let Some(id) = last_id {
+        if let Some(id) = self.last_id {
             notification.id(id);
         }
-        match notification.show() {
-            Ok(handle) => {
-                last_id = Some(handle.id());
-                failed = false;
-            }
-            // One line is enough: every later message would say the same.
-            Err(error) if !failed => {
-                eprintln!("unisson: cannot show a notification: {error}");
-                failed = true;
-            }
-            Err(_) => {}
-        }
+        let handle = notification.show()?;
+        self.last_id = Some(handle.id());
+        Ok(())
+    }
+
+    /// Shows a message. Outside of Linux the desktop offers less: no
+    /// replacement, and its own sound and duration.
+    #[cfg(not(target_os = "linux"))]
+    fn show(&mut self, announcement: Announcement) -> notify_rust::error::Result<()> {
+        Notification::new()
+            .appname(APP_NAME)
+            .summary(&announcement.summary)
+            .body(&announcement.body)
+            .show()
+            .map(|_| ())
     }
 }
 
@@ -241,6 +273,7 @@ fn show_all(inbox: &Receiver<Announcement>) {
 ///
 /// Such a desktop understands a few tags such as `<b>`. Without this, a
 /// name like `Simon & Garfunkel` or `<3` could be cut or shown wrongly.
+#[cfg(target_os = "linux")]
 fn escape_markup(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len());
     for character in text.chars() {
@@ -379,6 +412,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(target_os = "linux")]
     fn markup_characters_are_escaped() {
         assert_eq!(
             escape_markup("Simon & Garfunkel <live>"),

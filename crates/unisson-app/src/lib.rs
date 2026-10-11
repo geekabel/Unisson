@@ -17,6 +17,10 @@ pub mod dto;
 pub mod events;
 pub mod home;
 pub mod library;
+#[cfg(target_os = "linux")]
+pub mod mpris;
+#[cfg(not(target_os = "linux"))]
+#[path = "mpris_none.rs"]
 pub mod mpris;
 pub mod notify;
 pub mod now_playing;

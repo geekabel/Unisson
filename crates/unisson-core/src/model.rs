@@ -6,7 +6,6 @@
 //! because it may expire.
 
 use std::fmt;
-use std::os::unix::ffi::OsStrExt;
 use std::path::Path;
 use std::time::Duration;
 
@@ -267,23 +266,81 @@ impl StreamUri {
                 path.display()
             )));
         }
-        let mut uri = String::from("file://");
-        for byte in path.as_os_str().as_bytes() {
-            // RFC 3986 allows these characters as they are. `/` is kept
-            // too, since it separates the folders.
-            if byte.is_ascii_alphanumeric() || b"-._~/".contains(byte) {
-                uri.push(char::from(*byte));
-            } else {
-                uri.push_str(&format!("%{byte:02X}"));
-            }
-        }
-        Ok(Self(uri))
+        Ok(Self(file_address(path)?))
     }
 
     /// Returns the address as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
+}
+
+/// Writes the bytes of a path into an address, escaping what RFC 3986
+/// does not allow as it is. `/` is kept, since it separates the folders.
+fn push_escaped(uri: &mut String, bytes: &[u8]) {
+    for byte in bytes {
+        if byte.is_ascii_alphanumeric() || b"-._~/".contains(byte) {
+            uri.push(char::from(*byte));
+        } else {
+            uri.push_str(&format!("%{byte:02X}"));
+        }
+    }
+}
+
+/// Builds the `file://` address of an absolute path.
+///
+/// On Unix a path is a string of bytes, which may not be valid text: the
+/// bytes are escaped as they are.
+#[cfg(unix)]
+fn file_address(path: &Path) -> Result<String, SourceError> {
+    use std::os::unix::ffi::OsStrExt;
+
+    let mut uri = String::from("file://");
+    push_escaped(&mut uri, path.as_os_str().as_bytes());
+    Ok(uri)
+}
+
+/// Builds the `file://` address of an absolute path.
+///
+/// On Windows a path is text, with drives and backslashes.
+#[cfg(not(unix))]
+fn file_address(path: &Path) -> Result<String, SourceError> {
+    let text = path.to_str().ok_or_else(|| {
+        SourceError::Invalid(format!("this path is not valid text: {}", path.display()))
+    })?;
+    Ok(windows_file_address(text))
+}
+
+/// Builds the `file://` address of an absolute Windows path, given as
+/// text: `C:\Music\a.mp3` becomes `file:///C:/Music/a.mp3`, and a network
+/// share `\\server\share\a.mp3` becomes `file://server/share/a.mp3`.
+///
+/// It is compiled on every system so that its tests run everywhere.
+#[cfg_attr(unix, allow(dead_code))]
+fn windows_file_address(path: &str) -> String {
+    // The "verbatim" form `\\?\C:\...` names the same file.
+    let path = path
+        .strip_prefix(r"\\?\UNC\")
+        .map(|rest| format!(r"\\{rest}"))
+        .unwrap_or_else(|| path.strip_prefix(r"\\?\").unwrap_or(path).to_owned());
+    let slashed = path.replace('\\', "/");
+    let mut uri = String::from("file://");
+    if let Some(share) = slashed.strip_prefix("//") {
+        // A network share: the server takes the place of the host.
+        push_escaped(&mut uri, share.as_bytes());
+        return uri;
+    }
+    uri.push('/');
+    // The colon of the drive letter is kept as it is.
+    match slashed.split_once(':') {
+        Some((drive, rest)) if drive.len() == 1 => {
+            uri.push_str(drive);
+            uri.push(':');
+            push_escaped(&mut uri, rest.as_bytes());
+        }
+        _ => push_escaped(&mut uri, slashed.trim_start_matches('/').as_bytes()),
+    }
+    uri
 }
 
 impl fmt::Display for StreamUri {
@@ -334,6 +391,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
     fn a_file_path_becomes_an_escaped_address() {
         let uri = StreamUri::from_file_path("/music/AC DC/100% rock & roll #1?.mp3").unwrap();
         assert_eq!(
@@ -348,6 +406,26 @@ mod tests {
             StreamUri::from_file_path("music/a.mp3"),
             Err(SourceError::Invalid(_))
         ));
+    }
+
+    #[test]
+    fn a_windows_path_becomes_an_address_with_its_drive() {
+        assert_eq!(
+            windows_file_address(r"C:\Users\me\Music\été 2010.mp3"),
+            "file:///C:/Users/me/Music/%C3%A9t%C3%A9%202010.mp3"
+        );
+        assert_eq!(
+            windows_file_address(r"\\?\D:\a b\c#1.flac"),
+            "file:///D:/a%20b/c%231.flac"
+        );
+        assert_eq!(
+            windows_file_address(r"\\nas\music\a.mp3"),
+            "file://nas/music/a.mp3"
+        );
+        assert_eq!(
+            windows_file_address(r"\\?\UNC\nas\music\a.mp3"),
+            "file://nas/music/a.mp3"
+        );
     }
 
     #[test]

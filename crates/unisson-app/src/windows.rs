@@ -24,6 +24,7 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
+#[cfg(target_os = "linux")]
 use gtk::prelude::{Cast, GtkWindowExt, WidgetExt};
 use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
@@ -240,9 +241,11 @@ fn present(window: &WebviewWindow) {
     // GTK may only be used from the main thread.
     let target = window.clone();
     let asked = window.run_on_main_thread(move || {
-        if present_with_gtk(&target).is_none() {
-            show_plainly(&target);
+        #[cfg(target_os = "linux")]
+        if present_with_gtk(&target).is_some() {
+            return;
         }
+        show_plainly(&target);
     });
     if asked.is_err() {
         show_plainly(window);
@@ -260,6 +263,7 @@ fn show_plainly(window: &WebviewWindow) {
 /// the moment of the user action. See the notes at the top of this file.
 ///
 /// Returns `None` when the window cannot be reached through GTK.
+#[cfg(target_os = "linux")]
 fn present_with_gtk(window: &WebviewWindow) -> Option<()> {
     let gtk_window = window.gtk_window().ok()?;
     if !gtk_window.is_realized() {
