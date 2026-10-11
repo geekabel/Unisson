@@ -48,11 +48,12 @@ impl SourceKind {
         }
     }
 
+    /// Every source the application knows about.
+    pub const ALL: [Self; 3] = [Self::Radio, Self::Local, Self::YouTube];
+
     /// Returns the source with the given [`id`](Self::id), if there is one.
     pub fn from_id(id: &str) -> Option<Self> {
-        [Self::Radio, Self::Local, Self::YouTube]
-            .into_iter()
-            .find(|kind| kind.id() == id)
+        Self::ALL.into_iter().find(|kind| kind.id() == id)
     }
 }
 

@@ -189,7 +189,20 @@ impl SourceRegistry {
     /// call returns when every source has answered.
     ///
     /// An empty query contacts no source.
-    pub fn search_each(&self, query: &SearchQuery, mut on_result: impl FnMut(SourceResults)) {
+    pub fn search_each(&self, query: &SearchQuery, on_result: impl FnMut(SourceResults)) {
+        self.search_each_in(query, &self.kinds(), on_result);
+    }
+
+    /// Same as [`search_each`](Self::search_each), asking only the sources
+    /// listed in `kinds`.
+    ///
+    /// It serves a user who switched some sources off.
+    pub fn search_each_in(
+        &self,
+        query: &SearchQuery,
+        kinds: &[SourceKind],
+        mut on_result: impl FnMut(SourceResults),
+    ) {
         if query.is_empty() {
             return;
         }
@@ -198,6 +211,7 @@ impl SourceRegistry {
             let handles: Vec<_> = self
                 .sources
                 .iter()
+                .filter(|source| kinds.contains(&source.kind()))
                 .map(|source| {
                     let answers = answers.clone();
                     let handle = scope.spawn(move || {
@@ -464,6 +478,27 @@ mod tests {
         let mut called = false;
         registry.search_each(&SearchQuery::new("  "), |_| called = true);
         assert!(!called, "an empty query contacts no source");
+    }
+
+    #[test]
+    fn search_each_in_asks_only_the_listed_sources() {
+        let mut registry = SourceRegistry::new();
+        // A source that is not asked cannot crash the search.
+        registry.register(FakeSource::boxed(SourceKind::Radio, Behaviour::Panics));
+        registry.register(FakeSource::boxed(
+            SourceKind::Local,
+            Behaviour::Titles(vec!["So What"]),
+        ));
+
+        let mut seen = Vec::new();
+        registry.search_each_in(&SearchQuery::new("so"), &[SourceKind::Local], |results| {
+            seen.push(results.source);
+        });
+        assert_eq!(seen, [SourceKind::Local]);
+
+        let mut called = false;
+        registry.search_each_in(&SearchQuery::new("so"), &[], |_| called = true);
+        assert!(!called);
     }
 
     #[test]
