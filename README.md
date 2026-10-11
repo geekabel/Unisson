@@ -19,6 +19,9 @@ The project is under construction. Current target: Ubuntu 22.04.
 - `crates/unisson-local`: local audio files. It scans a music folder, reads
   the tags of each file (title, artist, album, duration, cover), and watches
   the folder for files that appear, change or disappear.
+- `crates/unisson-youtube`: the YouTube source. It runs the
+  [yt-dlp](https://github.com/yt-dlp/yt-dlp) program to search YouTube and to
+  find the address of the audio stream of a video.
 - `crates/unisson-store`: the local storage, an SQLite database kept in
   `~/.local/share/unisson/`. It holds the favorite stations, the library
   (tags of the local files, with a fast search), the listening history, the
@@ -51,6 +54,22 @@ The project is under construction. Current target: Ubuntu 22.04.
       libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev
   ```
 
+- For YouTube, the [yt-dlp](https://github.com/yt-dlp/yt-dlp) program, in a
+  recent version. The one packaged by Ubuntu 22.04 is too old. Install it with
+  pipx, with the extras yt-dlp needs for YouTube:
+
+  ```sh
+  sudo apt install pipx
+  pipx install "yt-dlp[default]"
+  ```
+
+  yt-dlp also needs a JavaScript runtime for YouTube. It looks for
+  [Deno](https://deno.com) by default: see the yt-dlp documentation. Update
+  yt-dlp when YouTube stops working: `pipx upgrade yt-dlp`.
+
+  Unisson works without yt-dlp: only YouTube is then left out. Listening to
+  YouTube this way is not covered by its terms of service.
+
 ## Run the application
 
 ```sh
@@ -67,6 +86,14 @@ The first build takes a few minutes. What the window offers so far:
   one list. Up and Down move, Enter plays, Shift+Enter adds to the queue,
   Ctrl+Enter plays next, Escape clears. A stream address or the full path of a
   file is played with Enter.
+- **YouTube**: its videos appear in the search like any other track, and
+  play in the same queue. A pasted YouTube link plays the video, or the whole
+  playlist.
+- **Favorites, History, playlists**: the heart of the player bar keeps a
+  track or a station. Every line has a button to add it to a playlist. The
+  playlists are listed in the sidebar.
+- **Sources**: switch a source on or off, order the sources, choose the music
+  folder. The settings are kept in `~/.config/unisson/config.toml`.
 - **Queue**: the panel on the right lists what plays next. Items can be moved,
   removed or jumped to. When the queue runs out, the last radio station takes
   over, unless the switch at the bottom of the panel is off.
@@ -79,6 +106,16 @@ JavaScript helpers of the interface:
 ```sh
 node --test crates/unisson-app/ui-tests/*.test.mjs
 ```
+
+## Try YouTube from the command line
+
+```sh
+cargo run -p unisson-youtube --example play -- "miles davis so what"
+cargo run -p unisson-youtube --example play -- https://www.youtube.com/watch?v=VIDEO
+```
+
+Words are searched and the first result is played. A link is played directly.
+Then type `p` to pause or resume, `i` for the position, `q` to quit.
 
 ## Try the audio engine
 
