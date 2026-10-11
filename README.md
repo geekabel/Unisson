@@ -8,7 +8,8 @@ The project is under construction. Current target: Ubuntu 22.04.
 ## Repository layout
 
 - `crates/unisson-core`: the core library, with no user interface
-  (common model, source contract, source registry, play queue).
+  (common model, source contract, source registry, play queue, merge of the
+  search results of several sources).
 - `crates/unisson-audio`: the audio engine, built on GStreamer. `Player` plays
   one address (load, play, pause, stop, seek, volume). `Engine` runs it on its
   own thread and reports events (state, position, title on air, end of stream,
@@ -56,10 +57,21 @@ The project is under construction. Current target: Ubuntu 22.04.
 cargo run -p unisson-app
 ```
 
-The first build takes a few minutes. The window then shows the tracks of the
-music folder and the favorite radio stations: one click plays. The field at
-the top also plays a stream address or the full path of a file, with Enter.
-Space pauses and resumes, and Ctrl+K goes to the field.
+The first build takes a few minutes. What the window offers so far:
+
+- **Home**: tiles to resume what was played last, the favorite stations, the
+  recently played media and the local library. One click plays.
+- **Radios**: the station on air, the favorite stations, and the Radio Browser
+  directory, searched by name, genre and country.
+- **Search**: type in the field at the top (Ctrl+K). Every source answers in
+  one list. Up and Down move, Enter plays, Shift+Enter adds to the queue,
+  Ctrl+Enter plays next, Escape clears. A stream address or the full path of a
+  file is played with Enter.
+- **Queue**: the panel on the right lists what plays next. Items can be moved,
+  removed or jumped to. When the queue runs out, the last radio station takes
+  over, unless the switch at the bottom of the panel is off.
+- **Player bar**: play, pause, previous, next, seek and volume. Space pauses
+  and resumes. On a radio station, previous and next walk the favorites.
 
 No Node.js is needed to build or run. It is only used to test the pure
 JavaScript helpers of the interface:
