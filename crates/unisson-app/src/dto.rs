@@ -163,7 +163,7 @@ pub struct ReconnectDto {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PlaybackErrorDto {
-    /// `notFound`, `network`, `unavailable` or `playback`.
+    /// `notFound`, `network`, `unavailable`, `unsupported` or `playback`.
     pub kind: &'static str,
     /// The technical message, in English.
     pub detail: String,
@@ -175,6 +175,7 @@ impl From<&PlaybackError> for PlaybackErrorDto {
             ErrorKind::NotFound => "notFound",
             ErrorKind::Network => "network",
             ErrorKind::Unavailable => "unavailable",
+            ErrorKind::Unsupported => "unsupported",
             ErrorKind::Playback => "playback",
         };
         Self {
@@ -182,6 +183,17 @@ impl From<&PlaybackError> for PlaybackErrorDto {
             detail: error.detail.clone(),
         }
     }
+}
+
+/// A media that could not start and was left out, as the interface sees
+/// it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SkippedDto {
+    /// The media that was left out.
+    pub media: MediaDto,
+    /// Why it could not start.
+    pub error: PlaybackErrorDto,
 }
 
 /// A [`Snapshot`] of the playback session, as the interface sees it.

@@ -12,10 +12,11 @@ import {
   fillPercent,
   formatTime,
   mediaSubtitle,
-  playbackErrorMessage,
+  playbackProblem,
   sourceLabel,
 } from "./format.js";
 import { hideNotice, showNotice } from "./notice.js";
+import { showView } from "./views.js";
 
 const cover = byId("player-cover");
 const coverIcon = byId("player-cover-icon");
@@ -172,11 +173,17 @@ function renderNotice(snapshot) {
     return;
   }
   shownError = identity;
+  const problem = playbackProblem(error, snapshot.current);
   showNotice({
     owner: "player",
     tone: "error",
-    text: playbackErrorMessage(error),
-    action: { label: "Réessayer", run: () => api.toggle() },
+    text: problem.text,
+    // The technical reason, for a bug report.
+    detail: error.detail,
+    action:
+      problem.action === "sources"
+        ? { label: "Voir les sources", run: () => showView("sources") }
+        : { label: "Réessayer", run: () => api.toggle() },
   });
 }
 

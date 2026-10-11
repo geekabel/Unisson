@@ -39,6 +39,10 @@
   max-width: 100%;
 }
 
+.mini-text .player-subtitle[data-tone="error"] {
+  color: var(--color-danger);
+}
+
 .mini-badge {
   padding: 1px 6px;
   font-size: 10px;

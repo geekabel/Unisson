@@ -30,7 +30,7 @@ use std::time::{Duration, Instant};
 
 use unisson_core::StreamUri;
 
-use crate::error::AudioError;
+use crate::error::{AudioError, Failure, FailureKind};
 use crate::player::{PlaybackState, Player, PlayerEvent};
 
 /// How long the audio thread waits for a command before checking playback.
@@ -104,7 +104,7 @@ pub enum EngineEvent {
     /// A lost live stream is playing again.
     Reconnected,
     /// A command or the playback itself failed.
-    Error(String),
+    Error(Failure),
 }
 
 /// A request sent to the audio thread.
@@ -145,7 +145,7 @@ enum Command {
 /// for event in events {
 ///     match event {
 ///         EngineEvent::EndOfStream => break,
-///         EngineEvent::Error(message) => return Err(message.into()),
+///         EngineEvent::Error(failure) => return Err(failure.into()),
 ///         other => println!("{other:?}"),
 ///     }
 /// }
@@ -460,7 +460,7 @@ impl Worker {
             Command::Shutdown => Ok(()),
         };
         if let Err(error) = result {
-            self.playback_failed(error.to_string());
+            self.playback_failed(error.failure());
         }
     }
 
@@ -471,10 +471,13 @@ impl Worker {
             match event {
                 // A live stream has no end: reaching it means the connection dropped.
                 PlayerEvent::EndOfStream if self.live.is_some() => {
-                    self.playback_failed("the live stream ended".into());
+                    self.playback_failed(Failure {
+                        kind: FailureKind::Network,
+                        message: "the live stream ended".into(),
+                    });
                 }
                 PlayerEvent::EndOfStream => self.emit(EngineEvent::EndOfStream),
-                PlayerEvent::Error(message) => self.playback_failed(message),
+                PlayerEvent::Error(failure) => self.playback_failed(failure),
                 PlayerEvent::Title(title) => self.report_title(title),
             }
         }
@@ -530,7 +533,7 @@ impl Worker {
     }
 
     /// Handles a failure: retries a live stream that was playing, or reports.
-    fn playback_failed(&mut self, message: String) {
+    fn playback_failed(&mut self, failure: Failure) {
         let max_attempts = self.config.reconnect_delays.len();
         let retry = match &mut self.live {
             Some(live) if self.wants_playing && (live.connected || live.attempts > 0) => self
@@ -550,8 +553,18 @@ impl Worker {
                 max_attempts,
             }),
             None => {
+                // A stream that played, then could not be found again
+                // after every attempt: the connection is what was lost.
+                let gave_up = self.live.as_ref().is_some_and(|live| live.attempts > 0);
                 self.cancel_reconnection();
-                self.emit(EngineEvent::Error(message));
+                self.emit(EngineEvent::Error(if gave_up {
+                    Failure {
+                        kind: FailureKind::Network,
+                        ..failure
+                    }
+                } else {
+                    failure
+                }));
             }
         }
     }
@@ -565,7 +578,7 @@ impl Worker {
         live.retry_at = None;
         let uri = live.uri.clone();
         if let Err(error) = self.player.load(&uri).and_then(|()| self.player.play()) {
-            self.playback_failed(error.to_string());
+            self.playback_failed(error.failure());
         }
     }
 

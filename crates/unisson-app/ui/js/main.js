@@ -3,6 +3,7 @@
  */
 
 import * as api from "./api.js";
+import { skippedMessage } from "./format.js";
 import { showNotice } from "./notice.js";
 import { renderPlayer, renderPosition } from "./player-bar.js";
 import { drawPlaylistsSidebar, loadPlaylists } from "./playlists.js";
@@ -36,6 +37,14 @@ async function start() {
   await Promise.all([
     api.onPlayerChanged(onPlayerChanged),
     api.onPlayerPosition(renderPosition),
+    api.onPlayerSkipped(({ media, error }) => {
+      showNotice({
+        owner: "skipped",
+        text: skippedMessage(media, error),
+        detail: error.detail,
+        duration: 8000,
+      });
+    }),
     api.onLibraryChanged(() => {
       refreshView("home");
       // The settings screen shows how many tracks the library holds.

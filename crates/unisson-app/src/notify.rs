@@ -1,4 +1,5 @@
-//! Desktop notifications: a short message when a new title starts.
+//! Desktop notifications: a short message when a new title starts, or
+//! when playback stops on a failure.
 //!
 //! # Design
 //!
@@ -16,7 +17,9 @@
 //! does not keep it in its list afterwards.
 //!
 //! Nothing is shown while the main window or the mini-player has the
-//! keyboard: the title is already in front of the user.
+//! keyboard: the title is already in front of the user, and so is the
+//! message strip that explains a failure. A failure matters most when no
+//! window is open: music that stops without a word is the worst case.
 //!
 //! [spec]: https://specifications.freedesktop.org/notification-spec/latest/
 
@@ -26,7 +29,7 @@ use std::sync::mpsc::{self, Receiver, Sender};
 use notify_rust::{Hint, Notification, Timeout};
 use tauri::{AppHandle, Manager};
 use unisson_core::MediaId;
-use unisson_playback::{Snapshot, Status};
+use unisson_playback::{ErrorKind, PlaybackError, Snapshot, Status};
 
 use crate::now_playing::NowPlaying;
 use crate::state::AppState;
@@ -56,6 +59,22 @@ impl Announcement {
             body: now.artist.clone().unwrap_or_default(),
         }
     }
+
+    /// Tells that playback stopped on a failure. The texts are in French,
+    /// like the rest of the interface.
+    fn of_failure(title: &str, error: &PlaybackError) -> Self {
+        let reason = match error.kind {
+            ErrorKind::NotFound => "introuvable",
+            ErrorKind::Network => "le réseau ne répond pas",
+            ErrorKind::Unavailable => "source indisponible",
+            ErrorKind::Unsupported => "format non pris en charge",
+            ErrorKind::Playback => "lecture impossible",
+        };
+        Self {
+            summary: "Lecture interrompue".into(),
+            body: format!("{title} : {reason}"),
+        }
+    }
 }
 
 /// Decides which playback states deserve a message.
@@ -63,11 +82,13 @@ impl Announcement {
 pub struct Announcer {
     /// What the last state with sound was about.
     last: Option<(MediaId, Announcement)>,
+    /// The last failure seen, so that it is told once.
+    last_error: Option<PlaybackError>,
 }
 
 impl Announcer {
     /// Looks at a new playback state, and returns a message when a new
-    /// title just started.
+    /// title just started, or when playback just stopped on a failure.
     ///
     /// Only a state with sound counts. A media that is still loading may
     /// fail, and a message for something that never plays would be noise.
@@ -77,8 +98,15 @@ impl Announcer {
         let Some(media) = &snapshot.current else {
             // The queue ran out: the same track played again later is news.
             self.last = None;
+            self.last_error = None;
             return None;
         };
+        if snapshot.error != self.last_error {
+            self.last_error.clone_from(&snapshot.error);
+            if let Some(error) = &snapshot.error {
+                return Some(Announcement::of_failure(&media.title, error));
+            }
+        }
         if snapshot.status != Status::Playing {
             return None;
         }
@@ -315,6 +343,35 @@ mod tests {
 
         on_air.stream_title = Some("Air - La femme d'argent".into());
         assert!(announcer.observe(&on_air).is_some());
+    }
+
+    #[test]
+    fn a_failure_is_told_once() {
+        let fip = Media::station(MediaId::new(SourceKind::Radio, "fip"), "FIP");
+        let mut announcer = Announcer::default();
+        assert!(announcer.observe(&state(&fip, Status::Playing)).is_some());
+
+        let failed = Snapshot {
+            error: Some(PlaybackError {
+                kind: ErrorKind::Network,
+                detail: "the live stream ended".into(),
+            }),
+            ..state(&fip, Status::Stopped)
+        };
+        assert_eq!(
+            announcer.observe(&failed),
+            Some(Announcement {
+                summary: "Lecture interrompue".into(),
+                body: "FIP : le réseau ne répond pas".into(),
+            })
+        );
+        assert_eq!(announcer.observe(&failed), None);
+
+        // Trying again clears the failure. The same station is not news,
+        // but a second failure is.
+        assert_eq!(announcer.observe(&state(&fip, Status::Loading)), None);
+        assert_eq!(announcer.observe(&state(&fip, Status::Playing)), None);
+        assert!(announcer.observe(&failed).is_some());
     }
 
     #[test]

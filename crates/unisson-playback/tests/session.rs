@@ -272,9 +272,7 @@ fn previous_restarts_a_track_that_played_for_a_while() {
 fn a_media_its_source_cannot_find_is_reported() {
     let fixture = Fixture::new(false, &[("good", make_wav("errors.wav", 1))]);
 
-    fixture
-        .session
-        .play_list(vec![track("gone"), track("good")], 0);
+    fixture.session.play_list(vec![track("gone")], 0);
     let failed = fixture.wait_for_state(|snapshot| snapshot.error.is_some());
     assert_eq!(failed.status, Status::Stopped);
     assert_eq!(title(&failed), Some("gone"));
@@ -300,8 +298,88 @@ fn a_file_that_is_not_audio_is_reported() {
 
     let failed = fixture.wait_for_state(|snapshot| snapshot.error.is_some());
     assert_eq!(failed.status, Status::Stopped);
-    assert_eq!(failed.error.unwrap().kind, ErrorKind::Playback);
+    assert_eq!(failed.error.unwrap().kind, ErrorKind::Unsupported);
     assert_eq!(fixture.session.snapshot().status, Status::Stopped);
+}
+
+/// Returns the titles of the media that were skipped.
+fn skipped_titles(events: &[SessionEvent]) -> Vec<&str> {
+    events
+        .iter()
+        .filter_map(|event| match event {
+            SessionEvent::Skipped { media, .. } => Some(media.title.as_str()),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn a_media_that_cannot_start_is_skipped_when_others_wait() {
+    let text = test_folder().join("skip-notes.wav");
+    std::fs::write(&text, "this is not music").unwrap();
+    let fixture = Fixture::new(
+        false,
+        &[("text", text), ("good", make_wav("skip-good.wav", 1))],
+    );
+
+    // One the source cannot find, one that is not audio, then a good one.
+    fixture
+        .session
+        .play_list(vec![track("gone"), track("text"), track("good")], 0);
+
+    let seen = fixture.wait_for(|event| matches!(event, SessionEvent::Started(_)));
+    assert_eq!(skipped_titles(&seen), ["gone", "text"]);
+    assert_eq!(started_titles(&seen), ["good"]);
+    let kinds: Vec<ErrorKind> = seen
+        .iter()
+        .filter_map(|event| match event {
+            SessionEvent::Skipped { error, .. } => Some(error.kind),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(kinds, [ErrorKind::NotFound, ErrorKind::Unsupported]);
+    assert_eq!(fixture.session.snapshot().error, None);
+}
+
+#[test]
+fn a_network_failure_stops_instead_of_skipping() {
+    let fixture = Fixture::new(false, &[("good", make_wav("skip-network.wav", 1))]);
+
+    fixture
+        .session
+        .play_list(vec![track("offline"), track("good")], 0);
+
+    let seen = fixture.wait_for(
+        |event| matches!(event, SessionEvent::Changed(snapshot) if snapshot.error.is_some()),
+    );
+    assert!(skipped_titles(&seen).is_empty(), "{seen:#?}");
+    let state = fixture.session.snapshot();
+    assert_eq!(title(&state), Some("offline"));
+    assert_eq!(state.status, Status::Stopped);
+    // The good one still waits: the user decides.
+    assert!(state.has_next);
+}
+
+#[test]
+fn too_many_failures_in_a_row_stop_playback() {
+    let fixture = Fixture::new(false, &[("good", make_wav("skip-many.wav", 1))]);
+    let list = ["gone 1", "gone 2", "gone 3", "gone 4", "good"];
+
+    fixture
+        .session
+        .play_list(list.iter().map(|key| track(key)).collect(), 0);
+
+    let seen = fixture.wait_for(
+        |event| matches!(event, SessionEvent::Changed(snapshot) if snapshot.error.is_some()),
+    );
+    assert_eq!(skipped_titles(&seen), ["gone 1", "gone 2", "gone 3"]);
+    let state = fixture.session.snapshot();
+    assert_eq!(title(&state), Some("gone 4"));
+    assert_eq!(state.status, Status::Stopped);
+
+    // The user insists: the count starts again.
+    fixture.session.next();
+    fixture.wait_for_state(playing("good"));
 }
 
 #[test]

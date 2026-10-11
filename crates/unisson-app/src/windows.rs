@@ -183,6 +183,11 @@ pub fn hide_launcher(app: &AppHandle) {
 /// It serves the first start, and every later one: a second copy hands its
 /// arguments over to the first and exits.
 pub fn handle_launch(app: &AppHandle, arguments: &[String]) {
+    // A copy that could not start only shows why: it has no window to
+    // offer. See the `startup` module.
+    if app.try_state::<AppState>().is_none() {
+        return;
+    }
     if arguments
         .iter()
         .any(|argument| argument == LAUNCHER_ARGUMENT)

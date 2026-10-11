@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use gst::prelude::*;
 use unisson_core::StreamUri;
 
-use crate::error::AudioError;
+use crate::error::{AudioError, Failure, FailureKind};
 
 /// Name of the GStreamer element that does the actual playback.
 ///
@@ -37,7 +37,7 @@ pub enum PlayerEvent {
     /// The current media reached its end.
     EndOfStream,
     /// Playback failed. The message comes from GStreamer.
-    Error(String),
+    Error(Failure),
     /// The media announced its title.
     ///
     /// A radio stream sends one each time a new song starts, usually as
@@ -311,7 +311,7 @@ impl Player {
     fn event_from(&self, message: &gst::Message) -> Option<PlayerEvent> {
         let event = match message.view() {
             gst::MessageView::Eos(_) => PlayerEvent::EndOfStream,
-            gst::MessageView::Error(error) => PlayerEvent::Error(error.error().to_string()),
+            gst::MessageView::Error(error) => PlayerEvent::Error(self.failure_from(error)),
             gst::MessageView::Tag(tag) => {
                 let tags = tag.tags();
                 let title = tags.get::<gst::tags::Title>()?;
@@ -345,18 +345,79 @@ impl Player {
         };
         // GStreamer posts the real cause on the bus. Prefer it to the generic
         // "failed to change state" message.
-        let detail = self
+        let failure = self
             .bus
             .pop_filtered(&[gst::MessageType::Error])
             .and_then(|message| match message.view() {
-                gst::MessageView::Error(cause) => Some(cause.error().to_string()),
+                gst::MessageView::Error(cause) => Some(self.failure_from(cause)),
                 _ => None,
             })
-            .unwrap_or_else(|| error.to_string());
+            .unwrap_or_else(|| Failure::other(error.to_string()));
         // Leave the player in a clean, stopped state.
         let _ = self.playbin.set_state(gst::State::Null);
-        Err(AudioError::StateChange(detail))
+        Err(AudioError::StateChange(failure))
     }
+
+    /// Describes an error message of GStreamer as a [`Failure`].
+    fn failure_from(&self, error: &gst::message::Error) -> Failure {
+        let remote = self
+            .loaded()
+            .as_ref()
+            .is_some_and(|uri| !uri.as_str().starts_with("file://"));
+        // `playbin` names "source" the element that reads the address.
+        let from_source = error.src().is_some_and(|source| source.name() == "source");
+        let cause = error.error();
+        Failure {
+            kind: failure_kind(&cause, remote, from_source),
+            message: cause.to_string(),
+        }
+    }
+}
+
+/// Sorts an error of GStreamer into a [`FailureKind`].
+///
+/// `remote` tells whether the address is on the network, and `from_source`
+/// whether the error comes from the element that reads the address.
+///
+/// GStreamer reports a server that cannot be reached in a roundabout way:
+/// the element that reads the address only says that the stream stopped,
+/// with the generic "stream failed" code. For a network address, that code
+/// from that element is therefore read as a network failure.
+fn failure_kind(cause: &gst::glib::Error, remote: bool, from_source: bool) -> FailureKind {
+    use gst::{CoreError, ResourceError, StreamError};
+
+    if let Some(kind) = cause.kind::<ResourceError>() {
+        return match kind {
+            ResourceError::NotFound => FailureKind::NotFound,
+            ResourceError::OpenRead
+            | ResourceError::Read
+            | ResourceError::Seek
+            | ResourceError::Sync
+            | ResourceError::Busy
+                if remote =>
+            {
+                FailureKind::Network
+            }
+            _ => FailureKind::Other,
+        };
+    }
+    if let Some(kind) = cause.kind::<StreamError>() {
+        return match kind {
+            StreamError::Failed if remote && from_source => FailureKind::Network,
+            StreamError::TypeNotFound
+            | StreamError::WrongType
+            | StreamError::CodecNotFound
+            | StreamError::Decode
+            | StreamError::Demux
+            | StreamError::Format
+            | StreamError::NotImplemented => FailureKind::Unsupported,
+            _ => FailureKind::Other,
+        };
+    }
+    if cause.kind::<CoreError>() == Some(CoreError::MissingPlugin) {
+        return FailureKind::Unsupported;
+    }
+    FailureKind::Other
 }
 
 impl Drop for Player {

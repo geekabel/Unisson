@@ -86,7 +86,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 println!("End of the video");
                 return Ok(());
             }
-            Ok(EngineEvent::Error(message)) => return Err(message.into()),
+            Ok(EngineEvent::Error(failure)) => return Err(failure.into()),
             Ok(_) | Err(RecvTimeoutError::Timeout) => {}
             Err(RecvTimeoutError::Disconnected) => return Err("the audio engine stopped".into()),
         }

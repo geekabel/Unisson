@@ -13,7 +13,7 @@ use tauri::{AppHandle, Emitter, Manager};
 use unisson_playback::SessionEvent;
 use unisson_store::Store;
 
-use crate::dto::PositionDto;
+use crate::dto::{MediaDto, PlaybackErrorDto, PositionDto, SkippedDto};
 use crate::mpris::Mpris;
 use crate::notify::Notifier;
 use crate::state::AppState;
@@ -23,6 +23,9 @@ use crate::tray;
 pub const PLAYER_CHANGED: &str = "player:changed";
 /// Playback moved on. Payload: [`PositionDto`].
 pub const PLAYER_POSITION: &str = "player:position";
+/// A media could not start, and the next one was chosen instead. Payload:
+/// [`SkippedDto`].
+pub const PLAYER_SKIPPED: &str = "player:skipped";
 /// The search box of the main window must take the keyboard. Payload: a
 /// text to search, or nothing.
 pub const FOCUS_SEARCH: &str = "ui:focus-search";
@@ -68,6 +71,16 @@ pub fn forward_session_events(app: AppHandle, store: Arc<Store>, events: Receive
                     app.emit(PLAYER_POSITION, PositionDto::new(position, duration))
                 }
                 SessionEvent::QueueChanged => app.emit(QUEUE_CHANGED, ()),
+                SessionEvent::Skipped { media, error } => {
+                    eprintln!("unisson: skipped \"{}\": {}", media.title, error.detail);
+                    app.emit(
+                        PLAYER_SKIPPED,
+                        SkippedDto {
+                            media: MediaDto::from(&media),
+                            error: PlaybackErrorDto::from(&error),
+                        },
+                    )
+                }
                 SessionEvent::Started(media) => {
                     app.state::<AppState>().note_started(&media);
                     match store.record_play(&media, SystemTime::now()) {

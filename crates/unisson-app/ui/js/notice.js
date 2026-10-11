@@ -24,14 +24,16 @@ let timer = null;
  * @param {string} options.owner Who shows it: `player`, `search`...
  * @param {string} options.text
  * @param {"info"|"error"} [options.tone]
+ * @param {string} [options.detail] A technical reason, shown as a tooltip.
  * @param {{label: string, run: () => void}} [options.action] An optional button.
  * @param {number} [options.duration] Hides the message after that many
  *   milliseconds. Without it, the message stays.
  */
-export function showNotice({ owner: newOwner, text: message, tone = "info", action, duration }) {
+export function showNotice({ owner: newOwner, text: message, tone = "info", detail, action, duration }) {
   clearTimeout(timer);
   owner = newOwner;
   text.textContent = message;
+  text.title = detail ?? "";
   strip.dataset.tone = tone;
   // An error interrupts a screen reader. Anything else waits for its turn.
   strip.setAttribute("role", tone === "error" ? "alert" : "status");

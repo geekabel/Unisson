@@ -299,20 +299,92 @@ export function fillPercent(value, max) {
   return `${Math.min(100, Math.max(0, (value / max) * 100)).toFixed(2)}%`;
 }
 
-const PLAYBACK_ERRORS = {
-  notFound: "Ce titre est introuvable. Il a peut-être été déplacé ou supprimé.",
-  network: "Le réseau ne répond pas. Vérifiez votre connexion.",
-  unavailable: "Cette source est indisponible pour le moment.",
-  playback: "Lecture impossible. Le flux est peut-être arrêté, ou son format n'est pas pris en charge.",
-};
+/**
+ * What to tell the user when a playback fails: a sentence, and the way out
+ * that fits best.
+ *
+ * The sentence depends on the kind of failure and on what was playing: a
+ * file that is gone and a station that closed are both "not found", but
+ * they do not call for the same words.
+ *
+ * @param {{kind: string}} error
+ * @param {?{source?: string, kind?: string}} [media] What was playing.
+ * @returns {{text: string, action: "retry"|"sources"}} `retry` offers to
+ *   try again, `sources` leads to the screen where a source is repaired.
+ */
+export function playbackProblem(error, media) {
+  const station = media?.kind === "station";
+  const youtube = media?.source === "youtube";
+  switch (error?.kind) {
+    case "notFound":
+      if (station) {
+        return { text: "Cette station ne répond plus à cette adresse. Elle a peut-être fermé.", action: "retry" };
+      }
+      if (youtube) {
+        return { text: "Cette vidéo est introuvable. Elle a peut-être été retirée.", action: "retry" };
+      }
+      if (media?.source === "local") {
+        return { text: "Ce fichier est introuvable. Il a peut-être été déplacé ou supprimé.", action: "retry" };
+      }
+      return { text: "Ce titre est introuvable. Il a peut-être été déplacé ou supprimé.", action: "retry" };
+    case "network":
+      return {
+        text: station
+          ? "La connexion à la station est perdue. Vérifiez votre réseau."
+          : "Le réseau ne répond pas. Vérifiez votre connexion.",
+        action: "retry",
+      };
+    case "unavailable":
+      if (youtube) {
+        return {
+          text: "YouTube n'a pas répondu. Vérifiez que yt-dlp est installé et à jour.",
+          action: "sources",
+        };
+      }
+      return { text: "Cette source est indisponible pour le moment.", action: "retry" };
+    case "unsupported":
+      return {
+        text: station
+          ? "Le format de ce flux n'est pas pris en charge."
+          : "Ce format audio n'est pas pris en charge.",
+        action: "retry",
+      };
+    default:
+      return {
+        text: station
+          ? "Lecture impossible. Le flux de la station est peut-être arrêté."
+          : "Lecture impossible.",
+        action: "retry",
+      };
+  }
+}
 
 /**
  * Returns the sentence shown when a playback fails.
  *
  * @param {{kind: string}} error
+ * @param {?{source?: string, kind?: string}} [media] What was playing.
  */
-export function playbackErrorMessage(error) {
-  return PLAYBACK_ERRORS[error.kind] ?? PLAYBACK_ERRORS.playback;
+export function playbackErrorMessage(error, media) {
+  return playbackProblem(error, media).text;
+}
+
+const SKIP_REASONS = {
+  notFound: "introuvable",
+  unavailable: "source indisponible",
+  unsupported: "format non pris en charge",
+};
+
+/**
+ * Returns the sentence shown when a media could not start and the next one
+ * was chosen instead.
+ *
+ * @param {{title: string}} media
+ * @param {{kind: string}} error
+ */
+export function skippedMessage(media, error) {
+  const reason = SKIP_REASONS[error?.kind] ?? "lecture impossible";
+  return `« ${media.title} » ignoré : ${reason}. Lecture du titre suivant.`;
 }
 
 const OPEN_ERRORS = {

@@ -23,6 +23,7 @@ pub mod now_playing;
 pub mod search;
 pub mod settings;
 pub mod shortcut;
+pub mod startup;
 pub mod state;
 pub mod tray;
 pub mod windows;
@@ -52,7 +53,15 @@ pub fn run() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            let (state, session_events) = AppState::start()?;
+            let (state, session_events) = match AppState::start() {
+                Ok(started) => started,
+                Err(error) => {
+                    // Without its state, the application offers nothing:
+                    // say why, then end.
+                    startup::report_failure(app.handle(), error.as_ref());
+                    return Ok(());
+                }
+            };
             let store = Arc::clone(&state.store);
             let music_folder = state.music_folder();
             app.manage(state);

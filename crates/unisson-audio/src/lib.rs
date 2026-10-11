@@ -33,7 +33,7 @@
 //! loop {
 //!     match player.poll_event(Duration::from_millis(200)) {
 //!         Some(PlayerEvent::EndOfStream) => break,
-//!         Some(PlayerEvent::Error(message)) => return Err(message.into()),
+//!         Some(PlayerEvent::Error(failure)) => return Err(failure.into()),
 //!         Some(PlayerEvent::Title(title)) => println!("Now playing: {title}"),
 //!         None => {}
 //!     }
@@ -46,7 +46,7 @@ mod error;
 mod player;
 
 pub use engine::{Engine, EngineConfig, EngineEvent};
-pub use error::AudioError;
+pub use error::{AudioError, Failure, FailureKind};
 pub use player::{PlaybackState, Player, PlayerEvent, file_uri};
 
 /// Re-export of the GStreamer bindings used by this crate.

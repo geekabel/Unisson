@@ -2,6 +2,7 @@
 
 use std::time::Duration;
 
+use unisson_audio::{Failure, FailureKind};
 use unisson_core::{Media, SourceError};
 
 /// What the session is doing.
@@ -36,7 +37,10 @@ pub enum ErrorKind {
     Network,
     /// The source cannot be used right now.
     Unavailable,
-    /// The address was found, but its sound cannot be played.
+    /// The data arrived, but it is not audio that can be decoded.
+    Unsupported,
+    /// The address was found, but its sound cannot be played, for another
+    /// reason.
     Playback,
 }
 
@@ -59,6 +63,21 @@ impl From<SourceError> for PlaybackError {
         Self {
             kind,
             detail: error.to_string(),
+        }
+    }
+}
+
+impl From<Failure> for PlaybackError {
+    fn from(failure: Failure) -> Self {
+        let kind = match failure.kind {
+            FailureKind::NotFound => ErrorKind::NotFound,
+            FailureKind::Network => ErrorKind::Network,
+            FailureKind::Unsupported => ErrorKind::Unsupported,
+            FailureKind::Other => ErrorKind::Playback,
+        };
+        Self {
+            kind,
+            detail: failure.message,
         }
     }
 }

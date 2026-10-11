@@ -401,6 +401,12 @@ export const stationAddCustom = (name, streamUrl) =>
 /** @param {(snapshot: Snapshot) => void} handler */
 export const onPlayerChanged = (handler) => on("player:changed", handler);
 
+/**
+ * @param {(skipped: {media: Media, error: {kind: string, detail: string}}) => void} handler
+ *   Called when a media could not start and the next one was chosen.
+ */
+export const onPlayerSkipped = (handler) => on("player:skipped", handler);
+
 /** @param {(position: Position) => void} handler */
 export const onPlayerPosition = (handler) => on("player:position", handler);
 

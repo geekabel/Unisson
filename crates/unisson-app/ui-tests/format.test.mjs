@@ -22,6 +22,8 @@ import {
   moved,
   openErrorMessage,
   playbackErrorMessage,
+  playbackProblem,
+  skippedMessage,
   searchSummary,
   sourceLabel,
   sourceName,
@@ -96,9 +98,11 @@ test("fillPercent stays between 0% and 100%", () => {
 });
 
 test("every error has a sentence, even an unknown one", () => {
-  for (const kind of ["notFound", "network", "unavailable", "playback", "other"]) {
+  for (const kind of ["notFound", "network", "unavailable", "unsupported", "playback", "other"]) {
     assert.ok(playbackErrorMessage({ kind }).length > 10);
+    assert.ok(playbackErrorMessage({ kind }, { source: "radio", kind: "station" }).length > 10);
   }
+  assert.ok(playbackErrorMessage(null).length > 10);
   for (const error of [{ kind: "invalid" }, { kind: "notFound" }, { kind: "unreadable" }, {}, null, "text"]) {
     assert.ok(openErrorMessage(error).length > 10);
   }
@@ -223,4 +227,31 @@ test("launcherGroups keeps the ranking, with the group of the best hit first", (
     ["Titres:Fip Song", "Radios:FIP Jazz"],
   );
   assert.deepEqual(launcherGroups([], 5), []);
+});
+
+test("a playback problem is told in words that fit what was playing", () => {
+  const file = { source: "local", kind: "track" };
+  const station = { source: "radio", kind: "station" };
+  const video = { source: "youtube", kind: "track" };
+  assert.match(playbackProblem({ kind: "notFound" }, file).text, /fichier est introuvable/);
+  assert.match(playbackProblem({ kind: "notFound" }, station).text, /station ne répond plus/);
+  assert.match(playbackProblem({ kind: "notFound" }, video).text, /vidéo est introuvable/);
+  assert.match(playbackProblem({ kind: "network" }, station).text, /connexion à la station/);
+  assert.match(playbackProblem({ kind: "unsupported" }, file).text, /format audio/);
+});
+
+test("only a broken YouTube leads to the Sources screen", () => {
+  assert.equal(playbackProblem({ kind: "unavailable" }, { source: "youtube" }).action, "sources");
+  assert.match(playbackProblem({ kind: "unavailable" }, { source: "youtube" }).text, /yt-dlp/);
+  assert.equal(playbackProblem({ kind: "unavailable" }, { source: "radio" }).action, "retry");
+  assert.equal(playbackProblem({ kind: "network" }, { source: "youtube" }).action, "retry");
+});
+
+test("a skipped media is told with its title and the reason", () => {
+  assert.equal(
+    skippedMessage({ title: "So What" }, { kind: "notFound" }),
+    "« So What » ignoré : introuvable. Lecture du titre suivant.",
+  );
+  assert.match(skippedMessage({ title: "A" }, { kind: "unsupported" }), /format non pris en charge/);
+  assert.match(skippedMessage({ title: "A" }, { kind: "surprise" }), /lecture impossible/);
 });

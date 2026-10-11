@@ -8,7 +8,7 @@
 
 import * as api from "./api.js";
 import { byId } from "./dom.js";
-import { fillPercent, mediaSubtitle, sourceLabel } from "./format.js";
+import { fillPercent, mediaSubtitle, playbackErrorMessage, sourceLabel } from "./format.js";
 
 const cover = byId("mini-cover");
 const coverIcon = byId("mini-cover-icon");
@@ -32,7 +32,17 @@ function render(snapshot) {
   const isLive = media?.kind === "station";
 
   title.textContent = media ? media.title : EMPTY_TITLE;
-  subtitle.textContent = media ? mediaSubtitle(media, snapshot.streamTitle) : EMPTY_SUBTITLE;
+  // There is no room for a message strip here: a problem takes the place
+  // of the second line.
+  const problem = Boolean(media && snapshot.error);
+  if (problem) {
+    subtitle.textContent = playbackErrorMessage(snapshot.error, media);
+  } else if (media && snapshot.status === "reconnecting") {
+    subtitle.textContent = "Connexion perdue. Nouvelle tentative…";
+  } else {
+    subtitle.textContent = media ? mediaSubtitle(media, snapshot.streamTitle) : EMPTY_SUBTITLE;
+  }
+  subtitle.dataset.tone = problem ? "error" : "info";
   title.title = media ? media.title : "";
   subtitle.title = media ? subtitle.textContent : "";
   source.hidden = !media;

@@ -376,7 +376,15 @@ function drawResults() {
     });
     const retry = element("button", { class: "link-button", type: "button" }, ["Réessayer"]);
     retry.addEventListener("click", retrySearch);
-    content.push(element("p", { class: "search-notes" }, [...notes, retry]));
+    const ways = [retry];
+    // YouTube is "unavailable" when its helper program is missing or too
+    // old: the Sources screen says which, and how to repair it.
+    if (errors.some((error) => error.source === "youtube" && error.kind === "unavailable")) {
+      const repair = element("button", { class: "link-button", type: "button" }, ["Vérifier yt-dlp"]);
+      repair.addEventListener("click", () => showView("sources"));
+      ways.push(repair);
+    }
+    content.push(element("p", { class: "search-notes" }, [...notes, ...ways]));
   }
 
   if (hits.length > 0) {

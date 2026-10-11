@@ -6,7 +6,7 @@ use std::sync::mpsc::Receiver;
 use std::time::{Duration, Instant};
 
 use common::{WAIT, make_wav, silent_player};
-use unisson_audio::{AudioError, Engine, EngineEvent, PlaybackState, file_uri};
+use unisson_audio::{AudioError, Engine, EngineEvent, FailureKind, PlaybackState, file_uri};
 use unisson_core::StreamUri;
 
 fn silent_engine(real_time: bool) -> (Engine, Receiver<EngineEvent>) {
@@ -145,7 +145,7 @@ fn seeking_while_stopped_is_an_error_event() {
     engine.seek(Duration::from_secs(1)).unwrap();
     let seen = wait_for(&events, |event| matches!(event, EngineEvent::Error(_)));
     assert!(
-        matches!(seen.last(), Some(EngineEvent::Error(message)) if message.contains("position")),
+        matches!(seen.last(), Some(EngineEvent::Error(failure)) if failure.message.contains("position")),
         "{seen:?}"
     );
 }
@@ -170,7 +170,7 @@ fn a_failed_command_becomes_an_error_event() {
     let (engine, events) = silent_engine(false);
 
     engine.play().unwrap();
-    let nothing = AudioError::NothingLoaded.to_string();
+    let nothing = AudioError::NothingLoaded.failure();
     assert_eq!(events.recv_timeout(WAIT), Ok(EngineEvent::Error(nothing)));
 
     engine
@@ -223,4 +223,41 @@ fn dropping_the_engine_stops_the_thread_and_closes_the_events() {
 fn a_player_that_cannot_be_built_is_reported_at_startup() {
     let result = Engine::spawn_with(|| Err(AudioError::MissingElement("playbin")));
     assert_eq!(result.err(), Some(AudioError::MissingElement("playbin")));
+}
+
+/// Plays an address that fails, and returns the kind of the failure.
+fn failure_kind_of(uri: StreamUri) -> FailureKind {
+    let (engine, events) = silent_engine(false);
+    engine.play_uri(uri).unwrap();
+    let seen = wait_for(&events, |event| matches!(event, EngineEvent::Error(_)));
+    match seen.last() {
+        Some(EngineEvent::Error(failure)) => failure.kind,
+        _ => unreachable!("wait_for stops on an error"),
+    }
+}
+
+#[test]
+fn a_missing_file_fails_as_not_found() {
+    let uri = StreamUri::new("file:///nonexistent/unisson/nothing.wav").unwrap();
+    assert_eq!(failure_kind_of(uri), FailureKind::NotFound);
+}
+
+#[test]
+fn a_file_that_is_not_audio_fails_as_unsupported() {
+    let path = std::env::temp_dir().join(format!("unisson-not-audio-{}.mp3", std::process::id()));
+    std::fs::write(&path, "These are words, not sound. ".repeat(200)).unwrap();
+    let kind = failure_kind_of(file_uri(&path).unwrap());
+    let _ = std::fs::remove_file(&path);
+    assert_eq!(kind, FailureKind::Unsupported);
+}
+
+#[test]
+fn a_server_that_refuses_the_connection_fails_as_network() {
+    // Nothing listens on this port: find a free one, then let go of it.
+    let port = {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+        listener.local_addr().unwrap().port()
+    };
+    let uri = StreamUri::new(format!("http://127.0.0.1:{port}/stream")).unwrap();
+    assert_eq!(failure_kind_of(uri), FailureKind::Network);
 }

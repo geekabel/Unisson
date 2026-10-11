@@ -18,6 +18,18 @@
 //! and an answer with an old ticket is dropped. For the engine, the session
 //! waits for [`EngineEvent::Loaded`] with the expected address before it
 //! believes any event.
+//!
+//! # A media that cannot start
+//!
+//! A deleted file or a closed stream must not stop a whole queue. When a
+//! media cannot start and others are waiting, the session says so with
+//! [`SessionEvent::Skipped`] and moves on. Three cases still stop playback,
+//! with the error in the state:
+//!
+//! - nothing is waiting after the media;
+//! - the network is the cause: every other media would fail the same way;
+//! - several media in a row were skipped: something larger is wrong, and
+//!   walking a long queue to its end would help nobody.
 
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -34,6 +46,9 @@ use crate::snapshot::{ErrorKind, PlaybackError, QueueView, Snapshot, Status};
 /// It is usually [`SourceRegistry::resolve`](unisson_core::SourceRegistry::resolve).
 /// It may block, since it can hit the network.
 pub type Resolver = Arc<dyn Fn(&MediaId) -> Result<StreamUri, SourceError> + Send + Sync>;
+
+/// How many media in a row may be skipped before playback stops.
+const MAX_SKIPS_IN_A_ROW: usize = 3;
 
 /// "Previous" restarts the current track when it played longer than this.
 const RESTART_THRESHOLD: Duration = Duration::from_secs(3);
@@ -57,6 +72,13 @@ pub enum SessionEvent {
     /// The sound of a media started. Sent once per media played: this is
     /// the moment to add it to the listening history.
     Started(Media),
+    /// A media could not start, and the session moved on to the next one.
+    Skipped {
+        /// The media that was left out.
+        media: Media,
+        /// Why it could not start.
+        error: PlaybackError,
+    },
 }
 
 /// A message read by the session thread.
@@ -160,8 +182,9 @@ impl Session {
             ticket: 0,
             expected: None,
             engine_is_current: false,
-            started_reported: false,
             at_end: false,
+            heard: false,
+            skipped_in_a_row: 0,
         };
         let session_thread = thread::Builder::new()
             .name("unisson-session".into())
@@ -349,10 +372,14 @@ struct Worker {
     expected: Option<StreamUri>,
     /// Whether the events of the engine are about the current media.
     engine_is_current: bool,
-    /// Whether [`SessionEvent::Started`] was sent for the current media.
-    started_reported: bool,
     /// Whether the last media of the queue played to its end.
     at_end: bool,
+    /// Whether sound came out of the current media, and
+    /// [`SessionEvent::Started`] was sent for it. The engine says "playing"
+    /// as soon as it tries, so only a position that moved proves it.
+    heard: bool,
+    /// How many media were skipped since a media was last heard.
+    skipped_in_a_row: usize,
 }
 
 impl Worker {
@@ -424,7 +451,7 @@ impl Worker {
         self.ticket += 1;
         self.expected = None;
         self.engine_is_current = false;
-        self.started_reported = false;
+        self.heard = false;
         self.at_end = false;
         // Silence the previous media now, not when the address arrives.
         let _ = self.engine.stop();
@@ -484,7 +511,7 @@ impl Worker {
                     self.engine.play_uri(uri)
                 };
             }
-            Err(error) => self.fail(error.into()),
+            Err(error) => self.media_failed(error.into()),
         }
     }
 
@@ -517,14 +544,11 @@ impl Worker {
                     PlaybackState::Stopped => Status::Stopped,
                 };
                 self.publish();
-                if state == PlaybackState::Playing && !self.started_reported {
-                    self.started_reported = true;
-                    if let Some(media) = self.snapshot.current.clone() {
-                        self.emit(SessionEvent::Started(media));
-                    }
-                }
             }
             EngineEvent::Position { position, duration } => {
+                if position > Duration::ZERO {
+                    self.note_heard();
+                }
                 self.snapshot.position = position;
                 // Keep the duration announced by the source until the
                 // engine knows better.
@@ -543,7 +567,11 @@ impl Worker {
                     self.publish();
                 }
             }
-            EngineEvent::EndOfStream => self.ended(),
+            EngineEvent::EndOfStream => {
+                // A media that reached its end did play, however short.
+                self.note_heard();
+                self.ended();
+            }
             EngineEvent::Reconnecting {
                 attempt,
                 max_attempts,
@@ -558,10 +586,7 @@ impl Worker {
                 self.snapshot.status = Status::Playing;
                 self.publish();
             }
-            EngineEvent::Error(detail) => self.fail(PlaybackError {
-                kind: ErrorKind::Playback,
-                detail,
-            }),
+            EngineEvent::Error(failure) => self.media_failed(failure.into()),
             EngineEvent::VolumeChanged(_) | EngineEvent::Loaded(_) => {}
         }
     }
@@ -658,8 +683,38 @@ impl Worker {
         self.snapshot.current.as_ref().is_some_and(Media::is_live)
     }
 
+    /// Notes that sound came out of the current media, and reports it once.
+    fn note_heard(&mut self) {
+        if self.heard {
+            return;
+        }
+        self.heard = true;
+        self.skipped_in_a_row = 0;
+        if let Some(media) = self.snapshot.current.clone() {
+            self.emit(SessionEvent::Started(media));
+        }
+    }
+
+    /// Handles a failure of the current media: skips a media that cannot
+    /// start when others are waiting, and stops otherwise. See the notes at
+    /// the top of this file.
+    fn media_failed(&mut self, error: PlaybackError) {
+        let can_skip = !self.heard
+            && error.kind != ErrorKind::Network
+            && self.skipped_in_a_row < MAX_SKIPS_IN_A_ROW
+            && self.queue.upcoming().len() > 0;
+        let Some(media) = self.snapshot.current.clone().filter(|_| can_skip) else {
+            self.fail(error);
+            return;
+        };
+        self.skipped_in_a_row += 1;
+        self.emit(SessionEvent::Skipped { media, error });
+        self.next();
+    }
+
     /// Stops on a failure, and reports it.
     fn fail(&mut self, error: PlaybackError) {
+        self.skipped_in_a_row = 0;
         self.engine_is_current = false;
         let _ = self.engine.stop();
         self.snapshot.status = Status::Stopped;
