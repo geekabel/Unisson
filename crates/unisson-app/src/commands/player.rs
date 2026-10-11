@@ -10,7 +10,7 @@ use unisson_radio::{Station, is_finite_file};
 use unisson_youtube::is_youtube_url;
 
 use crate::dto::{CommandError, MediaDto, SnapshotDto};
-use crate::state::{AppState, Direction};
+use crate::state::AppState;
 
 /// Returns the current playback state.
 #[tauri::command]
@@ -107,28 +107,17 @@ pub fn player_toggle(state: State<'_, AppState>) {
     state.session.toggle();
 }
 
-/// Plays the next media of the queue.
-///
-/// On a radio station with nothing after it, this moves to the next
-/// favorite station instead.
+/// Plays the next media of the queue, or the next favorite station.
 #[tauri::command]
 pub fn player_next(state: State<'_, AppState>) {
-    let snapshot = state.session.snapshot();
-    if snapshot.has_next || !state.switch_station(&snapshot, Direction::Next) {
-        state.session.next();
-    }
+    state.next();
 }
 
-/// Restarts the current track, or goes back to the previous media.
-///
-/// On a radio station with nothing before it, this moves to the previous
-/// favorite station instead.
+/// Restarts the current track, or goes back to the previous media or
+/// favorite station.
 #[tauri::command]
 pub fn player_previous(state: State<'_, AppState>) {
-    let snapshot = state.session.snapshot();
-    if snapshot.has_previous || !state.switch_station(&snapshot, Direction::Previous) {
-        state.session.previous();
-    }
+    state.previous();
 }
 
 /// Moves playback to a position, in milliseconds.

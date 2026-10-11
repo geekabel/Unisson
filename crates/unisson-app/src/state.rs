@@ -303,6 +303,28 @@ impl AppState {
         dto
     }
 
+    /// Plays the next media of the queue.
+    ///
+    /// On a radio station with nothing after it, this moves to the next
+    /// favorite station instead.
+    pub fn next(&self) {
+        let snapshot = self.session.snapshot();
+        if snapshot.has_next || !self.switch_station(&snapshot, Direction::Next) {
+            self.session.next();
+        }
+    }
+
+    /// Restarts the current track, or goes back to the previous media.
+    ///
+    /// On a radio station with nothing before it, this moves to the
+    /// previous favorite station instead.
+    pub fn previous(&self) {
+        let snapshot = self.session.snapshot();
+        if snapshot.has_previous || !self.switch_station(&snapshot, Direction::Previous) {
+            self.session.previous();
+        }
+    }
+
     /// Moves from the station that plays to its neighbor in the favorites.
     ///
     /// Returns `false`, and does nothing, if no station plays or if there

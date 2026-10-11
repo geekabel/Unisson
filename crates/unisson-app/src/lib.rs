@@ -17,15 +17,19 @@ pub mod dto;
 pub mod events;
 pub mod home;
 pub mod library;
+pub mod mpris;
+pub mod now_playing;
 pub mod search;
 pub mod settings;
 pub mod state;
+pub mod windows;
 
 use std::sync::Arc;
 
 use tauri::Manager;
 
 use crate::library::LibrarySync;
+use crate::mpris::Mpris;
 use crate::state::AppState;
 
 /// Runs the application until its window is closed.
@@ -44,6 +48,7 @@ pub fn run() {
             app.manage(state);
 
             let handle = app.handle();
+            app.manage(Mpris::start(handle.clone()));
             events::forward_session_events(handle.clone(), Arc::clone(&store), session_events);
             events::save_settings_when_idle(handle.clone());
 

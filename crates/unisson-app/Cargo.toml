@@ -30,6 +30,12 @@ serde.workspace = true
 tauri = { version = "2", features = [] }
 # Native dialogs: the folder picker of the settings.
 tauri-plugin-dialog = "2"
+# MPRIS: the D-Bus interface the desktop uses for the media keys and for
+# showing what plays. It runs on its own thread, with a small executor.
+mpris-server = "0.10"
+async-channel = "2"
+async-executor = "1"
+futures-lite = "2"
 # The settings file is written in TOML, which is easy to read and to edit.
 toml = "1"
 

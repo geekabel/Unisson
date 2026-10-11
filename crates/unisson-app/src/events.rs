@@ -14,6 +14,7 @@ use unisson_playback::SessionEvent;
 use unisson_store::Store;
 
 use crate::dto::PositionDto;
+use crate::mpris::Mpris;
 use crate::state::AppState;
 
 /// The playback state changed. Payload: [`SnapshotDto`](crate::dto::SnapshotDto).
@@ -48,9 +49,13 @@ pub fn forward_session_events(app: AppHandle, store: Arc<Store>, events: Receive
                 SessionEvent::Changed(snapshot) => {
                     let state = app.state::<AppState>();
                     state.note_volume(snapshot.volume);
-                    app.emit(PLAYER_CHANGED, state.snapshot_dto(&snapshot))
+                    let dto = state.snapshot_dto(&snapshot);
+                    app.state::<Mpris>()
+                        .state_changed(&snapshot, dto.has_next, dto.has_previous);
+                    app.emit(PLAYER_CHANGED, dto)
                 }
                 SessionEvent::Position { position, duration } => {
+                    app.state::<Mpris>().position_changed(position);
                     app.emit(PLAYER_POSITION, PositionDto::new(position, duration))
                 }
                 SessionEvent::QueueChanged => app.emit(QUEUE_CHANGED, ()),
