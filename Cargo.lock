@@ -4587,6 +4587,8 @@ dependencies = [
  "async-channel",
  "async-executor",
  "futures-lite",
+ "gdkx11",
+ "gtk",
  "mpris-server",
  "notify-rust",
  "serde",

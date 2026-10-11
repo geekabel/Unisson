@@ -16,18 +16,33 @@
 //!
 //! - one key holds the list of the custom shortcuts, as paths;
 //! - each path holds a name, a command and a key combination.
+//!
+//! # Changing the key combination
+//!
+//! GNOME grabs the keys of a shortcut when its path enters the list, and
+//! lets go of them when the path leaves it. Changing the combination of a
+//! path that is already listed proved unreliable: the old keys could stay
+//! active. So a change is done as GNOME itself would do a removal followed
+//! by a creation: the old path leaves the list and is emptied, then a new
+//! path, never seen before, is filled and listed.
 
 use std::path::Path;
 use std::process::Command;
+use std::time::Duration;
 
 /// The settings schema that lists the custom shortcuts.
 const LIST_SCHEMA: &str = "org.gnome.settings-daemon.plugins.media-keys";
 const LIST_KEY: &str = "custom-keybindings";
 /// The settings schema of one custom shortcut. It is used with a path.
 const ENTRY_SCHEMA: &str = "org.gnome.settings-daemon.plugins.media-keys.custom-keybinding";
-/// The path of the shortcut of Unisson.
-const ENTRY_PATH: &str =
-    "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/unisson/";
+/// Where the paths of the shortcuts of Unisson start. A number follows,
+/// which grows each time the shortcut is installed again.
+const ENTRY_PREFIX: &str =
+    "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings/unisson";
+/// How long GNOME is given to let go of the old keys before the new
+/// shortcut is listed. It groups the changes it sees for a few tens of
+/// milliseconds before acting.
+const RELEASE_TIME: Duration = Duration::from_millis(400);
 
 /// The argument that asks for the launcher: `unisson --lanceur`.
 pub const LAUNCHER_ARGUMENT: &str = "--lanceur";
@@ -76,12 +91,12 @@ pub fn status() -> ShortcutStatus {
             binding: None,
         };
     };
-    let registered = parse_list(&list).iter().any(|path| path == ENTRY_PATH);
-    let binding = registered
-        .then(|| gsettings(&["get", &entry(), "binding"]).ok())
-        .flatten()
+    let binding = parse_list(&list)
+        .iter()
+        .filter(|path| is_ours(path))
+        .filter_map(|path| gsettings(&["get", &entry(path), "binding"]).ok())
         .map(|value| unquoted(&value))
-        .filter(|binding| !binding.is_empty());
+        .find(|binding| !binding.is_empty());
     ShortcutStatus {
         supported: true,
         binding,
@@ -98,15 +113,16 @@ pub fn status() -> ShortcutStatus {
 /// custom shortcuts.
 pub fn install(program: &Path, binding: &str) -> Result<(), ShortcutError> {
     let list = gsettings(&["get", LIST_SCHEMA, LIST_KEY])?;
-    let mut paths = parse_list(&list);
-    if !paths.iter().any(|path| path == ENTRY_PATH) {
-        paths.push(ENTRY_PATH.to_owned());
-    }
-    gsettings(&["set", &entry(), "name", "Unisson, lanceur rapide"])?;
-    gsettings(&["set", &entry(), "command", &launcher_command(program)])?;
-    gsettings(&["set", &entry(), "binding", binding])?;
+    let paths = parse_list(&list);
+    let path = next_path(&paths);
+    let mut others = unlist_ours(&paths)?;
+
+    gsettings(&["set", &entry(&path), "name", "Unisson, lanceur rapide"])?;
+    gsettings(&["set", &entry(&path), "command", &launcher_command(program)])?;
+    gsettings(&["set", &entry(&path), "binding", binding])?;
     // The list is written last: GNOME reads the entry when it sees its path.
-    gsettings(&["set", LIST_SCHEMA, LIST_KEY, &format_list(&paths)])?;
+    others.push(path);
+    gsettings(&["set", LIST_SCHEMA, LIST_KEY, &format_list(&others)])?;
     Ok(())
 }
 
@@ -117,20 +133,53 @@ pub fn install(program: &Path, binding: &str) -> Result<(), ShortcutError> {
 /// Returns a [`ShortcutError`] if GNOME refuses.
 pub fn remove() -> Result<(), ShortcutError> {
     let list = gsettings(&["get", LIST_SCHEMA, LIST_KEY])?;
-    let paths: Vec<String> = parse_list(&list)
-        .into_iter()
-        .filter(|path| path != ENTRY_PATH)
-        .collect();
-    gsettings(&["set", LIST_SCHEMA, LIST_KEY, &format_list(&paths)])?;
-    for key in ["name", "command", "binding"] {
-        gsettings(&["reset", &entry(), key])?;
+    unlist_ours(&parse_list(&list)).map(|_| ())
+}
+
+/// Takes the shortcuts of Unisson out of the list and empties them. When
+/// there was one, waits until GNOME let go of its keys. Returns the paths
+/// that are left: the shortcuts of the user.
+fn unlist_ours(paths: &[String]) -> Result<Vec<String>, ShortcutError> {
+    let (ours, others): (Vec<String>, Vec<String>) =
+        paths.iter().cloned().partition(|path| is_ours(path));
+    if ours.is_empty() {
+        return Ok(others);
     }
-    Ok(())
+    gsettings(&["set", LIST_SCHEMA, LIST_KEY, &format_list(&others)])?;
+    for path in &ours {
+        for key in ["name", "command", "binding"] {
+            gsettings(&["reset", &entry(path), key])?;
+        }
+    }
+    std::thread::sleep(RELEASE_TIME);
+    Ok(others)
+}
+
+/// Tells whether a path of the list is a shortcut of Unisson.
+fn is_ours(path: &str) -> bool {
+    number_of(path).is_some()
+}
+
+/// Returns the number at the end of a path of Unisson. The very first
+/// version used a path without a number: it counts as zero.
+fn number_of(path: &str) -> Option<u32> {
+    let end = path.strip_prefix(ENTRY_PREFIX)?.strip_suffix('/')?;
+    match end.strip_prefix('-') {
+        Some(number) => number.parse().ok(),
+        None => end.is_empty().then_some(0),
+    }
+}
+
+/// Returns a path for the shortcut that the list never held.
+fn next_path(paths: &[String]) -> String {
+    let last = paths.iter().filter_map(|path| number_of(path)).max();
+    let next = last.map_or(1, |number| number.wrapping_add(1).max(1));
+    format!("{ENTRY_PREFIX}-{next}/")
 }
 
 /// The schema and the path of the entry, as `gsettings` wants them.
-fn entry() -> String {
-    format!("{ENTRY_SCHEMA}:{ENTRY_PATH}")
+fn entry(path: &str) -> String {
+    format!("{ENTRY_SCHEMA}:{path}")
 }
 
 /// Runs `gsettings`, and returns what it printed.
@@ -210,9 +259,38 @@ mod tests {
 
     #[test]
     fn the_list_survives_a_round_trip() {
-        let paths = vec!["/a/".to_owned(), ENTRY_PATH.to_owned()];
+        let paths = vec!["/a/".to_owned(), format!("{ENTRY_PREFIX}-1/")];
         assert_eq!(parse_list(&format_list(&paths)), paths);
         assert_eq!(format_list(&[]), "[]");
+    }
+
+    #[test]
+    fn the_shortcuts_of_unisson_are_told_from_the_others() {
+        let custom = "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings";
+        assert!(is_ours(&format!("{custom}/unisson/")), "the first version");
+        assert!(is_ours(&format!("{custom}/unisson-12/")));
+        assert!(!is_ours(&format!("{custom}/custom0/")));
+        assert!(!is_ours(&format!("{custom}/unisson-notes/")));
+        assert!(!is_ours(&format!("{custom}/unissonne/")));
+    }
+
+    #[test]
+    fn each_installation_gets_a_path_never_used_before() {
+        let custom = "/org/gnome/settings-daemon/plugins/media-keys/custom-keybindings";
+        let user = format!("{custom}/custom0/");
+        assert_eq!(next_path(&[]), format!("{custom}/unisson-1/"));
+        assert_eq!(
+            next_path(std::slice::from_ref(&user)),
+            format!("{custom}/unisson-1/")
+        );
+        assert_eq!(
+            next_path(&[format!("{custom}/unisson/"), user.clone()]),
+            format!("{custom}/unisson-1/")
+        );
+        assert_eq!(
+            next_path(&[user, format!("{custom}/unisson-7/")]),
+            format!("{custom}/unisson-8/")
+        );
     }
 
     #[test]

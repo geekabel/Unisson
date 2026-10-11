@@ -60,6 +60,7 @@ pub fn run() {
             let handle = app.handle();
             app.manage(Mpris::start(handle.clone()));
             app.manage(Notifier::start());
+            app.manage(windows::LauncherFocus::default());
             events::forward_session_events(handle.clone(), Arc::clone(&store), session_events);
             events::save_settings_when_idle(handle.clone());
 
@@ -89,10 +90,16 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
+            let app = window.app_handle();
+            if let tauri::WindowEvent::Focused(focused) = event {
+                if window.label() == windows::LAUNCHER {
+                    windows::launcher_focus_changed(app, *focused);
+                }
+                return;
+            }
             let tauri::WindowEvent::CloseRequested { api, .. } = event else {
                 return;
             };
-            let app = window.app_handle();
             match window.label() {
                 windows::MAIN if windows::keeps_running_when_closed(app) => {
                     // Keep playing: only hide the window. The tray icon,

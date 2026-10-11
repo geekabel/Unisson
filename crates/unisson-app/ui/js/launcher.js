@@ -300,8 +300,9 @@ function resultsMatch(text) {
 toggleButton.addEventListener("click", () => api.toggle());
 nextButton.addEventListener("click", () => api.next());
 
-// Clicking elsewhere puts the launcher away, like any pop-up.
-window.addEventListener("blur", () => api.windowHideLauncher());
+// Clicking elsewhere puts the launcher away, like any pop-up. The
+// application does it, not this page: it knows whether the launcher
+// really had the keyboard before losing it.
 // The keyboard always goes back to the box.
 window.addEventListener("focus", () => input.focus());
 
