@@ -1,9 +1,13 @@
 //! Audio engine of Unisson, built on GStreamer.
 //!
-//! The crate exposes a small [`Player`] that plays one address at a time: a
-//! local file or a network stream. It hides GStreamer behind a few plain
-//! methods (load, play, pause, stop, volume) so the rest of the application
-//! does not depend on GStreamer types.
+//! The crate exposes two levels:
+//!
+//! - [`Player`] plays one address at a time, a local file or a network
+//!   stream. It hides GStreamer behind a few plain methods (load, play,
+//!   pause, stop, volume). Its methods are called directly, on your thread.
+//! - [`Engine`] runs a [`Player`] on its own thread. Commands return at
+//!   once, and what happens comes back as [`EngineEvent`]s. This is what the
+//!   application uses, so the interface never waits for audio work.
 //!
 //! # System requirements
 //!
@@ -29,17 +33,20 @@
 //! loop {
 //!     match player.poll_event(Duration::from_millis(200)) {
 //!         Some(PlayerEvent::EndOfStream) => break,
-//!         Some(PlayerEvent::Error(message)) => return Err(message.into()),
+//!         Some(PlayerEvent::Error(failure)) => return Err(failure.into()),
+//!         Some(PlayerEvent::Title(title)) => println!("Now playing: {title}"),
 //!         None => {}
 //!     }
 //! }
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+mod engine;
 mod error;
 mod player;
 
-pub use error::AudioError;
+pub use engine::{Engine, EngineConfig, EngineEvent};
+pub use error::{AudioError, Failure, FailureKind};
 pub use player::{PlaybackState, Player, PlayerEvent, file_uri};
 
 /// Re-export of the GStreamer bindings used by this crate.

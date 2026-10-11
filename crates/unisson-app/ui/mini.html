@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title data-i18n="mini.windowTitle">Unisson, mini-lecteur</title>
+<link rel="stylesheet" href="styles/app.css">
+<link rel="stylesheet" href="styles/mini.css">
+<script type="module" src="js/theme.js"></script>
+<script type="module" src="js/mini.js"></script>
+</head>
+<body class="mini-body">
+
+<svg class="sprite" aria-hidden="true">
+  <symbol id="icon-radio" viewBox="0 0 24 24"><rect x="3.5" y="9" width="17" height="11" rx="2"/><path d="M7 9l9-5M7 13h3M7 16h3"/><circle cx="15.5" cy="14.5" r="2.5"/></symbol>
+  <symbol id="icon-note" viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></symbol>
+  <symbol id="icon-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></symbol>
+  <symbol id="icon-expand" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-7 7M10 20H4v-6M4 20l7-7"/></symbol>
+  <symbol id="icon-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
+  <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></symbol>
+  <symbol id="icon-previous" viewBox="0 0 24 24"><path d="M18 6.5v11l-8-5.5zM5.5 6h2v12h-2z"/></symbol>
+  <symbol id="icon-next" viewBox="0 0 24 24"><path d="M6 6.5v11l8-5.5zM16.5 6h2v12h-2z"/></symbol>
+</svg>
+
+<!-- The area without buttons moves the window when it is dragged. -->
+<main class="mini" aria-label="Mini-lecteur" data-i18n-attrs="aria-label:mini.label">
+  <div class="mini-row" data-tauri-drag-region>
+    <div class="cover mini-cover" id="mini-cover" data-source="none" data-tauri-drag-region>
+      <svg class="icon" aria-hidden="true"><use id="mini-cover-icon" href="#icon-note"/></svg>
+      <img id="mini-cover-image" alt="" referrerpolicy="no-referrer" hidden>
+    </div>
+    <div class="mini-text" data-tauri-drag-region>
+      <div class="player-title" id="mini-title" data-tauri-drag-region data-i18n="mini.nothingPlaying">Rien en lecture</div>
+      <div class="player-subtitle" id="mini-subtitle" data-tauri-drag-region
+        data-i18n="mini.nothingPlayingHint">Ouvrez Unisson pour choisir un titre</div>
+      <span class="badge mini-badge" id="mini-source" hidden></span>
+    </div>
+    <button class="icon-button" id="mini-previous" type="button" aria-label="Titre précédent" title="Titre précédent"
+      data-i18n-attrs="aria-label:mini.previousTrack, title:mini.previousTrack" disabled>
+      <svg class="icon icon-filled" aria-hidden="true"><use href="#icon-previous"/></svg>
+    </button>
+    <button class="play-button" id="mini-toggle" type="button" aria-label="Lire"
+      data-i18n-attrs="aria-label:mini.play" disabled>
+      <svg class="icon icon-filled" aria-hidden="true"><use id="mini-toggle-icon" href="#icon-play"/></svg>
+      <span class="spinner" aria-hidden="true"></span>
+    </button>
+    <button class="icon-button" id="mini-next" type="button" aria-label="Titre suivant" title="Titre suivant"
+      data-i18n-attrs="aria-label:mini.nextTrack, title:mini.nextTrack" disabled>
+      <svg class="icon icon-filled" aria-hidden="true"><use href="#icon-next"/></svg>
+    </button>
+    <span class="mini-divider" aria-hidden="true"></span>
+    <button class="icon-button" id="mini-search" type="button" aria-label="Rechercher" title="Rechercher"
+      data-i18n-attrs="aria-label:mini.search, title:mini.search">
+      <svg class="icon" aria-hidden="true"><use href="#icon-search"/></svg>
+    </button>
+    <button class="icon-button" id="mini-expand" type="button" aria-label="Ouvrir la fenêtre principale" title="Ouvrir la fenêtre principale"
+      data-i18n-attrs="aria-label:mini.openMainWindow, title:mini.openMainWindow">
+      <svg class="icon" aria-hidden="true"><use href="#icon-expand"/></svg>
+    </button>
+  </div>
+  <div class="mini-progress" id="mini-progress" role="progressbar" aria-label="Position dans le titre"
+    data-i18n-attrs="aria-label:mini.position"
+    aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <div class="mini-progress-fill" id="mini-progress-fill"></div>
+  </div>
+</main>
+</body>
+</html>

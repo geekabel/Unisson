@@ -2,12 +2,12 @@
 
 use std::path::Path;
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use gst::prelude::*;
 use unisson_core::StreamUri;
 
-use crate::error::AudioError;
+use crate::error::{AudioError, Failure, FailureKind};
 
 /// Name of the GStreamer element that does the actual playback.
 ///
@@ -37,7 +37,12 @@ pub enum PlayerEvent {
     /// The current media reached its end.
     EndOfStream,
     /// Playback failed. The message comes from GStreamer.
-    Error(String),
+    Error(Failure),
+    /// The media announced its title.
+    ///
+    /// A radio stream sends one each time a new song starts, usually as
+    /// `Artist - Song`. A file sends the title stored in its tags, if any.
+    Title(String),
 }
 
 /// Plays one address at a time.
@@ -157,6 +162,30 @@ impl Player {
         self.set_state(gst::State::Null)
     }
 
+    /// Moves playback to `position`, counted from the start of the media.
+    ///
+    /// Playback goes on, or stays paused, from the nearest point GStreamer
+    /// can jump to quickly. A position past the end finishes the media.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AudioError::NothingLoaded`] if no address was loaded, or
+    /// [`AudioError::Seek`] if the position cannot be changed: playback is
+    /// stopped, or the media is a live stream.
+    pub fn seek(&self, position: Duration) -> Result<(), AudioError> {
+        self.loaded_uri()?;
+        if self.state() == PlaybackState::Stopped {
+            return Err(AudioError::Seek("playback is stopped".into()));
+        }
+        let position = gst::ClockTime::try_from(position)
+            .map_err(|_| AudioError::Seek("the position is too large".into()))?;
+        // FLUSH drops the audio already queued, so the jump is heard at
+        // once. KEY_UNIT jumps to a point that needs no extra decoding.
+        self.playbin
+            .seek_simple(gst::SeekFlags::FLUSH | gst::SeekFlags::KEY_UNIT, position)
+            .map_err(|_| AudioError::Seek("the media does not allow it".into()))
+    }
+
     /// Sets the volume, from `0.0` (silent) to `1.0` (full).
     ///
     /// Values outside that range are clamped. The scale is linear.
@@ -209,22 +238,91 @@ impl Player {
             .map(Duration::from)
     }
 
+    /// Returns the title a radio stream is announcing right now, if any.
+    ///
+    /// This reads the last title received from the stream, wherever it is
+    /// in the pipeline. It complements [`PlayerEvent::Title`]: GStreamer
+    /// never reports as an event a title that arrives within the very first
+    /// kilobytes of a stream, before the audio format is known. That is
+    /// usually the case of the title on air when tuning in.
+    ///
+    /// Returns `None` for anything but a radio stream with titles.
+    pub fn stream_title(&self) -> Option<String> {
+        let bin = self.playbin.downcast_ref::<gst::Bin>()?;
+        bin.iterate_recurse()
+            .into_iter()
+            .flatten()
+            // `icydemux` is the element that extracts titles from radio streams.
+            .filter(|element| {
+                element
+                    .factory()
+                    .is_some_and(|factory| factory.name() == "icydemux")
+            })
+            .flat_map(|element| element.src_pads())
+            .find_map(|pad| {
+                // A pad remembers the last tags that went through it.
+                let event = pad.sticky_event::<gst::event::Tag>(0)?;
+                let title = event.tag().get::<gst::tags::Title>()?;
+                let title = title.get().trim();
+                (!title.is_empty()).then(|| title.to_owned())
+            })
+    }
+
     /// Waits up to `timeout` for the next playback event.
     ///
-    /// Returns `None` if nothing happened in that time. After either event,
-    /// the player is back in the [`PlaybackState::Stopped`] state.
+    /// Returns `None` if nothing happened in that time. A zero timeout checks
+    /// for a pending event without waiting. After a
+    /// [`PlayerEvent::EndOfStream`] or a [`PlayerEvent::Error`], the player is
+    /// back in the [`PlaybackState::Stopped`] state.
     pub fn poll_event(&self, timeout: Duration) -> Option<PlayerEvent> {
-        let timeout = gst::ClockTime::try_from(timeout).unwrap_or(gst::ClockTime::MAX);
-        let message = self
-            .bus
-            .timed_pop_filtered(timeout, &[gst::MessageType::Eos, gst::MessageType::Error])?;
+        // `None` stands for a deadline too far away to be represented.
+        let deadline = Instant::now().checked_add(timeout);
+        loop {
+            let remaining = match deadline {
+                Some(deadline) => deadline.saturating_duration_since(Instant::now()),
+                None => Duration::MAX,
+            };
+            let message = self.pop_message(remaining)?;
+            // Many messages carry nothing of interest: keep reading.
+            if let Some(event) = self.event_from(&message) {
+                return Some(event);
+            }
+        }
+    }
+
+    /// Takes the next relevant message off the bus, waiting up to `timeout`.
+    fn pop_message(&self, timeout: Duration) -> Option<gst::Message> {
+        const WANTED: [gst::MessageType; 3] = [
+            gst::MessageType::Eos,
+            gst::MessageType::Error,
+            gst::MessageType::Tag,
+        ];
+        // With a zero timeout, `timed_pop_filtered` gives up before looking at
+        // the queue. `pop_filtered` is the non-blocking way to read it.
+        if timeout.is_zero() {
+            self.bus.pop_filtered(&WANTED)
+        } else {
+            let timeout = gst::ClockTime::try_from(timeout).unwrap_or(gst::ClockTime::MAX);
+            self.bus.timed_pop_filtered(timeout, &WANTED)
+        }
+    }
+
+    /// Turns a bus message into an event, if it carries one.
+    fn event_from(&self, message: &gst::Message) -> Option<PlayerEvent> {
         let event = match message.view() {
             gst::MessageView::Eos(_) => PlayerEvent::EndOfStream,
-            gst::MessageView::Error(error) => PlayerEvent::Error(error.error().to_string()),
-            // The filter above only lets the two kinds of messages through.
+            gst::MessageView::Error(error) => PlayerEvent::Error(self.failure_from(error)),
+            gst::MessageView::Tag(tag) => {
+                let tags = tag.tags();
+                let title = tags.get::<gst::tags::Title>()?;
+                let title = title.get().trim();
+                // Tags without a title (codec, bitrate) are of no interest here.
+                return (!title.is_empty()).then(|| PlayerEvent::Title(title.to_owned()));
+            }
             _ => return None,
         };
-        // Best effort: the event is reported even if stopping fails.
+        // Playback is over. Best effort: the event is reported even if
+        // stopping fails.
         let _ = self.playbin.set_state(gst::State::Null);
         Some(event)
     }
@@ -247,18 +345,79 @@ impl Player {
         };
         // GStreamer posts the real cause on the bus. Prefer it to the generic
         // "failed to change state" message.
-        let detail = self
+        let failure = self
             .bus
             .pop_filtered(&[gst::MessageType::Error])
             .and_then(|message| match message.view() {
-                gst::MessageView::Error(cause) => Some(cause.error().to_string()),
+                gst::MessageView::Error(cause) => Some(self.failure_from(cause)),
                 _ => None,
             })
-            .unwrap_or_else(|| error.to_string());
+            .unwrap_or_else(|| Failure::other(error.to_string()));
         // Leave the player in a clean, stopped state.
         let _ = self.playbin.set_state(gst::State::Null);
-        Err(AudioError::StateChange(detail))
+        Err(AudioError::StateChange(failure))
     }
+
+    /// Describes an error message of GStreamer as a [`Failure`].
+    fn failure_from(&self, error: &gst::message::Error) -> Failure {
+        let remote = self
+            .loaded()
+            .as_ref()
+            .is_some_and(|uri| !uri.as_str().starts_with("file://"));
+        // `playbin` names "source" the element that reads the address.
+        let from_source = error.src().is_some_and(|source| source.name() == "source");
+        let cause = error.error();
+        Failure {
+            kind: failure_kind(&cause, remote, from_source),
+            message: cause.to_string(),
+        }
+    }
+}
+
+/// Sorts an error of GStreamer into a [`FailureKind`].
+///
+/// `remote` tells whether the address is on the network, and `from_source`
+/// whether the error comes from the element that reads the address.
+///
+/// GStreamer reports a server that cannot be reached in a roundabout way:
+/// the element that reads the address only says that the stream stopped,
+/// with the generic "stream failed" code. For a network address, that code
+/// from that element is therefore read as a network failure.
+fn failure_kind(cause: &gst::glib::Error, remote: bool, from_source: bool) -> FailureKind {
+    use gst::{CoreError, ResourceError, StreamError};
+
+    if let Some(kind) = cause.kind::<ResourceError>() {
+        return match kind {
+            ResourceError::NotFound => FailureKind::NotFound,
+            ResourceError::OpenRead
+            | ResourceError::Read
+            | ResourceError::Seek
+            | ResourceError::Sync
+            | ResourceError::Busy
+                if remote =>
+            {
+                FailureKind::Network
+            }
+            _ => FailureKind::Other,
+        };
+    }
+    if let Some(kind) = cause.kind::<StreamError>() {
+        return match kind {
+            StreamError::Failed if remote && from_source => FailureKind::Network,
+            StreamError::TypeNotFound
+            | StreamError::WrongType
+            | StreamError::CodecNotFound
+            | StreamError::Decode
+            | StreamError::Demux
+            | StreamError::Format
+            | StreamError::NotImplemented => FailureKind::Unsupported,
+            _ => FailureKind::Other,
+        };
+    }
+    if cause.kind::<CoreError>() == Some(CoreError::MissingPlugin) {
+        return FailureKind::Unsupported;
+    }
+    FailureKind::Other
 }
 
 impl Drop for Player {

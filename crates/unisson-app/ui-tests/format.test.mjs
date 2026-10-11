@@ -1,0 +1,418 @@
+// Run from the root of the repository with:
+//   node --test crates/unisson-app/ui-tests/*.test.mjs
+//
+// The tests live outside the `ui` folder, which is embedded whole in the
+// application.
+
+import assert from "node:assert/strict";
+import { test } from "node:test";
+
+import {
+  capitalize,
+  countryName,
+  displayPath,
+  fillPercent,
+  formatTime,
+  launcherGroups,
+  looksLikeTarget,
+  matchesText,
+  mediaKey,
+  mediaSubtitle,
+  moved,
+  openErrorMessage,
+  playbackErrorMessage,
+  playbackProblem,
+  resolveTheme,
+  skippedMessage,
+  searchSummary,
+  sourceLabel,
+  sourceName,
+  stationDescription,
+  stationMedia,
+  stationQuality,
+  tileText,
+} from "../ui/js/format.js";
+import { getLanguage, setLanguage } from "../ui/js/i18n.js";
+
+/**
+ * Runs checks with the interface in English, then goes back to French,
+ * even when a check fails.
+ *
+ * @param {() => void} checks
+ */
+function inEnglish(checks) {
+  setLanguage("en");
+  try {
+    checks();
+  } finally {
+    setLanguage("fr");
+  }
+}
+
+const track = {
+  source: "local",
+  key: "/m/a.flac",
+  kind: "track",
+  title: "So What",
+  artist: "Miles Davis",
+  album: "Kind of Blue",
+};
+const station = { source: "radio", key: "fip", kind: "station", title: "FIP" };
+
+test("formatTime writes minutes and seconds, and hours when needed", () => {
+  assert.equal(formatTime(0), "0:00");
+  assert.equal(formatTime(999), "0:00");
+  assert.equal(formatTime(221_000), "3:41");
+  assert.equal(formatTime(600_000), "10:00");
+  assert.equal(formatTime(3_723_000), "1:02:03");
+});
+
+test("formatTime writes nothing for an unknown duration", () => {
+  for (const unknown of [null, undefined, NaN, Infinity, -1]) {
+    assert.equal(formatTime(unknown), "");
+  }
+});
+
+test("sourceLabel names the known sources and keeps the others", () => {
+  assert.equal(sourceLabel("youtube"), "YouTube");
+  assert.equal(sourceLabel("local"), "Local");
+  assert.equal(sourceLabel("cassette"), "cassette");
+});
+
+test("mediaSubtitle shows the artist and the album of a track", () => {
+  assert.equal(mediaSubtitle(track), "Miles Davis, Kind of Blue");
+  assert.equal(mediaSubtitle({ ...track, album: null }), "Miles Davis");
+  assert.equal(mediaSubtitle({ ...track, artist: null, album: null }), "Artiste inconnu");
+});
+
+test("mediaSubtitle shows what a station announces, or that it is live", () => {
+  assert.equal(mediaSubtitle(station), "En direct");
+  assert.equal(mediaSubtitle(station, "Nina Simone - Sinnerman"), "Nina Simone - Sinnerman");
+});
+
+test("looksLikeTarget tells links and paths from words", () => {
+  for (const target of ["https://a.fr/x.mp3", " http://a.fr ", "/home/me/a.mp3", "~/Music/a.mp3"]) {
+    assert.equal(looksLikeTarget(target), true, target);
+  }
+  for (const words of ["miles davis", "", "/", "~", "ftp://a.fr", "a/b.mp3"]) {
+    assert.equal(looksLikeTarget(words), false, words);
+  }
+});
+
+test("mediaKey tells media apart across sources", () => {
+  assert.equal(mediaKey(null), "");
+  assert.notEqual(mediaKey(track), mediaKey({ ...track, source: "youtube" }));
+  assert.equal(mediaKey(track), mediaKey({ ...track, title: "Other title" }));
+});
+
+test("fillPercent stays between 0% and 100%", () => {
+  assert.equal(fillPercent(0, 100), "0.00%");
+  assert.equal(fillPercent(39, 100), "39.00%");
+  assert.equal(fillPercent(150, 100), "100.00%");
+  assert.equal(fillPercent(-5, 100), "0.00%");
+  assert.equal(fillPercent(5, 0), "0%");
+});
+
+test("every error has a sentence, even an unknown one", () => {
+  for (const kind of ["notFound", "network", "unavailable", "unsupported", "playback", "other"]) {
+    assert.ok(playbackErrorMessage({ kind }).length > 10);
+    assert.ok(playbackErrorMessage({ kind }, { source: "radio", kind: "station" }).length > 10);
+  }
+  assert.ok(playbackErrorMessage(null).length > 10);
+  for (const error of [{ kind: "invalid" }, { kind: "notFound" }, { kind: "unreadable" }, {}, null, "text"]) {
+    assert.ok(openErrorMessage(error).length > 10);
+  }
+});
+
+const fip = {
+  uuid: "fip",
+  name: "FIP",
+  streamUrl: "https://example.org/fip",
+  favicon: "https://example.org/fip.png",
+  tags: ["eclectic", " jazz ", ""],
+  countryCode: "fr",
+};
+
+test("stationMedia turns a station into a live media", () => {
+  assert.deepEqual(stationMedia(fip), {
+    source: "radio",
+    key: "fip",
+    kind: "station",
+    title: "FIP",
+    artist: null,
+    album: null,
+    durationMs: null,
+    artwork: "https://example.org/fip.png",
+  });
+});
+
+test("countryName gives the French name, or nothing", () => {
+  assert.equal(countryName("FR"), "France");
+  assert.equal(countryName("us"), "États-Unis");
+  for (const unknown of [null, undefined, "", "F", "FRA", "12"]) {
+    assert.equal(countryName(unknown), "");
+  }
+});
+
+test("stationDescription shows the first tags and the country", () => {
+  assert.equal(stationDescription(fip), "Eclectic, France");
+  assert.equal(stationDescription(fip, 2), "Eclectic, Jazz, France");
+  assert.equal(stationDescription({ ...fip, tags: [], countryCode: null }), "");
+});
+
+test("capitalize", () => {
+  assert.equal(capitalize("électro"), "Électro");
+  assert.equal(capitalize(""), "");
+});
+
+test("tileText describes each kind of tile", () => {
+  assert.deepEqual(tileText({ kind: "station", source: "radio" }), { badge: "Radio", subtitle: "En direct" });
+  assert.deepEqual(tileText({ kind: "album", source: "local", artist: "Miles Davis" }), {
+    badge: "Album",
+    subtitle: "Album, Miles Davis",
+  });
+  assert.deepEqual(tileText({ kind: "album", source: "local", artist: null }), { badge: "Album", subtitle: "Album" });
+  assert.deepEqual(tileText({ kind: "track", source: "youtube", artist: null }), { badge: "YouTube", subtitle: "Titre" });
+});
+
+test("stationQuality shows the format and the bitrate that are known", () => {
+  assert.equal(stationQuality({ codec: "MP3", bitrate: 128 }), "MP3 128 kb/s");
+  assert.equal(stationQuality({ codec: "AAC", bitrate: 0 }), "AAC");
+  assert.equal(stationQuality({ codec: null, bitrate: 96 }), "96 kb/s");
+  assert.equal(stationQuality({ codec: null, bitrate: null }), "");
+});
+
+test("searchSummary follows the search from the first letter to the last answer", () => {
+  const hit = (source) => ({ media: { source }, sources: [source] });
+  assert.equal(searchSummary("m", null, 0, 2), "Tapez au moins 2 lettres.");
+  assert.equal(searchSummary("miles", null, 0, 2), "Recherche en cours…");
+  const partial = { hits: [hit("local")], pending: ["radio"], errors: [], done: false };
+  assert.equal(searchSummary("miles", partial, 1, 2), "1 résultat, 1 source. Recherche en cours…");
+  const full = { hits: [hit("local"), hit("local"), hit("radio")], pending: [], errors: [], done: true };
+  assert.equal(searchSummary("miles", full, 3, 2), "3 résultats, 2 sources.");
+  const none = { hits: [], pending: [], errors: [], done: true };
+  assert.equal(searchSummary("zzz", none, 0, 2), "Aucun résultat pour « zzz ».");
+  assert.equal(searchSummary("zzz", { ...none, done: false }, 0, 2), "Recherche en cours…");
+});
+
+test("displayPath shortens the home folder", () => {
+  assert.equal(displayPath("/home/me/Music"), "~/Music");
+  assert.equal(displayPath("/home/me"), "~");
+  assert.equal(displayPath("/data/home/me/Music"), "/data/home/me/Music");
+  assert.equal(displayPath("/srv/media/Music", "/srv/media"), "~/Music");
+  assert.equal(displayPath("/srv/mediatheque", "/srv/media"), "/srv/mediatheque");
+  assert.equal(displayPath(null), "");
+});
+
+test("moved swaps an item with its neighbor, or changes nothing", () => {
+  const list = ["a", "b", "c"];
+  assert.deepEqual(moved(list, 0, 1), ["b", "a", "c"]);
+  assert.deepEqual(moved(list, 2, -1), ["a", "c", "b"]);
+  assert.equal(moved(list, 0, -1), list);
+  assert.equal(moved(list, 2, 1), list);
+  assert.equal(moved(list, 5, -1), list);
+  assert.deepEqual(list, ["a", "b", "c"], "the original list is not touched");
+});
+
+test("sourceName gives the full name of a source", () => {
+  assert.equal(sourceName("local"), "Fichiers locaux");
+  assert.equal(sourceName("cassette"), "cassette");
+});
+
+test("matchesText ignores case and accents, and wants every word", () => {
+  assert.equal(matchesText("Pause café", "cafe"), true);
+  assert.equal(matchesText("Pause café", "CAFÉ pau"), true);
+  assert.equal(matchesText("Pause café", "the"), false);
+  assert.equal(matchesText("Pause café", "pause thé"), false);
+  assert.equal(matchesText("Pause café", "   "), false);
+});
+
+test("launcherGroups keeps the ranking, with the group of the best hit first", () => {
+  const hit = (title, kind) => ({ media: { title, kind } });
+  const hits = [hit("FIP", "station"), hit("Fip Song", "track"), hit("FIP Jazz", "station"), hit("Other", "track")];
+  assert.deepEqual(
+    launcherGroups(hits, 10).map((entry) => `${entry.group}:${entry.media.title}`),
+    ["Radios:FIP", "Radios:FIP Jazz", "Titres:Fip Song", "Titres:Other"],
+  );
+  assert.deepEqual(
+    launcherGroups(hits.slice(1), 2).map((entry) => `${entry.group}:${entry.media.title}`),
+    ["Titres:Fip Song", "Radios:FIP Jazz"],
+  );
+  assert.deepEqual(launcherGroups([], 5), []);
+});
+
+test("a playback problem is told in words that fit what was playing", () => {
+  const file = { source: "local", kind: "track" };
+  const station = { source: "radio", kind: "station" };
+  const video = { source: "youtube", kind: "track" };
+  assert.match(playbackProblem({ kind: "notFound" }, file).text, /fichier est introuvable/);
+  assert.match(playbackProblem({ kind: "notFound" }, station).text, /station ne répond plus/);
+  assert.match(playbackProblem({ kind: "notFound" }, video).text, /vidéo est introuvable/);
+  assert.match(playbackProblem({ kind: "network" }, station).text, /connexion à la station/);
+  assert.match(playbackProblem({ kind: "unsupported" }, file).text, /format audio/);
+});
+
+test("only a broken YouTube leads to the Sources screen", () => {
+  assert.equal(playbackProblem({ kind: "unavailable" }, { source: "youtube" }).action, "sources");
+  assert.match(playbackProblem({ kind: "unavailable" }, { source: "youtube" }).text, /composant/);
+  assert.equal(playbackProblem({ kind: "unavailable" }, { source: "radio" }).action, "retry");
+  assert.equal(playbackProblem({ kind: "network" }, { source: "youtube" }).action, "retry");
+});
+
+test("a skipped media is told with its title and the reason", () => {
+  assert.equal(
+    skippedMessage({ title: "So What" }, { kind: "notFound" }),
+    "« So What » ignoré : introuvable. Lecture du titre suivant.",
+  );
+  assert.match(skippedMessage({ title: "A" }, { kind: "unsupported" }), /format non pris en charge/);
+  assert.match(skippedMessage({ title: "A" }, { kind: "surprise" }), /lecture impossible/);
+});
+
+test("the theme follows the desktop unless the user chose one", () => {
+  assert.equal(resolveTheme("system", true), "light");
+  assert.equal(resolveTheme("system", false), "dark");
+  assert.equal(resolveTheme("dark", true), "dark");
+  assert.equal(resolveTheme("light", false), "light");
+  // A value from an old or hand-edited file counts as "like the desktop".
+  assert.equal(resolveTheme("sepia", false), "dark");
+  assert.equal(resolveTheme(null, true), "light");
+});
+
+test("the helpers answer in French unless another language is chosen", () => {
+  assert.equal(getLanguage(), "fr");
+  assert.throws(() => inEnglish(() => assert.fail("a check that fails")));
+  assert.equal(getLanguage(), "fr", "the language is restored after a failure");
+});
+
+test("in English: sources, subtitles and tiles", () => {
+  inEnglish(() => {
+    assert.equal(sourceLabel("youtube"), "YouTube");
+    assert.equal(sourceLabel("local"), "Local");
+    assert.equal(sourceLabel("radio"), "Radio");
+    assert.equal(sourceLabel("cassette"), "cassette");
+    assert.equal(sourceName("local"), "Local files");
+    assert.equal(sourceName("radio"), "Radio");
+    assert.equal(sourceName("cassette"), "cassette");
+    assert.equal(mediaSubtitle(track), "Miles Davis, Kind of Blue");
+    assert.equal(mediaSubtitle({ ...track, artist: null, album: null }), "Unknown artist");
+    assert.equal(mediaSubtitle(station), "Live");
+    assert.equal(mediaSubtitle(station, "Nina Simone - Sinnerman"), "Nina Simone - Sinnerman");
+    assert.deepEqual(tileText({ kind: "station", source: "radio" }), { badge: "Radio", subtitle: "Live" });
+    assert.deepEqual(tileText({ kind: "album", source: "local", artist: "Miles Davis" }), {
+      badge: "Album",
+      subtitle: "Album, Miles Davis",
+    });
+    assert.deepEqual(tileText({ kind: "track", source: "youtube", artist: null }), {
+      badge: "YouTube",
+      subtitle: "Track",
+    });
+  });
+  assert.equal(sourceName("local"), "Fichiers locaux");
+});
+
+test("in English: countries, stations and capitals", () => {
+  assert.equal(countryName("us"), "États-Unis");
+  inEnglish(() => {
+    assert.equal(countryName("FR"), "France");
+    assert.equal(countryName("us"), "United States");
+    assert.equal(countryName("DE"), "Germany");
+    assert.equal(countryName("FRA"), "");
+    assert.equal(stationDescription({ ...fip, countryCode: "de" }, 2), "Eclectic, Jazz, Germany");
+    assert.equal(stationQuality({ codec: "MP3", bitrate: 128 }), "MP3 128 kbps");
+    assert.equal(stationQuality({ codec: "AAC", bitrate: 0 }), "AAC");
+    assert.equal(capitalize("électro"), "Électro");
+  });
+  // The names are kept per language: going back to French gives French again.
+  assert.equal(countryName("DE"), "Allemagne");
+  assert.equal(stationQuality({ codec: "MP3", bitrate: 128 }), "MP3 128 kb/s");
+});
+
+test("in English: the summary of a search", () => {
+  const hit = (source) => ({ media: { source }, sources: [source] });
+  const partial = { hits: [hit("local")], pending: ["radio"], errors: [], done: false };
+  const full = { hits: [hit("local"), hit("local"), hit("radio")], pending: [], errors: [], done: true };
+  const playlists = { hits: [], pending: [], errors: [], done: true };
+  inEnglish(() => {
+    assert.equal(searchSummary("m", null, 0, 2), "Type at least 2 letters.");
+    assert.equal(searchSummary("miles", null, 0, 2), "Searching…");
+    assert.equal(searchSummary("miles", partial, 1, 2), "1 result from 1 source. Searching…");
+    assert.equal(searchSummary("miles", full, 3, 2), "3 results from 2 sources.");
+    assert.equal(searchSummary("miles", playlists, 2, 2), "2 results.");
+    assert.equal(searchSummary("zzz", playlists, 0, 2), "No results for “zzz”.");
+    assert.equal(searchSummary("zzz", { ...playlists, done: false }, 0, 2), "Searching…");
+  });
+  // Playlists come from no source: the summary then names no source.
+  assert.equal(searchSummary("miles", playlists, 2, 2), "2 résultats.");
+  assert.equal(searchSummary("miles", { ...playlists, done: false }, 1, 2), "1 résultat. Recherche en cours…");
+});
+
+test("in English: the groups of the quick launcher", () => {
+  const hit = (title, kind) => ({ media: { title, kind } });
+  const hits = [hit("FIP", "station"), hit("Fip Song", "track"), hit("FIP Jazz", "station"), hit("Other", "track")];
+  inEnglish(() => {
+    assert.deepEqual(
+      launcherGroups(hits, 10).map((entry) => `${entry.group}:${entry.media.title}`),
+      ["Stations:FIP", "Stations:FIP Jazz", "Tracks:Fip Song", "Tracks:Other"],
+    );
+    assert.deepEqual(
+      launcherGroups(hits.slice(1), 2).map((entry) => `${entry.group}:${entry.media.title}`),
+      ["Tracks:Fip Song", "Stations:FIP Jazz"],
+    );
+  });
+});
+
+test("in English: playback problems, skipped media and links that do not open", () => {
+  const file = { source: "local", kind: "track" };
+  const radio = { source: "radio", kind: "station" };
+  const video = { source: "youtube", kind: "track" };
+  inEnglish(() => {
+    assert.match(playbackProblem({ kind: "notFound" }, file).text, /file cannot be found/);
+    assert.match(playbackProblem({ kind: "notFound" }, radio).text, /station no longer answers/);
+    assert.match(playbackProblem({ kind: "notFound" }, video).text, /video cannot be found/);
+    assert.match(playbackProblem({ kind: "notFound" }).text, /track cannot be found/);
+    assert.match(playbackProblem({ kind: "network" }, radio).text, /connection to the station/);
+    assert.match(playbackProblem({ kind: "unsupported" }, file).text, /audio format/);
+    assert.match(playbackProblem({ kind: "unavailable" }, video).text, /component in Sources/);
+    assert.equal(playbackProblem({ kind: "unavailable" }, video).action, "sources");
+    assert.equal(playbackErrorMessage({ kind: "surprise" }), "Playback failed.");
+    assert.equal(
+      skippedMessage({ title: "So What" }, { kind: "notFound" }),
+      "Skipped “So What”: not found. Playing the next track.",
+    );
+    assert.match(skippedMessage({ title: "A" }, { kind: "unavailable" }), /source unavailable/);
+    assert.match(skippedMessage({ title: "A" }, { kind: "unsupported" }), /unsupported format/);
+    assert.match(skippedMessage({ title: "A" }, { kind: "surprise" }), /playback failed/);
+    assert.equal(openErrorMessage({ kind: "invalid" }), "This link or path is not valid.");
+    assert.equal(openErrorMessage({ kind: "network" }), playbackErrorMessage({ kind: "network" }));
+    assert.equal(openErrorMessage(null), "This link could not be opened.");
+  });
+});
+
+test("every sentence exists in both languages", () => {
+  const media = [undefined, { source: "local", kind: "track" }, { source: "radio", kind: "station" },
+    { source: "youtube", kind: "track" }];
+  const sentences = () => [
+    ...["radio", "local", "youtube"].flatMap((source) => [sourceLabel(source), sourceName(source)]),
+    ...["notFound", "network", "unavailable", "unsupported", "playback", "other"].flatMap((kind) => [
+      ...media.map((playing) => playbackErrorMessage({ kind }, playing)),
+      skippedMessage({ title: "A" }, { kind }),
+    ]),
+    ...["invalid", "notFound", "unreadable", "network", "unavailable", "other"].map((kind) => {
+      return openErrorMessage({ kind });
+    }),
+  ];
+  const french = sentences();
+  let english = [];
+  inEnglish(() => {
+    english = sentences();
+  });
+  assert.equal(english.length, french.length);
+  for (const [index, sentence] of french.entries()) {
+    // A text that is missing is written as its key.
+    assert.doesNotMatch(sentence, /format\.\w/);
+    assert.doesNotMatch(english[index], /format\.\w/);
+    // A text with letters that English does not use was left in French.
+    assert.doesNotMatch(english[index], /[à-ÿ«»]/i, english[index]);
+  }
+  assert.notDeepEqual(english, french);
+});

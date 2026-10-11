@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The icon of Unisson: four voices, one sound. The PNG files of this
+     folder are made from this drawing by packaging/make-icons.sh. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 28 28">
+  <circle cx="14" cy="14" r="13" fill="#F5B841"/>
+  <path d="M8 17v-6M12 20V8M16 18v-8M20 16v-4" fill="none" stroke="#1A1300" stroke-width="2.2" stroke-linecap="round"/>
+</svg>

@@ -1,0 +1,32 @@
+name: Audit
+# Looks for known vulnerabilities in the dependencies: when they change,
+# and every week, since an advisory can be published at any time.
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - Cargo.lock
+      - .github/workflows/audit.yml
+  schedule:
+    - cron: "17 5 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: audit
+          cache-targets: false
+      - name: Install cargo-audit
+        run: command -v cargo-audit || cargo install cargo-audit --locked
+      # Fails on a vulnerability. Notes about unmaintained crates are shown
+      # but do not fail the run: most come with the toolkit Tauri uses on
+      # Linux, and nothing here can change them.
+      - run: cargo audit

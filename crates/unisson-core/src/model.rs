@@ -6,6 +6,7 @@
 //! because it may expire.
 
 use std::fmt;
+use std::path::Path;
 use std::time::Duration;
 
 use crate::error::SourceError;
@@ -30,6 +31,28 @@ impl SourceKind {
             Self::Local => "Local",
             Self::YouTube => "YouTube",
         }
+    }
+}
+
+impl SourceKind {
+    /// Returns the stable identifier of the source, such as `radio`.
+    ///
+    /// Unlike [`label`](Self::label), it never changes: it is what gets
+    /// written to disk.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Radio => "radio",
+            Self::Local => "local",
+            Self::YouTube => "youtube",
+        }
+    }
+
+    /// Every source the application knows about.
+    pub const ALL: [Self; 3] = [Self::Radio, Self::Local, Self::YouTube];
+
+    /// Returns the source with the given [`id`](Self::id), if there is one.
+    pub fn from_id(id: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|kind| kind.id() == id)
     }
 }
 
@@ -68,6 +91,25 @@ pub enum MediaKind {
     Track,
     /// A live station, with no end.
     Station,
+}
+
+impl MediaKind {
+    /// Returns the stable identifier of the kind, such as `track`.
+    ///
+    /// It never changes: it is what gets written to disk.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::Track => "track",
+            Self::Station => "station",
+        }
+    }
+
+    /// Returns the kind with the given [`id`](Self::id), if there is one.
+    pub fn from_id(id: &str) -> Option<Self> {
+        [Self::Track, Self::Station]
+            .into_iter()
+            .find(|kind| kind.id() == id)
+    }
 }
 
 /// Something that can be put in the play queue.
@@ -198,10 +240,107 @@ impl StreamUri {
         }
     }
 
+    /// Builds the `file://` address of a local file.
+    ///
+    /// The path is not checked on disk. Characters that are not allowed in
+    /// an address, such as spaces and accents, are percent-encoded.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SourceError::Invalid`] if the path is not absolute.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use unisson_core::StreamUri;
+    ///
+    /// let uri = StreamUri::from_file_path("/home/me/Music/été 2010.mp3")?;
+    /// assert_eq!(uri.as_str(), "file:///home/me/Music/%C3%A9t%C3%A9%202010.mp3");
+    /// # Ok::<(), unisson_core::SourceError>(())
+    /// ```
+    pub fn from_file_path(path: impl AsRef<Path>) -> Result<Self, SourceError> {
+        let path = path.as_ref();
+        if !path.is_absolute() {
+            return Err(SourceError::Invalid(format!(
+                "a file address needs an absolute path: {}",
+                path.display()
+            )));
+        }
+        Ok(Self(file_address(path)?))
+    }
+
     /// Returns the address as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
     }
+}
+
+/// Writes the bytes of a path into an address, escaping what RFC 3986
+/// does not allow as it is. `/` is kept, since it separates the folders.
+fn push_escaped(uri: &mut String, bytes: &[u8]) {
+    for byte in bytes {
+        if byte.is_ascii_alphanumeric() || b"-._~/".contains(byte) {
+            uri.push(char::from(*byte));
+        } else {
+            uri.push_str(&format!("%{byte:02X}"));
+        }
+    }
+}
+
+/// Builds the `file://` address of an absolute path.
+///
+/// On Unix a path is a string of bytes, which may not be valid text: the
+/// bytes are escaped as they are.
+#[cfg(unix)]
+fn file_address(path: &Path) -> Result<String, SourceError> {
+    use std::os::unix::ffi::OsStrExt;
+
+    let mut uri = String::from("file://");
+    push_escaped(&mut uri, path.as_os_str().as_bytes());
+    Ok(uri)
+}
+
+/// Builds the `file://` address of an absolute path.
+///
+/// On Windows a path is text, with drives and backslashes.
+#[cfg(not(unix))]
+fn file_address(path: &Path) -> Result<String, SourceError> {
+    let text = path.to_str().ok_or_else(|| {
+        SourceError::Invalid(format!("this path is not valid text: {}", path.display()))
+    })?;
+    Ok(windows_file_address(text))
+}
+
+/// Builds the `file://` address of an absolute Windows path, given as
+/// text: `C:\Music\a.mp3` becomes `file:///C:/Music/a.mp3`, and a network
+/// share `\\server\share\a.mp3` becomes `file://server/share/a.mp3`.
+///
+/// It is compiled on every system so that its tests run everywhere.
+#[cfg_attr(unix, allow(dead_code))]
+fn windows_file_address(path: &str) -> String {
+    // The "verbatim" form `\\?\C:\...` names the same file.
+    let path = path
+        .strip_prefix(r"\\?\UNC\")
+        .map(|rest| format!(r"\\{rest}"))
+        .unwrap_or_else(|| path.strip_prefix(r"\\?\").unwrap_or(path).to_owned());
+    let slashed = path.replace('\\', "/");
+    let mut uri = String::from("file://");
+    if let Some(share) = slashed.strip_prefix("//") {
+        // A network share: the server takes the place of the host.
+        push_escaped(&mut uri, share.as_bytes());
+        return uri;
+    }
+    uri.push('/');
+    // The colon of the drive letter is kept as it is.
+    match slashed.split_once(':') {
+        Some((drive, rest)) if drive.len() == 1 => {
+            uri.push_str(drive);
+            uri.push(':');
+            push_escaped(&mut uri, rest.as_bytes());
+        }
+        _ => push_escaped(&mut uri, slashed.trim_start_matches('/').as_bytes()),
+    }
+    uri
 }
 
 impl fmt::Display for StreamUri {
@@ -249,6 +388,59 @@ mod tests {
                 "{bad}"
             );
         }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn a_file_path_becomes_an_escaped_address() {
+        let uri = StreamUri::from_file_path("/music/AC DC/100% rock & roll #1?.mp3").unwrap();
+        assert_eq!(
+            uri.as_str(),
+            "file:///music/AC%20DC/100%25%20rock%20%26%20roll%20%231%3F.mp3"
+        );
+        assert_eq!(
+            StreamUri::from_file_path("/a-b_c.d~e/f").unwrap().as_str(),
+            "file:///a-b_c.d~e/f"
+        );
+        assert!(matches!(
+            StreamUri::from_file_path("music/a.mp3"),
+            Err(SourceError::Invalid(_))
+        ));
+    }
+
+    #[test]
+    fn a_windows_path_becomes_an_address_with_its_drive() {
+        assert_eq!(
+            windows_file_address(r"C:\Users\me\Music\été 2010.mp3"),
+            "file:///C:/Users/me/Music/%C3%A9t%C3%A9%202010.mp3"
+        );
+        assert_eq!(
+            windows_file_address(r"\\?\D:\a b\c#1.flac"),
+            "file:///D:/a%20b/c%231.flac"
+        );
+        assert_eq!(
+            windows_file_address(r"\\nas\music\a.mp3"),
+            "file://nas/music/a.mp3"
+        );
+        assert_eq!(
+            windows_file_address(r"\\?\UNC\nas\music\a.mp3"),
+            "file://nas/music/a.mp3"
+        );
+    }
+
+    #[test]
+    fn identifiers_are_stable_and_reversible() {
+        for kind in [SourceKind::Radio, SourceKind::Local, SourceKind::YouTube] {
+            assert_eq!(SourceKind::from_id(kind.id()), Some(kind));
+        }
+        for kind in [MediaKind::Track, MediaKind::Station] {
+            assert_eq!(MediaKind::from_id(kind.id()), Some(kind));
+        }
+        // These values are stored on disk: they must never change.
+        assert_eq!(SourceKind::YouTube.id(), "youtube");
+        assert_eq!(MediaKind::Station.id(), "station");
+        assert_eq!(SourceKind::from_id("spotify"), None);
+        assert_eq!(MediaKind::from_id("Track"), None);
     }
 
     #[test]

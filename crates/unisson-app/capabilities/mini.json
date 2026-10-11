@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "mini",
+  "description": "The mini-player: it can also be dragged by its content. Each window gets only what its page uses of the core of Tauri: listening to the events of the backend, and what is listed here. The commands of Unisson itself need no entry.",
+  "windows": [
+    "mini"
+  ],
+  "permissions": [
+    "core:event:allow-listen",
+    "core:event:allow-unlisten",
+    "core:window:allow-start-dragging"
+  ]
+}
