@@ -15,6 +15,7 @@ use unisson_store::Store;
 
 use crate::dto::PositionDto;
 use crate::mpris::Mpris;
+use crate::notify::Notifier;
 use crate::state::AppState;
 use crate::tray;
 
@@ -59,6 +60,7 @@ pub fn forward_session_events(app: AppHandle, store: Arc<Store>, events: Receive
                     app.state::<Mpris>()
                         .state_changed(&snapshot, dto.has_next, dto.has_previous);
                     tray::refresh(&app);
+                    app.state::<Notifier>().playback_changed(&app, &snapshot);
                     app.emit(PLAYER_CHANGED, dto)
                 }
                 SessionEvent::Position { position, duration } => {

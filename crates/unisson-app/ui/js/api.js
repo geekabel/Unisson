@@ -76,6 +76,7 @@
  * @property {number} libraryTotal
  * @property {boolean} resumeRadio
  * @property {boolean} keepInTray Whether closing the window keeps the application running.
+ * @property {boolean} notifications Whether a desktop notification tells each new title.
  * @property {?string} configPath
  * @property {?string} ytDlpVersion The yt-dlp program YouTube needs, if installed.
  * @property {{supported: boolean, binding: ?string, choices: [string, string][], command: string}} shortcut
@@ -339,6 +340,14 @@ export const settingsResetMusicFolder = () => invoke("settings_reset_music_folde
  * @returns {Promise<Settings>}
  */
 export const settingsSetKeepInTray = (enabled) => invoke("settings_set_keep_in_tray", { enabled });
+
+/**
+ * Chooses whether a desktop notification tells each new title.
+ *
+ * @param {boolean} enabled
+ * @returns {Promise<Settings>}
+ */
+export const settingsSetNotifications = (enabled) => invoke("settings_set_notifications", { enabled });
 
 /**
  * Looks again for the yt-dlp program, after the user installed it.

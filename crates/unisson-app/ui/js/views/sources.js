@@ -82,6 +82,13 @@ function draw() {
         checked: settings.keepInTray,
         onChange: (checked) => api.settingsSetKeepInTray(checked),
       }),
+      settingRow({
+        key: "notifications",
+        label: "Annoncer chaque nouveau titre par une notification",
+        detail: "Elle s'affiche seulement quand Unisson n'est pas la fenêtre active.",
+        checked: settings.notifications,
+        onChange: (checked) => api.settingsSetNotifications(checked),
+      }),
     ]),
     section("Lanceur rapide", shortcutSettings(settings.shortcut)),
     settings.configPath

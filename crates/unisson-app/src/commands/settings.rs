@@ -41,6 +41,8 @@ pub struct SettingsDto {
     pub resume_radio: bool,
     /// Whether closing the window keeps the application running.
     pub keep_in_tray: bool,
+    /// Whether a desktop notification tells each new title.
+    pub notifications: bool,
     /// Where the settings are saved.
     pub config_path: Option<String>,
     /// The version of the yt-dlp program, which YouTube needs. `None` when
@@ -105,6 +107,7 @@ fn describe(state: &AppState) -> Result<SettingsDto, CommandError> {
         library_total: state.store.library_len()?,
         resume_radio: settings.resume_radio,
         keep_in_tray: settings.keep_in_tray,
+        notifications: settings.notifications,
         config_path: state
             .settings_path()
             .map(|path| path.to_string_lossy().into_owned()),
@@ -210,6 +213,17 @@ pub fn settings_set_keep_in_tray(
     enabled: bool,
 ) -> Result<SettingsDto, CommandError> {
     state.update_settings(|settings| settings.keep_in_tray = enabled)?;
+    changed(&app, &state)
+}
+
+/// Chooses whether a desktop notification tells each new title.
+#[tauri::command(async)]
+pub fn settings_set_notifications(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    enabled: bool,
+) -> Result<SettingsDto, CommandError> {
+    state.update_settings(|settings| settings.notifications = enabled)?;
     changed(&app, &state)
 }
 

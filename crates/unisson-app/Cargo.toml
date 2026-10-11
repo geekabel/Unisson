@@ -41,6 +41,8 @@ async-executor = "1"
 futures-lite = "2"
 # The settings file is written in TOML, which is easy to read and to edit.
 toml = "1"
+# Desktop notifications, over the standard D-Bus interface.
+notify-rust = "4"
 
 [dev-dependencies]
 serde_json.workspace = true

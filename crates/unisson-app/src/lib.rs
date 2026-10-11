@@ -18,6 +18,7 @@ pub mod events;
 pub mod home;
 pub mod library;
 pub mod mpris;
+pub mod notify;
 pub mod now_playing;
 pub mod search;
 pub mod settings;
@@ -32,6 +33,7 @@ use tauri::Manager;
 
 use crate::library::LibrarySync;
 use crate::mpris::Mpris;
+use crate::notify::Notifier;
 use crate::state::AppState;
 use crate::tray::Tray;
 
@@ -57,6 +59,7 @@ pub fn run() {
 
             let handle = app.handle();
             app.manage(Mpris::start(handle.clone()));
+            app.manage(Notifier::start());
             events::forward_session_events(handle.clone(), Arc::clone(&store), session_events);
             events::save_settings_when_idle(handle.clone());
 
@@ -158,6 +161,7 @@ pub fn run() {
             commands::settings::settings_rescan_library,
             commands::settings::settings_check_yt_dlp,
             commands::settings::settings_set_keep_in_tray,
+            commands::settings::settings_set_notifications,
             commands::settings::settings_install_shortcut,
             commands::settings::settings_remove_shortcut,
             commands::window::window_show_main,

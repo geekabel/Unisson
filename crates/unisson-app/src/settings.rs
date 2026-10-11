@@ -10,6 +10,7 @@
 //! volume = 0.8
 //! resume_radio = true
 //! keep_in_tray = true
+//! notifications = true
 //! music_folder = "/home/me/Music"
 //!
 //! [sources]
@@ -39,6 +40,8 @@ pub struct Settings {
     /// Whether closing the window keeps the application running, with its
     /// icon in the top bar.
     pub keep_in_tray: bool,
+    /// Whether a desktop notification tells each new title.
+    pub notifications: bool,
     /// The folder of the local library. `None` means the music folder of
     /// the desktop.
     pub music_folder: Option<PathBuf>,
@@ -61,6 +64,7 @@ impl Default for Settings {
             volume: 1.0,
             resume_radio: true,
             keep_in_tray: true,
+            notifications: true,
             music_folder: None,
             priority: DEFAULT_PRIORITY.to_vec(),
             disabled: Vec::new(),
@@ -87,6 +91,7 @@ struct SettingsFile {
     volume: Option<f64>,
     resume_radio: Option<bool>,
     keep_in_tray: Option<bool>,
+    notifications: Option<bool>,
     music_folder: Option<PathBuf>,
     #[serde(default)]
     sources: SourcesFile,
@@ -199,6 +204,7 @@ impl Settings {
             volume: file.volume.map_or(defaults.volume, clamp_volume),
             resume_radio: file.resume_radio.unwrap_or(defaults.resume_radio),
             keep_in_tray: file.keep_in_tray.unwrap_or(defaults.keep_in_tray),
+            notifications: file.notifications.unwrap_or(defaults.notifications),
             // A relative folder would depend on where the program starts.
             music_folder: file.music_folder.filter(|folder| folder.is_absolute()),
             priority: complete_priority(&known(&file.sources.priority)),
@@ -212,6 +218,7 @@ impl Settings {
             volume: Some(self.volume),
             resume_radio: Some(self.resume_radio),
             keep_in_tray: Some(self.keep_in_tray),
+            notifications: Some(self.notifications),
             music_folder: self.music_folder.clone(),
             sources: SourcesFile {
                 priority: ids(&self.priority),
@@ -285,6 +292,7 @@ mod tests {
         settings.set_volume(0.35);
         settings.resume_radio = false;
         settings.keep_in_tray = false;
+        settings.notifications = false;
         settings.music_folder = Some(PathBuf::from("/data/Musique été"));
         settings.set_priority(&[SourceKind::YouTube, SourceKind::Local]);
         settings.set_enabled(SourceKind::Radio, false);

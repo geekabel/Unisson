@@ -100,6 +100,33 @@ The first build takes a few minutes. What the window offers so far:
 - **Player bar**: play, pause, previous, next, seek and volume. Space pauses
   and resumes. On a radio station, previous and next walk the favorites.
 
+### Desktop integration
+
+- **Media keys**: the Play, Previous and Next keys of the keyboard work from
+  any application, and GNOME shows the title with its buttons. This uses
+  [MPRIS](https://specifications.freedesktop.org/mpris-spec/latest/), the
+  standard D-Bus interface of media players.
+- **Tray icon**: an icon in the top bar opens a menu with what plays, the
+  transport buttons and the favorite stations. Closing the window keeps the
+  music going. Quit from that menu, or switch this off in *Sources*. On GNOME
+  the icon needs the AppIndicator extension, which Ubuntu enables by default.
+- **Mini-player**: a button of the player bar shrinks the window to a small
+  one that stays on top.
+- **Quick launcher**: a small search window that opens over the current work.
+  Type a few letters, press Enter, and playback starts. Open it with:
+
+  ```sh
+  unisson --lanceur
+  ```
+
+  When Unisson is already open, this command only talks to the running copy.
+  *Sources* can bind it to a GNOME keyboard shortcut, such as Ctrl+Alt+M.
+  The shortcut is a GNOME custom shortcut, so it also works under Wayland,
+  and it appears in the GNOME settings under *Keyboard*.
+- **Notifications**: a short message tells each new title, and each title a
+  radio station announces, when Unisson is not the window in front. A switch
+  in *Sources* turns them off.
+
 No Node.js is needed to build or run. It is only used to test the pure
 JavaScript helpers of the interface:
 
