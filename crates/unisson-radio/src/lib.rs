@@ -26,6 +26,7 @@
 
 mod client;
 mod favorites;
+mod probe;
 mod source;
 mod station;
 #[cfg(test)]
@@ -33,5 +34,6 @@ mod test_server;
 
 pub use client::{RadioBrowser, StationQuery};
 pub use favorites::Favorites;
+pub use probe::is_finite_file;
 pub use source::RadioSource;
 pub use station::Station;
