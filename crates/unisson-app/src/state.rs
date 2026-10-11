@@ -1,5 +1,6 @@
 //! What the application keeps alive while it runs.
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::Receiver;
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -33,6 +34,10 @@ pub struct AppState {
     pub sources: Arc<SourceRegistry>,
     /// The favorite stations, kept in memory. The database holds a copy.
     stations: Mutex<Favorites>,
+    /// The radio station listened to most recently.
+    last_radio: Mutex<Option<Media>>,
+    /// Whether that station takes over when the queue runs out.
+    resume_radio: AtomicBool,
 }
 
 impl AppState {
@@ -66,16 +71,23 @@ impl AppState {
         };
         let (session, events) = Session::start(engine, engine_events, resolver);
 
-        Ok((
-            Self {
-                session,
-                store,
-                radio,
-                sources,
-                stations: Mutex::new(stations),
-            },
-            events,
-        ))
+        // The station of the last session is the one to come back to.
+        let last_radio = store
+            .recently_played(HISTORY_DEPTH)?
+            .into_iter()
+            .find(|media| is_station(media) && crate::home::is_playable(media, &stations));
+
+        let state = Self {
+            session,
+            store,
+            radio,
+            sources,
+            stations: Mutex::new(stations),
+            last_radio: Mutex::new(last_radio),
+            resume_radio: AtomicBool::new(true),
+        };
+        state.apply_fallback();
+        Ok((state, events))
     }
 
     /// Gives access to the favorite stations.
@@ -107,6 +119,46 @@ impl AppState {
         self.store.save_favorite_stations(changed.stations())?;
         *stations = changed;
         Ok(result)
+    }
+
+    /// Returns the radio station listened to most recently, if any.
+    pub fn last_radio(&self) -> Option<Media> {
+        self.lock_last_radio().clone()
+    }
+
+    /// Tells whether the last radio station takes over when the queue runs
+    /// out.
+    pub fn resume_radio(&self) -> bool {
+        self.resume_radio.load(Ordering::Relaxed)
+    }
+
+    /// Chooses whether the last radio station takes over when the queue
+    /// runs out.
+    pub fn set_resume_radio(&self, enabled: bool) {
+        self.resume_radio.store(enabled, Ordering::Relaxed);
+        self.apply_fallback();
+    }
+
+    /// Records that a media started playing.
+    ///
+    /// A radio station becomes the one to come back to.
+    pub fn note_started(&self, media: &Media) {
+        if is_station(media) {
+            *self.lock_last_radio() = Some(media.clone());
+            self.apply_fallback();
+        }
+    }
+
+    /// Tells the session what plays when the queue runs out.
+    fn apply_fallback(&self) {
+        let fallback = self.last_radio().filter(|_| self.resume_radio());
+        self.session.set_fallback(fallback);
+    }
+
+    fn lock_last_radio(&self) -> MutexGuard<'_, Option<Media>> {
+        self.last_radio
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
     }
 
     /// Describes a playback state for the interface.
@@ -146,12 +198,17 @@ impl AppState {
     }
 }
 
+/// How far back in the history the last radio station is looked for.
+const HISTORY_DEPTH: usize = 200;
+
+/// Tells whether a media is a radio station.
+fn is_station(media: &Media) -> bool {
+    media.is_live() && media.id.source == SourceKind::Radio
+}
+
 /// Returns the radio station a snapshot is about, if any.
 fn live_station(snapshot: &Snapshot) -> Option<&Media> {
-    snapshot
-        .current
-        .as_ref()
-        .filter(|media| media.is_live() && media.id.source == SourceKind::Radio)
+    snapshot.current.as_ref().filter(|media| is_station(media))
 }
 
 /// Returns the index of the favorite to go to from the station `uuid`.

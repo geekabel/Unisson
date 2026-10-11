@@ -108,7 +108,7 @@ pub fn build(store: &Store, favorites: &Favorites) -> Result<HomeDto, StoreError
 ///
 /// A station added by address is unknown to the directory: once it has left
 /// the favorites, its address is lost.
-fn is_playable(media: &Media, favorites: &Favorites) -> bool {
+pub fn is_playable(media: &Media, favorites: &Favorites) -> bool {
     let lost = media.id.source == SourceKind::Radio
         && media.id.key.starts_with(Station::CUSTOM_PREFIX)
         && !favorites.contains(&media.id.key);

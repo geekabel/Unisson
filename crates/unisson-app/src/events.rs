@@ -23,6 +23,8 @@ pub const PLAYER_CHANGED: &str = "player:changed";
 pub const PLAYER_POSITION: &str = "player:position";
 /// The library of local files changed. No payload.
 pub const LIBRARY_CHANGED: &str = "library:changed";
+/// The play queue changed. No payload.
+pub const QUEUE_CHANGED: &str = "queue:changed";
 /// The favorite stations changed. No payload.
 pub const STATIONS_CHANGED: &str = "stations:changed";
 /// A media was added to the listening history. No payload.
@@ -43,7 +45,9 @@ pub fn forward_session_events(app: AppHandle, store: Arc<Store>, events: Receive
                 SessionEvent::Position { position, duration } => {
                     app.emit(PLAYER_POSITION, PositionDto::new(position, duration))
                 }
+                SessionEvent::QueueChanged => app.emit(QUEUE_CHANGED, ()),
                 SessionEvent::Started(media) => {
+                    app.state::<AppState>().note_started(&media);
                     match store.record_play(&media, SystemTime::now()) {
                         Ok(()) => app.emit(HISTORY_CHANGED, ()),
                         Err(error) => {

@@ -5,6 +5,7 @@
 import * as api from "./api.js";
 import { showNotice } from "./notice.js";
 import { renderPlayer, renderPosition } from "./player-bar.js";
+import { refreshQueue } from "./queue.js";
 import "./search-box.js";
 import { loadStations } from "./stations.js";
 import { refreshView, setPlayerState, showView } from "./views.js";
@@ -32,6 +33,7 @@ async function start() {
     api.onPlayerPosition(renderPosition),
     api.onLibraryChanged(() => refreshView("home")),
     api.onHistoryChanged(() => refreshView("home")),
+    api.onQueueChanged(refreshQueue),
     api.onStationsChanged(async () => {
       await loadStations();
       refreshView("home");
@@ -39,6 +41,7 @@ async function start() {
   ]);
   await loadStations();
   onPlayerChanged(await api.playerState());
+  refreshQueue();
   await showView("home");
 }
 

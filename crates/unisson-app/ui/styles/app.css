@@ -168,13 +168,15 @@ p {
 /* ---------- Layout ---------- */
 
 .app {
+  position: relative;
   display: grid;
-  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+  /* The last column is the queue panel: it has no width while hidden. */
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) auto;
   grid-template-rows: minmax(0, 1fr) auto auto;
   grid-template-areas:
-    "sidebar content"
-    "notice  notice"
-    "player  player";
+    "sidebar content queue"
+    "notice  notice  notice"
+    "player  player  player";
   height: 100%;
 }
 
@@ -836,6 +838,198 @@ kbd {
   gap: 6px;
 }
 
+/* ---------- Queue ---------- */
+
+.queue {
+  grid-area: queue;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 320px;
+  min-height: 0;
+  padding: 20px 16px 16px;
+  background: var(--color-panel);
+  border-left: 1px solid var(--color-border);
+}
+
+.queue-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.queue-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
+  /* Room for the focus ring of the rows. */
+  margin: 0 -8px;
+  padding: 0 8px;
+  overflow-y: auto;
+}
+
+.queue-body .group-title {
+  margin: 6px 0 0;
+}
+
+.queue-current {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: var(--color-hover);
+}
+
+.queue-current .icon {
+  width: 16px;
+  height: 16px;
+  color: var(--color-accent);
+  stroke-width: 2.4;
+}
+
+.queue-current .queue-title {
+  color: var(--color-accent);
+  font-weight: 500;
+}
+
+.queue-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.queue-row {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  border-radius: var(--radius);
+}
+
+.queue-row:hover,
+.queue-row:focus-within {
+  background: var(--color-surface);
+}
+
+.queue-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  min-height: 48px;
+  padding: 0 4px 0 10px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  text-align: left;
+}
+
+.queue-number {
+  flex: none;
+  width: 18px;
+  color: var(--color-text-muted);
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+/* The buttons only take room on the row being used. They are folded, not
+   removed, so that the keyboard can still reach them. */
+.queue-actions {
+  flex: none;
+  display: flex;
+  width: 0;
+  overflow: hidden;
+}
+
+.queue-row:hover .queue-actions,
+.queue-row:focus-within .queue-actions {
+  width: auto;
+  overflow: visible;
+}
+
+.queue-actions .icon-button {
+  width: 32px;
+  height: 40px;
+}
+
+.queue-actions .icon {
+  width: 16px;
+  height: 16px;
+}
+
+.queue-fallback {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 10px;
+  color: var(--color-text-muted);
+}
+
+.queue-fallback[data-active="true"] > .icon {
+  color: var(--color-live);
+}
+
+.queue-fallback .queue-title {
+  color: var(--color-text);
+}
+
+.switch {
+  flex: none;
+  display: flex;
+  align-items: center;
+  width: 44px;
+  height: 26px;
+  padding: 3px;
+  border: 0;
+  border-radius: 13px;
+  background: var(--color-border-strong);
+  transition: background 0.15s;
+}
+
+.switch-knob {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--color-text);
+  transition: transform 0.15s;
+}
+
+.switch[aria-checked="true"] {
+  background: var(--color-accent);
+}
+
+.switch[aria-checked="true"] .switch-knob {
+  background: var(--color-on-accent);
+  transform: translateX(18px);
+}
+
+.toggle-button[aria-pressed="true"] {
+  background: var(--color-hover);
+  color: var(--color-accent);
+}
+
+/* A window too narrow for three columns: the panel covers the content. */
+@media (max-width: 999px) {
+  .queue {
+    grid-area: content;
+    justify-self: end;
+    z-index: 1;
+    width: min(320px, 100%);
+    box-shadow: -12px 0 24px rgb(0 0 0 / 40%);
+  }
+}
+
 /* ---------- Notice ---------- */
 
 .notice {
@@ -1171,5 +1365,10 @@ kbd {
 @media (prefers-reduced-motion: reduce) {
   .spinner {
     animation-duration: 2.4s;
+  }
+
+  .switch,
+  .switch-knob {
+    transition: none;
   }
 }

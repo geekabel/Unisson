@@ -10,5 +10,6 @@
 
 pub mod home;
 pub mod player;
+pub mod queue;
 pub mod radio;
 pub mod search;

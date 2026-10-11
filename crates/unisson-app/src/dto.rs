@@ -14,7 +14,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use unisson_core::{Media, MediaId, MediaKind, SourceKind};
-use unisson_playback::{ErrorKind, PlaybackError, Snapshot, Status};
+use unisson_playback::{ErrorKind, PlaybackError, QueueView, Snapshot, Status};
 use unisson_radio::Station;
 
 fn to_milliseconds(duration: Duration) -> u64 {
@@ -243,6 +243,43 @@ impl From<&Snapshot> for SnapshotDto {
     }
 }
 
+/// The play queue, as the interface sees it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueueDto {
+    /// The selected media.
+    pub current: Option<MediaDto>,
+    /// The first media waiting to be played, the next one first.
+    pub upcoming: Vec<MediaDto>,
+    /// The number of media waiting, which may exceed what `upcoming` holds.
+    pub upcoming_total: usize,
+    /// The radio station listened to most recently.
+    pub last_radio: Option<MediaDto>,
+    /// Whether that station takes over when the queue runs out.
+    pub resume_radio: bool,
+}
+
+impl QueueDto {
+    /// Number of waiting media sent to the interface at most.
+    pub const UPCOMING_LIMIT: usize = 200;
+
+    /// Describes the queue for the interface.
+    pub fn new(queue: &QueueView, last_radio: Option<&Media>, resume_radio: bool) -> Self {
+        Self {
+            current: queue.current.as_ref().map(MediaDto::from),
+            upcoming: queue
+                .upcoming
+                .iter()
+                .take(Self::UPCOMING_LIMIT)
+                .map(MediaDto::from)
+                .collect(),
+            upcoming_total: queue.upcoming.len(),
+            last_radio: last_radio.map(MediaDto::from),
+            resume_radio,
+        }
+    }
+}
+
 /// The payload of the `player:position` event.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -405,6 +442,29 @@ mod tests {
             written["error"],
             json!({"kind": "network", "detail": "no route"})
         );
+    }
+
+    #[test]
+    fn a_long_queue_is_cut_but_its_length_is_kept() {
+        let many: Vec<Media> = (0..QueueDto::UPCOMING_LIMIT + 50)
+            .map(|index| Media::track(MediaId::new(SourceKind::Local, index.to_string()), "t"))
+            .collect();
+        let radio = Media::station(MediaId::new(SourceKind::Radio, "fip"), "FIP");
+        let queue = QueueView {
+            current: Some(sample_track()),
+            upcoming: many,
+            fallback: Some(radio.clone()),
+        };
+
+        let dto = QueueDto::new(&queue, Some(&radio), true);
+
+        assert_eq!(dto.upcoming.len(), QueueDto::UPCOMING_LIMIT);
+        assert_eq!(dto.upcoming_total, QueueDto::UPCOMING_LIMIT + 50);
+        let written = serde_json::to_value(&dto).unwrap();
+        assert_eq!(written["current"]["title"], "So What");
+        assert_eq!(written["lastRadio"]["title"], "FIP");
+        assert_eq!(written["resumeRadio"], true);
+        assert_eq!(written["upcomingTotal"], 250);
     }
 
     #[test]

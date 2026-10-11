@@ -22,6 +22,10 @@
   <symbol id="icon-muted" viewBox="0 0 24 24"><path d="M4 10v4h3l5 4V6l-5 4z"/><path d="M16 9.5l5 5M21 9.5l-5 5"/></symbol>
   <symbol id="icon-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></symbol>
   <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="icon-queue" viewBox="0 0 24 24"><path d="M4 7h12M4 12h12M4 17h7"/><path d="M16 15v5l4.5-2.5z"/></symbol>
+  <symbol id="icon-bars" viewBox="0 0 24 24"><path d="M6 15V9M12 19V5M18 16V8"/></symbol>
+  <symbol id="icon-up" viewBox="0 0 24 24"><path d="M6 14l6-6 6 6"/></symbol>
+  <symbol id="icon-down" viewBox="0 0 24 24"><path d="M6 10l6 6 6-6"/></symbol>
   <!-- Filled icons. -->
   <symbol id="icon-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
   <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></symbol>
@@ -69,6 +73,15 @@
     </form>
     <div class="view" id="view" tabindex="-1"></div>
   </main>
+
+  <aside class="queue" id="queue" aria-label="File d'attente" hidden>
+    <div class="queue-head">
+      <h2 class="section-title">File d'attente</h2>
+      <button class="text-button" id="queue-clear" type="button">Vider</button>
+    </div>
+    <div class="queue-body" id="queue-body"></div>
+    <div class="queue-fallback" id="queue-fallback"></div>
+  </aside>
 
   <div class="notice" id="notice" role="status" aria-live="polite" hidden>
     <span class="notice-text" id="notice-text"></span>
@@ -119,6 +132,10 @@
       </button>
       <input class="slider slider-volume" id="player-volume" type="range" min="0" max="100" step="1" value="100"
         aria-label="Volume">
+      <button class="icon-button toggle-button" id="player-queue" type="button"
+        aria-label="File d'attente" title="File d'attente" aria-pressed="false" aria-controls="queue">
+        <svg class="icon" aria-hidden="true"><use href="#icon-queue"/></svg>
+      </button>
     </div>
   </footer>
 

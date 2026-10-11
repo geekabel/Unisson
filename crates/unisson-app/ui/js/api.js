@@ -55,6 +55,13 @@
  * @property {Media[]} library
  * @property {number} libraryTotal
  *
+ * @typedef {object} Queue
+ * @property {?Media} current
+ * @property {Media[]} upcoming The first media waiting, the next one first.
+ * @property {number} upcomingTotal May exceed the length of `upcoming`.
+ * @property {?Media} lastRadio The radio listened to most recently.
+ * @property {boolean} resumeRadio Whether it takes over when the queue runs out.
+ *
  * @typedef {object} SearchUpdate
  * @property {{media: Media, sources: string[]}[]} hits The best match first.
  * @property {string[]} pending Sources still searching.
@@ -147,6 +154,37 @@ export const setVolume = (volume) => invoke("player_set_volume", { volume });
 /** @returns {Promise<Home>} */
 export const home = () => invoke("home");
 
+/** @returns {Promise<Queue>} */
+export const queueState = () => invoke("queue_state");
+
+/**
+ * Jumps to an upcoming media and plays it.
+ *
+ * @param {number} index Counted from the next media, starting at 0.
+ */
+export const queueJump = (index) => invoke("queue_jump", { index });
+
+/** @param {number} index Counted from the next media, starting at 0. */
+export const queueRemove = (index) => invoke("queue_remove", { index });
+
+/**
+ * Moves an upcoming media to another position.
+ *
+ * @param {number} from
+ * @param {number} to
+ */
+export const queueMove = (from, to) => invoke("queue_move", { from, to });
+
+/** Removes every upcoming media. */
+export const queueClear = () => invoke("queue_clear");
+
+/**
+ * Chooses whether the last radio takes over when the queue runs out.
+ *
+ * @param {boolean} enabled
+ */
+export const queueSetResumeRadio = (enabled) => invoke("queue_set_resume_radio", { enabled });
+
 /** @returns {Promise<Station[]>} The favorite stations, in the user's order. */
 export const stationsFavorites = () => invoke("stations_favorites");
 
@@ -194,6 +232,9 @@ export const onPlayerPosition = (handler) => on("player:position", handler);
 
 /** @param {() => void} handler */
 export const onLibraryChanged = (handler) => on("library:changed", handler);
+
+/** @param {() => void} handler */
+export const onQueueChanged = (handler) => on("queue:changed", handler);
 
 /** @param {() => void} handler */
 export const onStationsChanged = (handler) => on("stations:changed", handler);
