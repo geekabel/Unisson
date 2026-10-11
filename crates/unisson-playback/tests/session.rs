@@ -11,7 +11,7 @@ use unisson_audio::gst;
 use unisson_audio::gst::prelude::*;
 use unisson_audio::{Engine, Player};
 use unisson_core::{Media, MediaId, SourceError, SourceKind, StreamUri};
-use unisson_playback::{ErrorKind, Session, SessionEvent, Snapshot, Status};
+use unisson_playback::{ErrorKind, QueueView, Session, SessionEvent, Snapshot, Status};
 
 /// Longest time a test waits for something to happen.
 const WAIT: Duration = Duration::from_secs(10);
@@ -433,6 +433,143 @@ fn adding_to_an_idle_player_starts_playback() {
     let seen = fixture.wait_for(|event| matches!(event, SessionEvent::Started(_)));
     assert_eq!(started_titles(&seen), ["b"]);
     fixture.wait_for_state(ended("b"));
+}
+
+fn upcoming_titles(queue: &QueueView) -> Vec<&str> {
+    queue
+        .upcoming
+        .iter()
+        .map(|media| media.title.as_str())
+        .collect()
+}
+
+impl Fixture {
+    /// Waits for the queue to look as `wanted` says, and returns it.
+    fn wait_for_queue(&self, wanted: impl Fn(&QueueView) -> bool) -> QueueView {
+        let deadline = Instant::now() + WAIT;
+        loop {
+            let queue = self.session.queue();
+            if wanted(&queue) {
+                return queue;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "the queue never matched: {queue:#?}"
+            );
+            // Each change of the queue is announced.
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            let _ = self.events.recv_timeout(remaining);
+        }
+    }
+}
+
+#[test]
+fn the_queue_can_be_read_and_edited() {
+    let files: Vec<(&str, PathBuf)> = ["a", "b", "c", "d", "e"]
+        .into_iter()
+        .map(|key| (key, make_wav(&format!("edit-{key}.wav"), 10)))
+        .collect();
+    let fixture = Fixture::new(true, &files);
+    assert_eq!(fixture.session.queue(), QueueView::default());
+
+    let all = ["a", "b", "c", "d", "e"].map(track).to_vec();
+    fixture.session.play_list(all, 0);
+    let queue = fixture.wait_for_queue(|queue| queue.upcoming.len() == 4);
+    assert_eq!(
+        queue.current.as_ref().map(|media| media.title.as_str()),
+        Some("a")
+    );
+    assert_eq!(upcoming_titles(&queue), ["b", "c", "d", "e"]);
+
+    // Move "e" to the front, then remove "c".
+    fixture.session.move_item(3, 0);
+    fixture.session.remove(2);
+    let queue = fixture.wait_for_queue(|queue| queue.upcoming.len() == 3);
+    assert_eq!(upcoming_titles(&queue), ["e", "b", "d"]);
+
+    // Jump to "d": what was before it is skipped.
+    fixture.session.jump_to(2);
+    fixture.wait_for_state(playing("d"));
+    let queue = fixture.wait_for_queue(|queue| queue.upcoming.is_empty());
+    assert_eq!(
+        queue.current.as_ref().map(|media| media.title.as_str()),
+        Some("d")
+    );
+
+    // Out of range: nothing changes.
+    fixture.session.jump_to(5);
+    fixture.session.remove(5);
+    fixture.session.move_item(0, 5);
+    fixture.session.enqueue(track("a"));
+    fixture.session.enqueue(track("b"));
+    fixture.wait_for_queue(|queue| queue.upcoming.len() == 2);
+
+    // Clearing keeps what plays.
+    fixture.session.clear_queue();
+    let queue = fixture.wait_for_queue(|queue| queue.upcoming.is_empty());
+    assert_eq!(
+        queue.current.as_ref().map(|media| media.title.as_str()),
+        Some("d")
+    );
+    assert_eq!(fixture.session.snapshot().status, Status::Playing);
+    assert!(!fixture.session.snapshot().has_next);
+}
+
+#[test]
+fn queue_changes_are_announced_once_each() {
+    let fixture = Fixture::new(true, &[("a", make_wav("announce.wav", 10))]);
+    fixture.session.play_list(vec![track("a")], 0);
+    fixture.wait_for_state(playing("a"));
+    // Let the first position events pass.
+    fixture.wait_for(|event| matches!(event, SessionEvent::Position { .. }));
+
+    fixture.session.enqueue(track("a"));
+    let seen = fixture.wait_for(|event| *event == SessionEvent::QueueChanged);
+    assert_eq!(
+        seen.iter()
+            .filter(|event| **event == SessionEvent::QueueChanged)
+            .count(),
+        1
+    );
+
+    // Pausing changes the state, not the queue.
+    fixture.session.pause();
+    let seen = fixture.wait_for(|event| matches!(event, SessionEvent::Position { .. }));
+    assert!(!seen.contains(&SessionEvent::QueueChanged), "{seen:#?}");
+}
+
+#[test]
+fn the_fallback_plays_when_the_queue_runs_out() {
+    let fixture = Fixture::new(
+        false,
+        &[
+            ("a", make_wav("fallback-a.wav", 1)),
+            ("b", make_wav("fallback-b.wav", 1)),
+            ("radio", make_wav("fallback-radio.wav", 1)),
+        ],
+    );
+    fixture.session.set_fallback(Some(track("radio")));
+    let queue = fixture.wait_for_queue(|queue| queue.fallback.is_some());
+    assert_eq!(queue.fallback.unwrap().title, "radio");
+
+    fixture.session.play_list(vec![track("a"), track("b")], 0);
+
+    // "a", then "b", then the fallback, with no order from outside.
+    let seen = fixture
+        .wait_for(|event| matches!(event, SessionEvent::Started(media) if media.title == "radio"));
+    assert_eq!(started_titles(&seen), ["a", "b", "radio"]);
+    let snapshot = fixture.session.snapshot();
+    assert_eq!(title(&snapshot), Some("radio"));
+    assert!(snapshot.has_previous, "what played before is kept behind");
+
+    // Without a fallback, playback stops at the end of the queue.
+    fixture.session.set_fallback(None);
+    fixture.wait_for_queue(|queue| queue.fallback.is_none());
+    fixture.session.play_list(vec![track("a")], 0);
+    let end = fixture.wait_for_state(|snapshot| {
+        snapshot.status == Status::Stopped && title(snapshot) == Some("a")
+    });
+    assert_eq!(end.error, None);
 }
 
 #[test]

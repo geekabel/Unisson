@@ -86,6 +86,18 @@ pub struct Snapshot {
     pub error: Option<PlaybackError>,
 }
 
+/// The play queue at one moment, as the outside sees it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct QueueView {
+    /// The selected media.
+    pub current: Option<Media>,
+    /// The media waiting to be played, the next one first.
+    pub upcoming: Vec<Media>,
+    /// What plays when the queue runs out, if anything. See
+    /// [`Session::set_fallback`](crate::Session::set_fallback).
+    pub fallback: Option<Media>,
+}
+
 impl Default for Snapshot {
     fn default() -> Self {
         Self {

@@ -27,7 +27,7 @@ use std::time::Duration;
 use unisson_audio::{Engine, EngineEvent, PlaybackState};
 use unisson_core::{Media, MediaId, PlayQueue, SourceError, StreamUri};
 
-use crate::snapshot::{ErrorKind, PlaybackError, Snapshot, Status};
+use crate::snapshot::{ErrorKind, PlaybackError, QueueView, Snapshot, Status};
 
 /// Turns a media into the address to play.
 ///
@@ -51,6 +51,9 @@ pub enum SessionEvent {
         /// Total duration, when it is known.
         duration: Option<Duration>,
     },
+    /// The queue changed: its content, its order, or what plays when it
+    /// runs out. Read it with [`Session::queue`].
+    QueueChanged,
     /// The sound of a media started. Sent once per media played: this is
     /// the moment to add it to the listening history.
     Started(Media),
@@ -65,6 +68,14 @@ enum Message {
     PlayNow(Media),
     PlayNext(Media),
     Enqueue(Media),
+    JumpTo(usize),
+    Remove(usize),
+    Move {
+        from: usize,
+        to: usize,
+    },
+    ClearQueue,
+    SetFallback(Option<Media>),
     Pause,
     Resume,
     Toggle,
@@ -113,6 +124,7 @@ enum Message {
 pub struct Session {
     messages: Sender<Message>,
     shared: Arc<Mutex<Snapshot>>,
+    shared_queue: Arc<Mutex<QueueView>>,
     threads: Vec<JoinHandle<()>>,
 }
 
@@ -133,6 +145,7 @@ impl Session {
         let (messages, inbox) = mpsc::channel();
         let (events, outbox) = mpsc::channel();
         let shared = Arc::new(Mutex::new(Snapshot::default()));
+        let shared_queue = Arc::new(Mutex::new(QueueView::default()));
 
         let worker = Worker {
             engine,
@@ -140,6 +153,8 @@ impl Session {
             messages: messages.clone(),
             events,
             shared: Arc::clone(&shared),
+            shared_queue: Arc::clone(&shared_queue),
+            fallback: None,
             queue: PlayQueue::new(),
             snapshot: Snapshot::default(),
             ticket: 0,
@@ -171,6 +186,7 @@ impl Session {
             Self {
                 messages,
                 shared,
+                shared_queue,
                 threads: vec![session_thread, engine_thread],
             },
             outbox,
@@ -180,6 +196,11 @@ impl Session {
     /// Returns the current state.
     pub fn snapshot(&self) -> Snapshot {
         lock(&self.shared).clone()
+    }
+
+    /// Returns the queue: the selected media and what plays after it.
+    pub fn queue(&self) -> QueueView {
+        lock(&self.shared_queue).clone()
     }
 
     /// Replaces the queue with `items`, and plays `items[start]`.
@@ -212,6 +233,39 @@ impl Session {
     /// the media starts right away.
     pub fn enqueue(&self, media: Media) {
         self.send(Message::Enqueue(media));
+    }
+
+    /// Jumps to an upcoming media, and plays it.
+    ///
+    /// `index` counts from the next media, starting at 0. The media before
+    /// it are removed from the queue. Nothing happens if `index` is out of
+    /// range.
+    pub fn jump_to(&self, index: usize) {
+        self.send(Message::JumpTo(index));
+    }
+
+    /// Removes an upcoming media. `index` counts from the next media.
+    pub fn remove(&self, index: usize) {
+        self.send(Message::Remove(index));
+    }
+
+    /// Moves an upcoming media to another position. Both indexes count from
+    /// the next media.
+    pub fn move_item(&self, from: usize, to: usize) {
+        self.send(Message::Move { from, to });
+    }
+
+    /// Removes every upcoming media. The current one keeps playing.
+    pub fn clear_queue(&self) {
+        self.send(Message::ClearQueue);
+    }
+
+    /// Chooses what plays when the last media of the queue ends.
+    ///
+    /// It is meant for a radio station: with one, playback never stops by
+    /// itself. With `None`, playback stops at the end of the queue.
+    pub fn set_fallback(&self, fallback: Option<Media>) {
+        self.send(Message::SetFallback(fallback));
     }
 
     /// Suspends playback.
@@ -266,8 +320,9 @@ impl Drop for Session {
     }
 }
 
-fn lock(shared: &Mutex<Snapshot>) -> MutexGuard<'_, Snapshot> {
-    // A snapshot is always valid, even if a thread panicked while holding it.
+fn lock<T>(shared: &Mutex<T>) -> MutexGuard<'_, T> {
+    // A copy of the state is always valid, even if a thread panicked while
+    // holding it.
     shared
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -282,6 +337,10 @@ struct Worker {
     events: Sender<SessionEvent>,
     /// The copy of the state read by [`Session::snapshot`].
     shared: Arc<Mutex<Snapshot>>,
+    /// The copy of the queue read by [`Session::queue`].
+    shared_queue: Arc<Mutex<QueueView>>,
+    /// What plays when the queue runs out.
+    fallback: Option<Media>,
     queue: PlayQueue,
     snapshot: Snapshot,
     /// Number of the last media chosen.
@@ -318,6 +377,27 @@ impl Worker {
                 Message::Enqueue(media) => {
                     self.queue.push_back(media);
                     self.queue_grew();
+                }
+                Message::JumpTo(index) => {
+                    if let Some(media) = self.queue.jump_to(index).cloned() {
+                        self.start(media);
+                    }
+                }
+                Message::Remove(index) => {
+                    self.queue.remove(index);
+                    self.publish();
+                }
+                Message::Move { from, to } => {
+                    self.queue.move_item(from, to);
+                    self.publish();
+                }
+                Message::ClearQueue => {
+                    self.queue.clear();
+                    self.publish();
+                }
+                Message::SetFallback(fallback) => {
+                    self.fallback = fallback;
+                    self.publish();
                 }
                 Message::Pause => self.pause(),
                 Message::Resume => self.resume(),
@@ -492,6 +572,16 @@ impl Worker {
             self.next();
             return;
         }
+        // The queue ran out: carry on with the fallback, if there is one.
+        // Never restart what just ended: that would loop for ever.
+        let ended = self.queue.current().map(|media| &media.id);
+        if let Some(fallback) = self.fallback.clone()
+            && ended != Some(&fallback.id)
+        {
+            let media = self.queue.play_now(fallback).clone();
+            self.start(media);
+            return;
+        }
         // Keep the last media selected, so "play" starts it again.
         self.at_end = true;
         self.engine_is_current = false;
@@ -583,6 +673,28 @@ impl Worker {
         self.snapshot.has_next = self.queue.upcoming().len() > 0;
         lock(&self.shared).clone_from(&self.snapshot);
         self.emit(SessionEvent::Changed(self.snapshot.clone()));
+        self.publish_queue();
+    }
+
+    /// Makes the queue visible and reports it, if it changed.
+    ///
+    /// Comparing is cheaper than tracking every place that touches the
+    /// queue, and it cannot miss one.
+    fn publish_queue(&mut self) {
+        let mut shared = lock(&self.shared_queue);
+        let unchanged = shared.current.as_ref() == self.queue.current()
+            && shared.fallback == self.fallback
+            && shared.upcoming.iter().eq(self.queue.upcoming());
+        if unchanged {
+            return;
+        }
+        *shared = QueueView {
+            current: self.queue.current().cloned(),
+            upcoming: self.queue.upcoming().cloned().collect(),
+            fallback: self.fallback.clone(),
+        };
+        drop(shared);
+        self.emit(SessionEvent::QueueChanged);
     }
 
     fn emit(&self, event: SessionEvent) {

@@ -17,4 +17,4 @@ mod session;
 mod snapshot;
 
 pub use session::{Resolver, Session, SessionEvent};
-pub use snapshot::{ErrorKind, PlaybackError, Snapshot, Status};
+pub use snapshot::{ErrorKind, PlaybackError, QueueView, Snapshot, Status};
