@@ -4182,6 +4182,7 @@ dependencies = [
  "unisson-playback",
  "unisson-radio",
  "unisson-store",
+ "unisson-youtube",
 ]
 
 [[package]]
@@ -4230,6 +4231,16 @@ dependencies = [
  "unisson-core",
  "unisson-local",
  "unisson-radio",
+]
+
+[[package]]
+name = "unisson-youtube"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "serde_json",
+ "unisson-audio",
+ "unisson-core",
 ]
 
 [[package]]
