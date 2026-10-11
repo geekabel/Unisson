@@ -125,7 +125,30 @@ The first build takes a few minutes. What the window offers so far:
   and it appears in the GNOME settings under *Keyboard*.
 - **Notifications**: a short message tells each new title, and each title a
   radio station announces, when Unisson is not the window in front. A switch
-  in *Sources* turns them off.
+  in *Sources* turns them off. A playback that stops on a failure is told the
+  same way.
+
+### Keyboard, colors and text size
+
+Every control can be reached with Tab, and shows a ring when it has the
+keyboard. The shortcuts of the main window:
+
+| Keys | Action |
+| --- | --- |
+| Space | Play or pause |
+| Ctrl+Right, Ctrl+Left | Next track, previous track |
+| Ctrl+Up, Ctrl+Down | Volume up, volume down |
+| Ctrl+K, or / | Go to the search field |
+| Alt+1 to Alt+5 | Home, Radios, Favorites, History, Sources |
+| F6, Shift+F6 | Jump to the next or previous zone of the window |
+| Ctrl++, Ctrl+-, Ctrl+0 | Larger display, smaller display, normal size |
+
+The same list is at the bottom of the *Sources* screen.
+
+The interface has a dark and a light theme. By default it follows the desktop.
+*Sources* has a choice to keep one of them. The colors of both themes are
+checked against the contrast rules of WCAG 2.1 (level AA) by
+`ui-tests/contrast.test.mjs`.
 
 No Node.js is needed to build or run. It is only used to test the pure
 JavaScript helpers of the interface:

@@ -30,6 +30,7 @@ use tauri::{AppHandle, Emitter, Manager, WebviewUrl, WebviewWindow, WebviewWindo
 use crate::events::LAUNCHER_OPENED;
 use crate::shortcut::LAUNCHER_ARGUMENT;
 
+use crate::settings::ThemeChoice;
 use crate::state::AppState;
 use crate::tray::Tray;
 
@@ -49,6 +50,22 @@ pub const LAUNCHER: &str = "launcher";
 /// they cannot see.
 pub fn keeps_running_when_closed(app: &AppHandle) -> bool {
     app.try_state::<Tray>().is_some() && app.state::<AppState>().settings().keep_in_tray
+}
+
+/// Gives the windows the colors the user chose: their title bar follows,
+/// and so does what the pages read as "the theme of the desktop".
+///
+/// GTK keeps this setting for the whole application, so asking it of the
+/// main window is enough, and windows created later inherit it.
+pub fn apply_theme(app: &AppHandle) {
+    let theme = match app.state::<AppState>().settings().theme {
+        ThemeChoice::System => None,
+        ThemeChoice::Dark => Some(tauri::Theme::Dark),
+        ThemeChoice::Light => Some(tauri::Theme::Light),
+    };
+    if let Some(window) = app.get_webview_window(MAIN) {
+        let _ = window.set_theme(theme);
+    }
 }
 
 /// Brings the main window back in front of the user, and puts the

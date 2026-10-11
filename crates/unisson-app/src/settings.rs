@@ -11,6 +11,7 @@
 //! resume_radio = true
 //! keep_in_tray = true
 //! notifications = true
+//! theme = "system"
 //! music_folder = "/home/me/Music"
 //!
 //! [sources]
@@ -42,6 +43,8 @@ pub struct Settings {
     pub keep_in_tray: bool,
     /// Whether a desktop notification tells each new title.
     pub notifications: bool,
+    /// The colors of the interface.
+    pub theme: ThemeChoice,
     /// The folder of the local library. `None` means the music folder of
     /// the desktop.
     pub music_folder: Option<PathBuf>,
@@ -50,6 +53,37 @@ pub struct Settings {
     pub priority: Vec<SourceKind>,
     /// The sources that are switched off: they are not searched.
     pub disabled: Vec<SourceKind>,
+}
+
+/// The colors of the interface: those of the desktop, or a fixed choice.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum ThemeChoice {
+    /// Dark or light, like the desktop.
+    #[default]
+    System,
+    /// Always dark.
+    Dark,
+    /// Always light.
+    Light,
+}
+
+impl ThemeChoice {
+    /// Every choice, in the order the settings screen lists them.
+    pub const ALL: [Self; 3] = [Self::System, Self::Dark, Self::Light];
+
+    /// Returns the name used in the settings file and by the interface.
+    pub fn id(self) -> &'static str {
+        match self {
+            Self::System => "system",
+            Self::Dark => "dark",
+            Self::Light => "light",
+        }
+    }
+
+    /// Finds a choice from its [`id`](Self::id).
+    pub fn from_id(id: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|choice| choice.id() == id)
+    }
 }
 
 /// The preferred order of the sources when the user chose none.
@@ -65,6 +99,7 @@ impl Default for Settings {
             resume_radio: true,
             keep_in_tray: true,
             notifications: true,
+            theme: ThemeChoice::System,
             music_folder: None,
             priority: DEFAULT_PRIORITY.to_vec(),
             disabled: Vec::new(),
@@ -92,6 +127,7 @@ struct SettingsFile {
     resume_radio: Option<bool>,
     keep_in_tray: Option<bool>,
     notifications: Option<bool>,
+    theme: Option<String>,
     music_folder: Option<PathBuf>,
     #[serde(default)]
     sources: SourcesFile,
@@ -205,6 +241,11 @@ impl Settings {
             resume_radio: file.resume_radio.unwrap_or(defaults.resume_radio),
             keep_in_tray: file.keep_in_tray.unwrap_or(defaults.keep_in_tray),
             notifications: file.notifications.unwrap_or(defaults.notifications),
+            theme: file
+                .theme
+                .as_deref()
+                .and_then(|id| ThemeChoice::from_id(id.trim()))
+                .unwrap_or(defaults.theme),
             // A relative folder would depend on where the program starts.
             music_folder: file.music_folder.filter(|folder| folder.is_absolute()),
             priority: complete_priority(&known(&file.sources.priority)),
@@ -219,6 +260,7 @@ impl Settings {
             resume_radio: Some(self.resume_radio),
             keep_in_tray: Some(self.keep_in_tray),
             notifications: Some(self.notifications),
+            theme: Some(self.theme.id().to_owned()),
             music_folder: self.music_folder.clone(),
             sources: SourcesFile {
                 priority: ids(&self.priority),
@@ -293,6 +335,7 @@ mod tests {
         settings.resume_radio = false;
         settings.keep_in_tray = false;
         settings.notifications = false;
+        settings.theme = ThemeChoice::Light;
         settings.music_folder = Some(PathBuf::from("/data/Musique été"));
         settings.set_priority(&[SourceKind::YouTube, SourceKind::Local]);
         settings.set_enabled(SourceKind::Radio, false);

@@ -8,8 +8,10 @@ use unisson_core::SourceKind;
 use crate::dto::CommandError;
 use crate::events::SETTINGS_CHANGED;
 use crate::library::LibrarySync;
+use crate::settings::ThemeChoice;
 use crate::shortcut;
 use crate::state::AppState;
+use crate::windows;
 
 /// One source, as the settings screen shows it.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -43,6 +45,8 @@ pub struct SettingsDto {
     pub keep_in_tray: bool,
     /// Whether a desktop notification tells each new title.
     pub notifications: bool,
+    /// The colors of the interface: `system`, `dark` or `light`.
+    pub theme: &'static str,
     /// Where the settings are saved.
     pub config_path: Option<String>,
     /// The version of the yt-dlp program, which YouTube needs. `None` when
@@ -108,6 +112,7 @@ fn describe(state: &AppState) -> Result<SettingsDto, CommandError> {
         resume_radio: settings.resume_radio,
         keep_in_tray: settings.keep_in_tray,
         notifications: settings.notifications,
+        theme: settings.theme.id(),
         config_path: state
             .settings_path()
             .map(|path| path.to_string_lossy().into_owned()),
@@ -213,6 +218,29 @@ pub fn settings_set_keep_in_tray(
     enabled: bool,
 ) -> Result<SettingsDto, CommandError> {
     state.update_settings(|settings| settings.keep_in_tray = enabled)?;
+    changed(&app, &state)
+}
+
+/// Returns the colors of the interface: `system`, `dark` or `light`.
+///
+/// Every window asks this when it opens. It is much cheaper than
+/// [`settings_get`], which looks at the desktop and at yt-dlp.
+#[tauri::command]
+pub fn settings_theme(state: State<'_, AppState>) -> &'static str {
+    state.settings().theme.id()
+}
+
+/// Chooses the colors of the interface: `system`, `dark` or `light`.
+#[tauri::command(async)]
+pub fn settings_set_theme(
+    app: AppHandle,
+    state: State<'_, AppState>,
+    theme: String,
+) -> Result<SettingsDto, CommandError> {
+    let choice = ThemeChoice::from_id(&theme)
+        .ok_or_else(|| CommandError::invalid(format!("unknown theme: {theme}")))?;
+    state.update_settings(|settings| settings.theme = choice)?;
+    windows::apply_theme(&app);
     changed(&app, &state)
 }
 

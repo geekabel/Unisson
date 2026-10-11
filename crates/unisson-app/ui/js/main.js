@@ -9,6 +9,7 @@ import { renderPlayer, renderPosition } from "./player-bar.js";
 import { drawPlaylistsSidebar, loadPlaylists } from "./playlists.js";
 import { refreshQueue } from "./queue.js";
 import "./search-box.js";
+import "./shortcuts.js";
 import { loadSettings } from "./settings.js";
 import { loadStations } from "./stations.js";
 import { onViewChange, refreshView, setPlayerState, showView } from "./views.js";
@@ -18,16 +19,6 @@ function onPlayerChanged(snapshot) {
   renderPlayer(snapshot);
   setPlayerState(snapshot);
 }
-
-document.addEventListener("keydown", (event) => {
-  const typing = event.target instanceof HTMLInputElement && event.target.type !== "range";
-  const onControl = event.target instanceof HTMLButtonElement || event.target instanceof HTMLSelectElement;
-  if (event.key === " " && !typing && !onControl) {
-    // Space plays or pauses, unless it is typed or activates a control.
-    event.preventDefault();
-    api.toggle();
-  }
-});
 
 // The sidebar highlights the playlist on screen.
 onViewChange(drawPlaylistsSidebar);

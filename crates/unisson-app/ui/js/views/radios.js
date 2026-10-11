@@ -9,7 +9,7 @@
 
 import * as api from "../api.js";
 import { iconButton, section } from "../components.js";
-import { element, icon } from "../dom.js";
+import { element, icon, replaceKeepingFocus } from "../dom.js";
 import {
   countryName,
   mediaKey,
@@ -146,7 +146,7 @@ function drawLive() {
     : streamTitle
       ? `À l'antenne : ${streamTitle}`
       : "Le titre à l'antenne n'est pas annoncé.";
-  liveArea.replaceChildren(
+  replaceKeepingFocus(liveArea,
     element("div", { class: "live-card" }, [
       element("div", { class: "live-card-cover" }, [icon("radio")]),
       element("div", { class: "live-card-text" }, [
@@ -195,7 +195,7 @@ function drawFavorites() {
       ]),
     );
   }
-  favoritesArea.replaceChildren(...content);
+  replaceKeepingFocus(favoritesArea, ...content);
   markPlaying();
 }
 
@@ -219,7 +219,7 @@ function drawResults() {
       })),
     ];
   }
-  resultsArea.replaceChildren(...content);
+  replaceKeepingFocus(resultsArea, ...content);
   markPlaying();
 }
 
@@ -390,7 +390,7 @@ function criteriaForm() {
 
   const tags = element("div", { class: "filter-chips", role: "group", "aria-label": "Genre" });
   const drawTags = () => {
-    tags.replaceChildren(
+    replaceKeepingFocus(tags,
       ...TAGS.map(([label, tag]) => {
         const chip = element(
           "button",

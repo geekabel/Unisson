@@ -76,7 +76,7 @@
 
 .launcher-entry[aria-selected="true"] {
   background: var(--color-hover);
-  box-shadow: inset 3px 0 0 var(--color-accent);
+  box-shadow: inset 3px 0 0 var(--color-accent-ink);
 }
 
 .launcher-entry kbd {

@@ -23,6 +23,7 @@ import {
   openErrorMessage,
   playbackErrorMessage,
   playbackProblem,
+  resolveTheme,
   skippedMessage,
   searchSummary,
   sourceLabel,
@@ -254,4 +255,14 @@ test("a skipped media is told with its title and the reason", () => {
   );
   assert.match(skippedMessage({ title: "A" }, { kind: "unsupported" }), /format non pris en charge/);
   assert.match(skippedMessage({ title: "A" }, { kind: "surprise" }), /lecture impossible/);
+});
+
+test("the theme follows the desktop unless the user chose one", () => {
+  assert.equal(resolveTheme("system", true), "light");
+  assert.equal(resolveTheme("system", false), "dark");
+  assert.equal(resolveTheme("dark", true), "dark");
+  assert.equal(resolveTheme("light", false), "light");
+  // A value from an old or hand-edited file counts as "like the desktop".
+  assert.equal(resolveTheme("sepia", false), "dark");
+  assert.equal(resolveTheme(null, true), "light");
 });

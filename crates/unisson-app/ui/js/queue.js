@@ -7,7 +7,7 @@
 
 import * as api from "./api.js";
 import { iconButton, sourceBadge } from "./components.js";
-import { byId, element, icon } from "./dom.js";
+import { byId, element, icon, replaceKeepingFocus } from "./dom.js";
 import { countLabel, mediaSubtitle } from "./format.js";
 
 /** Where the choice to show or hide the panel is remembered. */
@@ -102,7 +102,7 @@ async function draw() {
       );
     }
   }
-  body.replaceChildren(...content);
+  replaceKeepingFocus(body, ...content);
   drawFallback(queue);
 
   if (focusAfterDraw) {
@@ -197,7 +197,7 @@ function drawFallback(queue) {
     content.push(toggle);
   }
   fallback.dataset.active = String(Boolean(radio) && queue.resumeRadio);
-  fallback.replaceChildren(...content);
+  replaceKeepingFocus(fallback, ...content);
 }
 
 toggleButton.addEventListener("click", () => setOpen(panel.hidden));

@@ -45,7 +45,7 @@
 
 .mini-badge {
   padding: 1px 6px;
-  font-size: 10px;
+  font-size: 12px;
 }
 
 .mini-divider {
@@ -65,7 +65,7 @@
   /* Set from JavaScript, from 0% to 100%. */
   width: var(--fill, 0%);
   height: 100%;
-  background: var(--color-accent);
+  background: var(--color-accent-ink);
 }
 
 /* A live stream has no position: the bar is full, in the color of "live". */

@@ -8,7 +8,7 @@
 
 import * as api from "../api.js";
 import { iconButton, listButton, mediaRow, sourceBadge } from "../components.js";
-import { element, icon } from "../dom.js";
+import { element, icon, replaceKeepingFocus } from "../dom.js";
 import {
   countLabel,
   matchesText,
@@ -352,7 +352,7 @@ function drawFilters() {
       ]),
     );
   }
-  filtersArea.replaceChildren(...groups);
+  replaceKeepingFocus(filtersArea, ...groups);
 }
 
 function drawResults() {
@@ -406,7 +406,7 @@ function drawResults() {
       group("Listes", playlists.map((playlist, index) => playlistRow(playlist, hits.length + index))),
     );
   }
-  resultsArea.replaceChildren(...content);
+  replaceKeepingFocus(resultsArea, ...content);
 }
 
 /**

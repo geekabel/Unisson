@@ -8,6 +8,7 @@ import { iconButton, section } from "../components.js";
 import { element, icon } from "../dom.js";
 import { countLabel, displayPath, moved, sourceName } from "../format.js";
 import { showNotice } from "../notice.js";
+import { SHORTCUT_GROUPS } from "../shortcut-list.js";
 import { currentSettings, onSettingsChange, useSettings } from "../settings.js";
 
 const SOURCE_ICONS = { radio: "radio", local: "folder", youtube: "video" };
@@ -90,7 +91,9 @@ function draw() {
         onChange: (checked) => api.settingsSetNotifications(checked),
       }),
     ]),
+    section("Apparence", [themeSetting(settings.theme)]),
     section("Lanceur rapide", shortcutSettings(settings.shortcut)),
+    section("Raccourcis clavier", shortcutHelp()),
     settings.configPath
       ? element("p", { class: "section-note" }, [
           `Réglages enregistrés dans ${displayPath(settings.configPath)}`,
@@ -100,6 +103,52 @@ function draw() {
   if (focused) {
     area.querySelector(`[data-focus-key="${focused}"]`)?.focus();
   }
+}
+
+/** Builds the list of the keyboard shortcuts of the main window. */
+function shortcutHelp() {
+  return SHORTCUT_GROUPS.map((group) => {
+    return element("div", { class: "shortcut-group" }, [
+      element("h3", { class: "group-title" }, [group.title]),
+      element("dl", { class: "shortcut-list" }, group.items.flatMap((item) => [
+        element("dt", {}, item.keys.flatMap((keys, index) => [
+          index > 0 ? " " : null,
+          element("kbd", {}, [keys.join(" ")]),
+        ])),
+        element("dd", {}, [item.text]),
+      ])),
+    ]);
+  });
+}
+
+/** The themes offered, with their name for the user. */
+const THEMES = [
+  ["system", "Comme le système"],
+  ["dark", "Sombre"],
+  ["light", "Clair"],
+];
+
+/**
+ * Builds the choice of the colors of the interface.
+ *
+ * @param {string} theme The current choice.
+ */
+function themeSetting(theme) {
+  const select = /** @type {HTMLSelectElement} */ (
+    element("select", { class: "field field-compact", "aria-labelledby": "theme-label", "data-focus-key": "theme" },
+      THEMES.map(([id, name]) => element("option", { value: id }, [name])))
+  );
+  select.value = THEMES.some(([id]) => id === theme) ? theme : "system";
+  select.addEventListener("change", () => apply(() => api.settingsSetTheme(select.value)));
+  return element("div", { class: "setting-row" }, [
+    element("span", { class: "station-text" }, [
+      element("span", { class: "setting-label", id: "theme-label" }, ["Thème"]),
+      element("span", { class: "station-detail" }, [
+        "« Comme le système » suit le style clair ou sombre choisi dans les réglages du bureau.",
+      ]),
+    ]),
+    select,
+  ]);
 }
 
 /**

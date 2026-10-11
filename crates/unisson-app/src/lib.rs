@@ -65,6 +65,7 @@ pub fn run() {
             let store = Arc::clone(&state.store);
             let music_folder = state.music_folder();
             app.manage(state);
+            windows::apply_theme(app.handle());
 
             let handle = app.handle();
             app.manage(Mpris::start(handle.clone()));
@@ -178,6 +179,8 @@ pub fn run() {
             commands::settings::settings_check_yt_dlp,
             commands::settings::settings_set_keep_in_tray,
             commands::settings::settings_set_notifications,
+            commands::settings::settings_theme,
+            commands::settings::settings_set_theme,
             commands::settings::settings_install_shortcut,
             commands::settings::settings_remove_shortcut,
             commands::window::window_show_main,

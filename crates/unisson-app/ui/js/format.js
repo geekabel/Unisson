@@ -300,6 +300,22 @@ export function fillPercent(value, max) {
 }
 
 /**
+ * Tells which colors to use, from the choice of the user and from the
+ * theme of the desktop.
+ *
+ * @param {string} choice `system`, `dark` or `light`. Anything else counts
+ *   as `system`.
+ * @param {boolean} desktopIsLight Whether the desktop uses a light theme.
+ * @returns {"dark"|"light"}
+ */
+export function resolveTheme(choice, desktopIsLight) {
+  if (choice === "dark" || choice === "light") {
+    return choice;
+  }
+  return desktopIsLight ? "light" : "dark";
+}
+
+/**
  * What to tell the user when a playback fails: a sentence, and the way out
  * that fits best.
  *

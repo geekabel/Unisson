@@ -18,7 +18,17 @@
   --color-text: #EDF1F4;
   --color-text-soft: #C5CED6;
   --color-text-muted: #A9B4BF;
+  /* The edge of a control that has no fill of its own: a field, a chip,
+   * a switch that is off. It needs more contrast than a decorative line. */
+  --color-control: #74828F;
+  /* The knob of a switch, over `--color-control` or over the accent. */
+  --color-knob: #EDF1F4;
+  /* The accent comes in two roles. As a fill, under dark text, it is the
+   * same amber in both themes. As "ink" (text, icons, lines, the focus
+   * ring) it must stand out from the background, so the light theme uses a
+   * darker shade. */
   --color-accent: #F5B841;
+  --color-accent-ink: #F5B841;
   --color-on-accent: #1A1300;
   --color-live: #6FD3C7;
   --color-danger: #FF9B8A;
@@ -27,6 +37,7 @@
   --color-source-radio: #2F5D62;
   --color-source-local: #5A4A7A;
   --color-source-youtube: #7A4B3B;
+  --color-on-source: #E3E8EC;
 
   --font-text: "Ubuntu", "Noto Sans", "DejaVu Sans", sans-serif;
   --font-mono: "Ubuntu Mono", "DejaVu Sans Mono", monospace;
@@ -35,6 +46,45 @@
   --target: 44px;
   --radius: 8px;
   --sidebar-width: 220px;
+}
+
+/* The light theme. The `data-theme` attribute is set by `js/theme.js`,
+ * from the choice of the user or from the theme of the desktop. */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --color-bg: #F4F5F7;
+  --color-panel: #EAEDF0;
+  --color-surface: #FFFFFF;
+  --color-hover: #DDE2E7;
+  --color-border: #D0D6DC;
+  --color-border-strong: #B4BDC6;
+  --color-control: #6B7785;
+  --color-knob: #FFFFFF;
+  --color-text: #14181C;
+  --color-text-soft: #2E363E;
+  --color-text-muted: #4A5560;
+  --color-accent: #F2B137;
+  --color-accent-ink: #7A4F00;
+  --color-on-accent: #1A1300;
+  --color-live: #0B6B63;
+  --color-danger: #A8261B;
+
+  --color-source-radio: #BFE0DD;
+  --color-source-local: #D6CCEE;
+  --color-source-youtube: #EFCFC2;
+  --color-on-source: #2E363E;
+}
+
+/* A desktop set to high contrast: the quiet lines and the quiet texts
+ * speak up. Each value follows the theme in use. */
+@media (prefers-contrast: more) {
+  :root,
+  :root[data-theme="light"] {
+    --color-border: var(--color-control);
+    --color-border-strong: var(--color-text-soft);
+    --color-text-muted: var(--color-text-soft);
+  }
 }
 
 /* ---------- Base ---------- */
@@ -81,7 +131,7 @@ button:disabled {
 }
 
 :focus-visible {
-  outline: 2px solid var(--color-accent);
+  outline: 2px solid var(--color-accent-ink);
   outline-offset: 2px;
 }
 
@@ -137,7 +187,7 @@ p {
   flex: none;
   height: 32px;
   padding: 0 12px;
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid var(--color-control);
   border-radius: var(--radius);
   background: transparent;
 }
@@ -157,7 +207,7 @@ p {
   border: 1px solid var(--color-border-strong);
   border-radius: 5px;
   color: var(--color-text-soft);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -253,7 +303,7 @@ p {
 .nav-heading {
   padding: 0 12px 6px;
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -270,7 +320,7 @@ p {
 }
 
 .nav-item[aria-current="page"] .icon {
-  color: var(--color-accent);
+  color: var(--color-accent-ink);
 }
 
 /* ---------- Content ---------- */
@@ -292,13 +342,13 @@ p {
   height: 48px;
   padding: 0 16px;
   background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-control);
   border-radius: 12px;
   color: var(--color-text-muted);
 }
 
 .search:focus-within {
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-ink);
 }
 
 .search input {
@@ -376,7 +426,7 @@ kbd {
   padding: 4px 0;
   border: 0;
   background: transparent;
-  color: var(--color-accent);
+  color: var(--color-accent-ink);
   font-size: 13px;
 }
 
@@ -414,7 +464,7 @@ kbd {
 }
 
 .tile[aria-current="true"] {
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-ink);
 }
 
 .tile-band {
@@ -423,6 +473,7 @@ kbd {
   height: 76px;
   padding: 8px;
   background: var(--color-source-local);
+  color: var(--color-on-source);
 }
 
 .tile[data-source="radio"] .tile-band {
@@ -438,7 +489,8 @@ kbd {
   padding: 2px 7px;
   border-radius: 5px;
   background: var(--color-bg);
-  font-size: 11px;
+  color: var(--color-text-soft);
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -498,7 +550,7 @@ kbd {
 }
 
 .chip[aria-current="true"] {
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-ink);
 }
 
 .chip-title {
@@ -541,7 +593,7 @@ kbd {
 }
 
 .row[aria-current="true"] .row-title {
-  color: var(--color-accent);
+  color: var(--color-accent-ink);
 }
 
 .row-play {
@@ -617,6 +669,7 @@ kbd {
   height: 72px;
   border-radius: 10px;
   background: var(--color-source-radio);
+  color: var(--color-on-source);
 }
 
 .live-card-cover .icon {
@@ -663,7 +716,7 @@ kbd {
 
 .row[aria-current="true"] .station-name,
 .row[aria-current="true"] .row-play {
-  color: var(--color-accent);
+  color: var(--color-accent-ink);
 }
 
 .station-detail {
@@ -679,8 +732,8 @@ kbd {
 }
 
 .favorite-button[aria-pressed="true"] .icon {
-  fill: var(--color-accent);
-  stroke: var(--color-accent);
+  fill: var(--color-accent-ink);
+  stroke: var(--color-accent-ink);
 }
 
 .inline-form {
@@ -695,12 +748,18 @@ kbd {
   min-width: 0;
   height: var(--target);
   padding: 0 12px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-control);
   border-radius: var(--radius);
   background: var(--color-surface);
   color: var(--color-text);
   user-select: text;
   -webkit-user-select: text;
+}
+
+/* A field beside its label: it keeps its own width. */
+.field-compact {
+  flex: none;
+  width: 240px;
 }
 
 .field-wide {
@@ -740,7 +799,7 @@ kbd {
 .filter-chip {
   height: 36px;
   padding: 0 14px;
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid var(--color-control);
   border-radius: 18px;
   background: transparent;
   color: var(--color-text-soft);
@@ -808,7 +867,7 @@ kbd {
 
 .group-title {
   color: var(--color-text-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -816,7 +875,7 @@ kbd {
 
 .row[data-selected] {
   background: var(--color-surface);
-  box-shadow: inset 3px 0 0 var(--color-accent);
+  box-shadow: inset 3px 0 0 var(--color-accent-ink);
 }
 
 .best {
@@ -827,7 +886,7 @@ kbd {
 }
 
 .best[data-selected] {
-  border-color: var(--color-accent);
+  border-color: var(--color-accent-ink);
   box-shadow: none;
 }
 
@@ -1040,6 +1099,32 @@ kbd {
   min-height: 48px;
 }
 
+.shortcut-group + .shortcut-group {
+  margin-top: 16px;
+}
+
+.shortcut-group .group-title {
+  margin: 0;
+}
+
+.shortcut-list {
+  display: grid;
+  /* The same first column in every group, so the texts line up. */
+  grid-template-columns: 210px 1fr;
+  gap: 10px 20px;
+  align-items: center;
+  margin: 8px 0 0;
+}
+
+.shortcut-list dt,
+.shortcut-list dd {
+  margin: 0;
+}
+
+.shortcut-list dd {
+  color: var(--color-text-soft);
+}
+
 /* ---------- Queue ---------- */
 
 .queue {
@@ -1091,12 +1176,12 @@ kbd {
 .queue-current .icon {
   width: 16px;
   height: 16px;
-  color: var(--color-accent);
+  color: var(--color-accent-ink);
   stroke-width: 2.4;
 }
 
 .queue-current .queue-title {
-  color: var(--color-accent);
+  color: var(--color-accent-ink);
   font-weight: 500;
 }
 
@@ -1195,7 +1280,7 @@ kbd {
   padding: 3px;
   border: 0;
   border-radius: 13px;
-  background: var(--color-border-strong);
+  background: var(--color-control);
   transition: background 0.15s;
 }
 
@@ -1203,7 +1288,7 @@ kbd {
   width: 20px;
   height: 20px;
   border-radius: 50%;
-  background: var(--color-text);
+  background: var(--color-knob);
   transition: transform 0.15s;
 }
 
@@ -1218,7 +1303,7 @@ kbd {
 
 .toggle-button[aria-pressed="true"] {
   background: var(--color-hover);
-  color: var(--color-accent);
+  color: var(--color-accent-ink);
 }
 
 /* A window too narrow for three columns: the panel covers the content. */
@@ -1294,6 +1379,12 @@ kbd {
   background: var(--color-surface);
   color: var(--color-text-soft);
   overflow: hidden;
+}
+
+.cover[data-source="radio"],
+.cover[data-source="local"],
+.cover[data-source="youtube"] {
+  color: var(--color-on-source);
 }
 
 .cover[data-source="radio"] {
@@ -1464,7 +1555,7 @@ kbd {
 .slider {
   /* Set from JavaScript: how much of the track is filled, from 0% to 100%. */
   --fill: 0%;
-  --fill-color: var(--color-accent);
+  --fill-color: var(--color-accent-ink);
 
   flex: 1;
   min-width: 0;

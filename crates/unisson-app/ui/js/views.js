@@ -5,7 +5,7 @@
  * that returns the elements to show. This module switches between them.
  */
 
-import { byId, element } from "./dom.js";
+import { byId, element, replaceKeepingFocus } from "./dom.js";
 import { mediaKey } from "./format.js";
 import * as favorites from "./views/favorites.js";
 import * as history from "./views/history.js";
@@ -84,7 +84,7 @@ export async function showView(name, options = {}) {
     return;
   }
   const scroll = container.scrollTop;
-  container.replaceChildren(...content);
+  replaceKeepingFocus(container, ...content);
   container.scrollTop = keepScroll ? scroll : 0;
   highlightCurrent();
   if (lastSnapshot) {

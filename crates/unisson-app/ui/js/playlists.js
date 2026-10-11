@@ -7,7 +7,7 @@
  */
 
 import * as api from "./api.js";
-import { byId, element, icon } from "./dom.js";
+import { byId, element, icon, replaceKeepingFocus } from "./dom.js";
 import { closeMenu, menuItem, setMenuContent, toggleMenu } from "./menu.js";
 import { showNotice } from "./notice.js";
 import { activeParam, activeView, showView } from "./views.js";
@@ -47,7 +47,7 @@ export function onPlaylistsChange(listener) {
 export function drawPlaylistsSidebar() {
   group.hidden = false;
   const viewed = activeView() === "playlist" ? activeParam() : null;
-  list.replaceChildren(
+  replaceKeepingFocus(list,
     ...playlists.map((playlist) => {
       const item = element(
         "button",

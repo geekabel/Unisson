@@ -238,6 +238,17 @@ volumeSlider.addEventListener("change", () => {
   settingVolume = false;
 });
 
+/**
+ * Raises or lowers the volume, for the keyboard shortcuts.
+ *
+ * @param {number} step In percent, negative to lower.
+ */
+export function nudgeVolume(step) {
+  const percent = Math.min(100, Math.max(0, Number(volumeSlider.value) + step));
+  renderVolume(percent / 100);
+  api.setVolume(percent / 100);
+}
+
 muteButton.addEventListener("click", () => {
   const muted = Number(volumeSlider.value) === 0;
   api.setVolume(muted ? volumeBeforeMute || 1 : 0);
