@@ -1,0 +1,119 @@
+/* Unisson: styles of the quick launcher, on top of app.css. */
+
+.launcher-body {
+  background: var(--color-panel);
+}
+
+.launcher {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  border: 1px solid var(--color-border-strong);
+}
+
+.launcher-search {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 60px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.launcher-search input {
+  flex: 1;
+  min-width: 0;
+  height: var(--target);
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 18px;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.launcher-search input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.launcher-search input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.launcher-results {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.launcher-results .group-title {
+  margin: 0;
+  padding: 8px 10px 4px;
+}
+
+.launcher-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: transparent;
+  text-align: left;
+}
+
+.launcher-entry:hover {
+  background: var(--color-surface);
+}
+
+.launcher-entry[aria-selected="true"] {
+  background: var(--color-hover);
+  box-shadow: inset 3px 0 0 var(--color-accent-ink);
+}
+
+.launcher-entry kbd {
+  visibility: hidden;
+}
+
+.launcher-entry[aria-selected="true"] kbd {
+  visibility: visible;
+}
+
+.launcher-status {
+  flex: none;
+  padding: 0 18px;
+  color: var(--color-text-muted);
+  font-size: 12px;
+}
+
+.launcher-status:not(:empty) {
+  padding-bottom: 6px;
+}
+
+.launcher-now {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 8px 4px 18px;
+  border-top: 1px solid var(--color-border);
+}
+
+.launcher-now-text {
+  flex: 1;
+}
+
+.launcher-legend {
+  flex: none;
+  margin: 0;
+  padding: 10px 18px;
+  border-top: 1px solid var(--color-border);
+}

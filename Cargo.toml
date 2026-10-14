@@ -11,6 +11,10 @@ edition = "2024"
 # Tauri 2 plugins require Rust 1.90 or newer.
 rust-version = "1.90"
 repository = "https://github.com/geekabel/Unisson"
+license = "MIT OR Apache-2.0"
+# The crates are parts of one application: they are not published on
+# crates.io.
+publish = false
 description = "Unified audio player for Linux: internet radio, local files, YouTube."
 
 [workspace.lints.rust]
@@ -21,7 +25,29 @@ missing_docs = "warn"
 all = { level = "warn", priority = -1 }
 
 [workspace.dependencies]
+unisson-audio = { path = "crates/unisson-audio", version = "0.1.0" }
 unisson-core = { path = "crates/unisson-core", version = "0.1.0" }
+unisson-local = { path = "crates/unisson-local", version = "0.1.0" }
+unisson-playback = { path = "crates/unisson-playback", version = "0.1.0" }
+unisson-radio = { path = "crates/unisson-radio", version = "0.1.0" }
+unisson-store = { path = "crates/unisson-store", version = "0.1.0" }
+unisson-youtube = { path = "crates/unisson-youtube", version = "0.1.0" }
 # GStreamer bindings. Default features target the GStreamer 1.14 API, which
 # keeps the build compatible with Ubuntu 22.04 (GStreamer 1.20).
 gst = { package = "gstreamer", version = "0.25" }
+# Blocking HTTP client. It fits the blocking `Source` trait, with no async runtime.
+ureq = { version = "3", features = ["json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# SQLite, compiled from the bundled sources: no system package is needed.
+rusqlite = { version = "0.40", features = ["bundled"] }
+# Reads the tags (title, artist, cover...) of audio files. Pure Rust.
+lofty = "0.25"
+# Tells when files appear, change or disappear in a folder (inotify on Linux).
+notify = "8"
+
+# The program that goes into the package.
+# Reference: https://doc.rust-lang.org/cargo/reference/profiles.html
+[profile.release]
+# Debug symbols triple the size of the program and serve no user.
+strip = true

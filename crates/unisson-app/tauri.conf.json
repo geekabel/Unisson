@@ -1,0 +1,75 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Unisson",
+  "mainBinaryName": "unisson",
+  "identifier": "io.github.geekabel.unisson",
+  "build": {
+    "frontendDist": "./ui"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Unisson",
+        "width": 1280,
+        "height": 840,
+        "minWidth": 720,
+        "minHeight": 480,
+        "zoomHotkeysEnabled": true,
+        "backgroundColor": "#0F1215"
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "connect-src": "ipc: http://ipc.localhost",
+        "img-src": "'self' data: https: http:",
+        "style-src": "'self'",
+        "object-src": "'none'",
+        "base-uri": "'none'",
+        "form-action": "'none'"
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "deb"
+    ],
+    "icon": [
+      "icons/128x128.png",
+      "icons/32x32.png",
+      "icons/64x64.png",
+      "icons/256x256.png",
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
+    "category": "Music",
+    "publisher": "geekabel",
+    "homepage": "https://github.com/geekabel/Unisson",
+    "shortDescription": "Unified audio player: internet radio, local files, YouTube",
+    "longDescription": "Unisson plays internet radio, local audio files and YouTube from one\nsearch box and one play queue. It integrates with the desktop: media keys,\ntray icon, mini-player, quick launcher and notifications.",
+    "linux": {
+      "deb": {
+        "section": "sound",
+        "depends": [
+          "gstreamer1.0-plugins-base",
+          "gstreamer1.0-plugins-good",
+          "gstreamer1.0-plugins-bad",
+          "gstreamer1.0-libav"
+        ],
+        "recommends": [
+          "gstreamer1.0-plugins-ugly",
+          "gstreamer1.0-pulseaudio | gstreamer1.0-pipewire"
+        ],
+        "desktopTemplate": "packaging/unisson.desktop",
+        "files": {
+          "/usr/share/icons/hicolor/scalable/apps/unisson.svg": "icons/icon.svg"
+        }
+      }
+    },
+    "license": "MIT OR Apache-2.0",
+    "copyright": "Copyright (c) 2026 geekabel and the Unisson contributors"
+  }
+}

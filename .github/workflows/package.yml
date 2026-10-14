@@ -1,0 +1,81 @@
+name: Package
+# Builds the installers and keeps them with the run, to try a change
+# before a release. It runs when what shapes the package changes, and on
+# demand from the Actions tab. Releases are built by release.yml.
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - .github/workflows/package.yml
+      - crates/unisson-app/tauri.conf.json
+      - crates/unisson-app/tauri.windows.conf.json
+      - crates/unisson-app/packaging/**
+      - crates/unisson-app/icons/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deb:
+    # The oldest release Unisson supports. A program built here also runs on
+    # newer releases. The reverse is not true: a newer system would tie the
+    # program to its newer C library.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Install GStreamer and the Tauri system libraries
+        run: |
+          sudo apt-get update
+          # libunwind-dev is listed first on purpose: see ci.yml.
+          sudo apt-get install -y --no-install-recommends libunwind-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libwebkit2gtk-4.1-dev build-essential libxdo-dev libssl-dev \
+            libayatana-appindicator3-dev librsvg2-dev
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+      # Keeps the build, and the Tauri command line tool, between runs.
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: package
+      - name: Install the Tauri command line tool
+        run: command -v cargo-tauri || cargo install tauri-cli --version "^2" --locked
+      - name: Build the package
+        working-directory: crates/unisson-app
+        run: cargo tauri build --bundles deb -- --locked
+      - name: Show what the package holds
+        run: |
+          dpkg-deb --info target/release/bundle/deb/*.deb
+          dpkg-deb --contents target/release/bundle/deb/*.deb
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: unisson-deb
+          path: target/release/bundle/deb/*.deb
+          if-no-files-found: error
+
+  windows:
+    name: Windows installer (experimental)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - name: Install GStreamer
+        shell: pwsh
+        run: .github/scripts/install-gstreamer.ps1
+      - uses: dtolnay/rust-toolchain@686976e191b89faba57d3206551f0f330d8cb249 # stable
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          shared-key: package
+      - name: Install the Tauri command line tool
+        shell: bash
+        run: command -v cargo-tauri || cargo install tauri-cli --version "^2" --locked
+      - name: Build the installer
+        shell: bash
+        working-directory: crates/unisson-app
+        run: ../../.github/scripts/run-and-report.sh "Windows installer" cargo tauri build --bundles nsis -- --locked
+      - name: Show what was built
+        shell: bash
+        run: ls -l target/release/bundle/nsis/
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: unisson-windows
+          path: target/release/bundle/nsis/*.exe
+          if-no-files-found: error

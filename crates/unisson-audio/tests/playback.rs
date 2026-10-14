@@ -3,60 +3,15 @@
 //! They need no sound card: audio goes to a GStreamer `fakesink`, and the
 //! test files are generated on the fly with `audiotestsrc`.
 
-use std::path::{Path, PathBuf};
+mod common;
+
+use std::path::Path;
 use std::thread::sleep;
 use std::time::{Duration, Instant};
 
-use unisson_audio::gst;
-use unisson_audio::gst::prelude::*;
+use common::{WAIT, make_wav, ogg_file, silent_player};
 use unisson_audio::{AudioError, PlaybackState, Player, PlayerEvent, file_uri};
 use unisson_core::StreamUri;
-
-const WAIT: Duration = Duration::from_secs(10);
-
-/// Writes a WAV file holding `seconds` of a test tone, and returns its path.
-fn make_wav(name: &str, seconds: u32) -> PathBuf {
-    gst::init().unwrap();
-    let dir = std::env::temp_dir().join(format!("unisson-audio-tests-{}", std::process::id()));
-    std::fs::create_dir_all(&dir).unwrap();
-    let path = dir.join(name);
-    // 10 buffers of 4410 samples make one second at 44100 Hz.
-    let description = format!(
-        "audiotestsrc num-buffers={} samplesperbuffer=4410 \
-         ! audio/x-raw,rate=44100,channels=1 ! wavenc ! filesink location=\"{}\"",
-        seconds * 10,
-        path.display()
-    );
-    let pipeline = gst::parse::launch(&description).unwrap();
-    pipeline.set_state(gst::State::Playing).unwrap();
-    let bus = pipeline.bus().unwrap();
-    let message = bus
-        .timed_pop_filtered(
-            gst::ClockTime::from_seconds(10),
-            &[gst::MessageType::Eos, gst::MessageType::Error],
-        )
-        .expect("the test file was not written in time");
-    assert_eq!(
-        message.type_(),
-        gst::MessageType::Eos,
-        "cannot write the test file"
-    );
-    pipeline.set_state(gst::State::Null).unwrap();
-    path
-}
-
-/// Builds a player whose output is discarded.
-///
-/// With `real_time`, the sink consumes audio at normal speed, like a sound
-/// card. Without it, the whole file is consumed as fast as possible.
-fn silent_player(real_time: bool) -> Player {
-    gst::init().unwrap();
-    let sink = gst::ElementFactory::make("fakesink")
-        .property("sync", real_time)
-        .build()
-        .unwrap();
-    Player::with_audio_sink(sink).unwrap()
-}
 
 fn load(player: &Player, path: &Path) {
     player.load(&file_uri(path).unwrap()).unwrap();
@@ -116,6 +71,42 @@ fn pauses_resumes_and_stops() {
 }
 
 #[test]
+fn reports_the_title_stored_in_a_file() {
+    let player = silent_player(false);
+    load(&player, &ogg_file("titled.ogg", 1, Some("Blue in Green")));
+    player.play().unwrap();
+
+    assert_eq!(
+        player.poll_event(WAIT),
+        Some(PlayerEvent::Title("Blue in Green".into()))
+    );
+    // The title does not stop playback: the end still comes afterwards.
+    let mut event = player.poll_event(WAIT);
+    while matches!(event, Some(PlayerEvent::Title(_))) {
+        event = player.poll_event(WAIT);
+    }
+    assert_eq!(event, Some(PlayerEvent::EndOfStream));
+}
+
+#[test]
+fn a_zero_timeout_checks_without_waiting() {
+    let player = silent_player(false);
+    load(&player, &make_wav("zero-timeout.wav", 1));
+    assert_eq!(player.poll_event(Duration::ZERO), None);
+
+    player.play().unwrap();
+    let start = Instant::now();
+    while player.poll_event(Duration::ZERO).is_none() {
+        assert!(
+            start.elapsed() < WAIT,
+            "the end of the file was never reported"
+        );
+        sleep(Duration::from_millis(20));
+    }
+    assert_eq!(player.state(), PlaybackState::Stopped);
+}
+
+#[test]
 fn restarts_from_the_beginning_after_a_stop() {
     let player = silent_player(false);
     load(&player, &make_wav("restart.wav", 1));
@@ -145,6 +136,10 @@ fn commands_need_a_loaded_address() {
     let player = silent_player(false);
     assert_eq!(player.play(), Err(AudioError::NothingLoaded));
     assert_eq!(player.pause(), Err(AudioError::NothingLoaded));
+    assert_eq!(
+        player.seek(Duration::from_secs(1)),
+        Err(AudioError::NothingLoaded)
+    );
     assert_eq!(player.stop(), Ok(()));
 }
 
