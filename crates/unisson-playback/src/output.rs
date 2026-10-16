@@ -145,12 +145,15 @@ pub trait RemotePlayer: Send {
 pub struct EventSink {
     events: Sender<EngineEvent>,
     active: Arc<AtomicBool>,
+    /// A second switch, for a remote player made of several: only the one
+    /// that plays has it on. See [`gated`](Self::gated).
+    gate: Option<Arc<AtomicBool>>,
 }
 
 impl EventSink {
     /// Reports an event, if the remote player is the one that plays.
     pub fn send(&self, event: EngineEvent) {
-        if self.active.load(Ordering::SeqCst) {
+        if self.is_active() {
             // Nobody listens any more when the session is gone.
             let _ = self.events.send(event);
         }
@@ -159,6 +162,23 @@ impl EventSink {
     /// Tells whether the remote player is the one that plays.
     pub fn is_active(&self) -> bool {
         self.active.load(Ordering::SeqCst)
+            && self
+                .gate
+                .as_ref()
+                .is_none_or(|gate| gate.load(Ordering::SeqCst))
+    }
+
+    /// Returns a sink that also needs `gate` on to pass events.
+    ///
+    /// A remote player that hands its work to one of several players gives
+    /// each its own gate, and opens only the gate of the one that plays: a
+    /// player it just left cannot speak over the one that took over.
+    pub fn gated(&self, gate: Arc<AtomicBool>) -> Self {
+        Self {
+            events: self.events.clone(),
+            active: Arc::clone(&self.active),
+            gate: Some(gate),
+        }
     }
 
     /// Returns a sink whose events are collected in a channel, for tests of
@@ -168,6 +188,7 @@ impl EventSink {
         let sink = Self {
             events,
             active: Arc::new(AtomicBool::new(true)),
+            gate: None,
         };
         (sink, received)
     }
@@ -203,6 +224,7 @@ impl Router {
         let remote = make_remote(EventSink {
             events: events.clone(),
             active: Arc::clone(&remote_active),
+            gate: None,
         });
 
         let engine_is_heard = Arc::clone(&remote_active);
@@ -312,5 +334,30 @@ impl Output for Router {
             self.remote.set_volume(volume);
         }
         self.engine.set_volume(volume)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_gated_sink_speaks_only_while_its_gate_is_open() {
+        let (sink, events) = EventSink::for_tests();
+        let gate = Arc::new(AtomicBool::new(false));
+        let gated = sink.gated(Arc::clone(&gate));
+
+        gated.send(EngineEvent::EndOfStream);
+        assert!(!gated.is_active());
+        gate.store(true, Ordering::SeqCst);
+        gated.send(EngineEvent::VolumeChanged(0.5));
+
+        assert_eq!(
+            events.try_iter().collect::<Vec<_>>(),
+            [EngineEvent::VolumeChanged(0.5)]
+        );
+        // The sink it came from does not depend on the gate.
+        gate.store(false, Ordering::SeqCst);
+        assert!(sink.is_active());
     }
 }
