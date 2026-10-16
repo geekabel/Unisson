@@ -2,8 +2,8 @@
 
 *[Read this guide in English](guide.md)*
 
-Unisson lit trois choses dans une seule fenêtre : **les radios**, **vos
-fichiers de musique** et **YouTube**. Cette page montre le peu qu'il faut
+Unisson lit quatre choses dans une seule fenêtre : **les radios**, **vos
+fichiers de musique**, **Spotify** et **YouTube**. Cette page montre le peu qu'il faut
 savoir.
 
 ## 1. Installer
@@ -22,7 +22,8 @@ Ouvrez ensuite le menu des applications et lancez **Unisson**.
 
 La radio et vos fichiers marchent tout de suite. YouTube a besoin d'un petit
 programme en plus : le [README](../README.md#youtube) explique comment
-l'ajouter.
+l'ajouter. Spotify demande un compte Premium et quelques minutes de
+préparation : le [README](../README.md#spotify) les détaille.
 
 ## 2. Écouter quelque chose
 
@@ -34,8 +35,8 @@ tout.
 - **Maj+Entrée** ajoute à la file, pour plus tard.
 - **Ctrl+Entrée** lit juste après le titre en cours.
 
-Vous pouvez aussi y coller un lien : une adresse YouTube, ou l'adresse d'un
-flux de radio.
+Vous pouvez aussi y coller un lien : une adresse YouTube ou Spotify, ou
+l'adresse d'un flux de radio.
 
 ## 3. Vos fichiers de musique
 
@@ -113,6 +114,9 @@ la taille normale.
 - **YouTube ne donne aucun résultat.** Ouvrez **Sources** et regardez la carte
   YouTube. Si son composant manque ou est trop ancien, le
   [README](../README.md#youtube) dit quoi faire.
+- **Un titre Spotify ne se lance pas.** Ouvrez d'abord l'application
+  Spotify : Unisson lit Spotify à travers elle, et seulement avec un compte
+  Premium.
 - **Un titre de mon dossier manque.** Ouvrez **Sources** et cliquez sur
   **Analyser à nouveau**.
 - **Le raccourci du lanceur ne fait rien.** Un autre programme utilise

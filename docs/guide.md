@@ -2,8 +2,8 @@
 
 *[Lire ce guide en français](guide.fr.md)*
 
-Unisson plays three things from one window: **radio stations**, **your music
-files**, and **YouTube**. This page shows the few things to know.
+Unisson plays four things from one window: **radio stations**, **your music
+files**, **Spotify** and **YouTube**. This page shows the few things to know.
 
 ## 1. Install
 
@@ -19,7 +19,9 @@ sudo apt install ./Unisson_0.1.0_amd64.deb
 Then open the application menu and start **Unisson**.
 
 Radio and your own files work at once. YouTube needs one more small program:
-the [README](../README.md#youtube) says how to add it.
+the [README](../README.md#youtube) says how to add it. Spotify needs a Premium
+account and a few minutes of setup: the [README](../README.md#spotify) walks
+through it.
 
 ## 2. Play something
 
@@ -30,8 +32,8 @@ name of a song, an artist or a station. Press **Enter**. That is all.
 - **Shift+Enter** adds to the queue, to play later.
 - **Ctrl+Enter** plays right after the current track.
 
-You can also paste a link there: a YouTube address, or the address of a radio
-stream.
+You can also paste a link there: a YouTube or Spotify address, or the address
+of a radio stream.
 
 ## 3. Your music files
 
@@ -106,6 +108,8 @@ normal size.
 - **YouTube gives no result.** Open **Sources** and look at the YouTube card.
   If its component is missing or old, the [README](../README.md#youtube) says
   what to do.
+- **A Spotify track does not play.** Open the Spotify application first:
+  Unisson plays Spotify through it, and only with a Premium account.
 - **A song of my folder is missing.** Open **Sources** and click
   **Scan again**.
 - **The launcher shortcut does nothing.** Another program may use the same

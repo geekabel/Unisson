@@ -26,9 +26,10 @@ one queue, without an account and without leaving the keyboard.
 
 ## Features
 
-- **Three sources, one search.** Type a few letters: local files, radio
-  stations and YouTube answer in the same list. Paste a stream address, a
-  YouTube link or the path of a file to play it directly.
+- **Four sources, one search.** Type a few letters: local files, radio
+  stations, Spotify and YouTube answer in the same list. Paste a stream
+  address, a YouTube or Spotify link, or the path of a file to play it
+  directly.
 - **Internet radio.** Browse the free [Radio Browser](https://www.radio-browser.info)
   directory by name, genre and country. Keep your stations, see the title on
   air, and let Unisson reconnect when the network drops.
@@ -121,6 +122,42 @@ JavaScript runtime such as [Deno](https://deno.com): see its documentation.
 
 Without yt-dlp, Unisson works the same, minus YouTube.
 
+### Spotify
+
+Unisson searches the Spotify catalog and plays its tracks **in the official
+Spotify application**, which it drives through the
+[Spotify Web API](https://developer.spotify.com/documentation/web-api). The
+sound comes from the Spotify application, not from Unisson. You need:
+
+- a **Spotify Premium** account: Spotify only lets Premium accounts be driven;
+- the **Spotify application** open on this computer, or on another device of
+  the same account.
+
+Spotify asks each user of its API to register an app. It takes two minutes,
+once:
+
+1. Open the [Spotify developer dashboard](https://developer.spotify.com/dashboard),
+   log in, and create an app. Any name works. Tick **Web API**.
+2. Add this **Redirect URI**, exactly: `http://127.0.0.1/callback`.
+3. In **User Management**, add the name and email of each Spotify account
+   that will use Unisson. An app in development mode accepts up to five, and
+   its owner needs Premium too.
+4. Copy the **Client ID** of the app. In Unisson, open *Sources*, paste it in
+   the Spotify card, and choose *Connect*. Your browser opens on the consent
+   page of Spotify: accept, then come back to Unisson.
+
+Unisson keeps a token in `~/.config/unisson/spotify.json`, readable by you
+only. *Disconnect* deletes it. To revoke the access on the side of Spotify,
+remove the app from [your account](https://www.spotify.com/account/apps/).
+
+Good to know:
+
+- A Spotify track takes its place in the queue of Unisson, among radio, files
+  and YouTube. When it ends, Unisson plays what comes next.
+- Choose something else in the Spotify application, and Unisson steps back.
+- The volume of Unisson moves the volume of the Spotify application, when that
+  device allows it.
+
 ## Use
 
 Start Unisson, type in the field at the top, press Enter. The
@@ -146,9 +183,12 @@ command to a GNOME keyboard shortcut for you.
 Unisson has no account, no telemetry and no update check. What leaves your
 computer is what playing music needs:
 
-- **Search text** goes to a Radio Browser server and, if YouTube is on, to
-  YouTube through yt-dlp. Turn a source off in *Sources* and it is no longer
-  asked.
+- **Search text** goes to a Radio Browser server, to Spotify if an account is
+  connected, and to YouTube through yt-dlp if YouTube is on. Turn a source off
+  in *Sources* and it is no longer asked.
+- **Spotify**, once connected, receives the orders of playback (play, pause,
+  seek, volume) and is asked every second what plays, while one of its tracks
+  plays.
 - **Playing a station** tells the Radio Browser directory that the station was
   chosen, which is how the directory ranks stations. It also connects you to
   the server of the station, like any radio player.
@@ -205,6 +245,7 @@ its own:
 | `unisson-radio` | Internet radio, backed by the Radio Browser directory |
 | `unisson-local` | Local files: scan, tags, folder watching |
 | `unisson-youtube` | YouTube, through yt-dlp |
+| `unisson-spotify` | Spotify, through its Web API and the official application |
 | `unisson-store` | Local storage, in SQLite |
 | `unisson-playback` | The playback session: queue, sources and engine together |
 | `unisson-app` | The desktop application, with [Tauri 2](https://v2.tauri.app) |
@@ -226,7 +267,7 @@ and the people who keep its directory, [GStreamer](https://gstreamer.freedesktop
 ## Legal
 
 Unisson is an independent project. It is not affiliated with, or endorsed by,
-YouTube, Google, or any radio station or directory. It hosts and distributes
+YouTube, Google, Spotify, or any radio station or directory. It hosts and distributes
 no content. You are responsible for using it in line with the terms of the
 services you listen to, and with the law where you live.
 

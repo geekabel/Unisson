@@ -9,6 +9,13 @@ patch version (0.x.y) only fixes.
 
 ## [Unreleased]
 
+### Added
+
+- **Spotify.** Connect a Spotify Premium account with your own app client ID
+  (Authorization Code with PKCE, no secret). Its tracks appear in the search
+  and play in the official Spotify application, driven by Unisson, inside the
+  same queue as the other sources. Pasted Spotify track links play too.
+
 ## [0.1.0] - 2026-10-11
 
 The first public version.

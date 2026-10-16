@@ -27,7 +27,8 @@ labels differ, the behavior does not.
 3. Log out, change session, and run the list again for the other column.
 
 Steps that need the network are marked **net**. Steps that need yt-dlp are
-marked **yt**.
+marked **yt**. Steps that need a Spotify Premium account, with an app
+registered as the README says, are marked **sp**.
 
 ## 1. Installation and start
 
@@ -154,6 +155,25 @@ marked **yt**.
 | --- | --- | --- | --- | --- |
 | 11.1 | `sudo apt remove unisson` | Unisson leaves the application menu. | | |
 | 11.2 | Look at `~/.config/unisson` and `~/.local/share/unisson` | Settings and library are kept, for a later installation. | | |
+
+## 12. Spotify
+
+Open the Spotify application before steps 12.4 to 12.10.
+
+| # | Step | Expected | Wayland | X11 |
+| --- | --- | --- | --- | --- |
+| 12.1 | Open *Sources* | The Spotify card says that no account is connected, lists the steps, and shows `http://127.0.0.1/callback`. | | |
+| 12.2 | Type `abc` as the Client ID, choose *Se connecter* | A message says the Client ID is not valid. No browser opens. | | |
+| 12.3 | **net sp** Paste the real Client ID, choose *Se connecter*, accept in the browser | The browser page says Unisson is connected. The card says *Compte connecté*. | | |
+| 12.4 | **net sp** Search a song by name | Results from Spotify appear with the others, with their cover. | | |
+| 12.5 | **net sp** Press Enter on a Spotify result | The Spotify application plays it. The player bar of Unisson shows the title, the badge Spotify, and the time moving. | | |
+| 12.6 | **net sp** Pause, play, seek, change the volume in Unisson | The Spotify application follows each order within a second or two. | | |
+| 12.7 | **net sp** Queue a local file after a Spotify track, and let the track end | Spotify stops, then the local file plays in Unisson. | | |
+| 12.8 | **net sp** During a Spotify track, choose another song in the Spotify application | Unisson stops, and leaves the Spotify application alone. | | |
+| 12.9 | **net sp** Paste a link `https://open.spotify.com/track/...`, press Enter | The track plays in the Spotify application. | | |
+| 12.10 | **net sp** Quit Unisson and start it again | The card still says *Compte connecté*: no new consent. | | |
+| 12.11 | **net sp** Close the Spotify application, press Enter on a Spotify result | A message asks to open the Spotify application, with a way to *Sources*. | | |
+| 12.12 | Choose *Se déconnecter* | The card shows the form again, with the Client ID filled in. `~/.config/unisson/spotify.json` is gone. | | |
 
 ## Known differences between the two sessions
 
