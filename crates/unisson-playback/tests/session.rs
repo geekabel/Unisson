@@ -3,15 +3,17 @@
 
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::mpsc::Receiver;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use unisson_audio::gst;
 use unisson_audio::gst::prelude::*;
-use unisson_audio::{Engine, Player};
+use unisson_audio::{Engine, EngineEvent, PlaybackState, Player};
 use unisson_core::{Media, MediaId, SourceError, SourceKind, StreamUri};
-use unisson_playback::{ErrorKind, QueueView, Session, SessionEvent, Snapshot, Status};
+use unisson_playback::{
+    ErrorKind, EventSink, QueueView, RemotePlayer, Router, Session, SessionEvent, Snapshot, Status,
+};
 
 /// Longest time a test waits for something to happen.
 const WAIT: Duration = Duration::from_secs(10);
@@ -675,4 +677,120 @@ fn orders_without_a_media_do_nothing() {
             .is_err()
     );
     assert_eq!(fixture.session.snapshot(), Snapshot::default());
+}
+
+/// A remote player that plays nothing: it reports what it was asked.
+struct FakeRemote {
+    sink: EventSink,
+    orders: Arc<Mutex<Vec<String>>>,
+}
+
+impl RemotePlayer for FakeRemote {
+    fn scheme(&self) -> &'static str {
+        "spotify:"
+    }
+
+    fn play_uri(&self, uri: StreamUri) {
+        self.orders
+            .lock()
+            .unwrap()
+            .push(format!("play {}", uri.as_str()));
+        self.sink.send(EngineEvent::Loaded(uri));
+        self.sink
+            .send(EngineEvent::StateChanged(PlaybackState::Playing));
+        self.sink.send(EngineEvent::Position {
+            position: Duration::from_secs(1),
+            duration: Some(Duration::from_secs(200)),
+        });
+    }
+
+    fn play(&self) {
+        self.orders.lock().unwrap().push("resume".into());
+        self.sink
+            .send(EngineEvent::StateChanged(PlaybackState::Playing));
+    }
+
+    fn pause(&self) {
+        self.orders.lock().unwrap().push("pause".into());
+        self.sink
+            .send(EngineEvent::StateChanged(PlaybackState::Paused));
+    }
+
+    fn stop(&self) {
+        self.orders.lock().unwrap().push("stop".into());
+        // Said while it is already muted: the session must not hear it.
+        self.sink
+            .send(EngineEvent::StateChanged(PlaybackState::Stopped));
+    }
+
+    fn seek(&self, position: Duration) {
+        self.orders
+            .lock()
+            .unwrap()
+            .push(format!("seek {}", position.as_secs()));
+    }
+
+    fn set_volume(&self, volume: f64) {
+        self.orders.lock().unwrap().push(format!("volume {volume}"));
+    }
+}
+
+#[test]
+fn a_remote_media_is_played_by_the_remote_player_in_the_same_queue() {
+    gst::init().unwrap();
+    let local = make_wav("router-local.wav", 1);
+    let (engine, engine_events) = Engine::spawn_with(|| {
+        let sink = gst::ElementFactory::make("fakesink")
+            .property("sync", false)
+            .build()
+            .unwrap();
+        Player::with_audio_sink(sink)
+    })
+    .unwrap();
+    let orders = Arc::new(Mutex::new(Vec::new()));
+    let seen_orders = Arc::clone(&orders);
+    let (router, events) = Router::new(engine, engine_events, move |sink| {
+        Box::new(FakeRemote {
+            sink,
+            orders: seen_orders,
+        })
+    });
+    let resolver = Arc::new(move |id: &MediaId| match id.key.as_str() {
+        "remote" => StreamUri::new("spotify:track:1"),
+        _ => StreamUri::from_file_path(&local),
+    });
+    let (session, events) = Session::start(router, events, resolver);
+    let fixture = Fixture { session, events };
+
+    // The remote media plays first, then the local one takes over.
+    fixture
+        .session
+        .play_list(vec![track("remote"), track("local")], 0);
+    let seen = fixture.wait_for(|event| matches!(event, SessionEvent::Started(_)));
+    assert_eq!(started_titles(&seen), ["remote"]);
+    fixture.session.pause();
+    fixture.wait_for_state(|state| state.status == Status::Paused);
+    fixture.session.toggle();
+    fixture.wait_for_state(|state| state.status == Status::Playing);
+    fixture.session.set_volume(0.5);
+    fixture.wait_for_state(|state| state.volume == 0.5);
+
+    fixture.session.next();
+    fixture.wait_for_state(playing("local"));
+    let seen = fixture.wait_for(|event| matches!(event, SessionEvent::Started(_)));
+    assert_eq!(started_titles(&seen), ["local"]);
+    // The local media plays to its end: what the remote player said while
+    // it stopped did not stop the session.
+    fixture.wait_for_state(|state| state.status == Status::Stopped);
+
+    assert_eq!(
+        *orders.lock().unwrap(),
+        [
+            "play spotify:track:1",
+            "pause",
+            "resume",
+            "volume 0.5",
+            "stop"
+        ]
+    );
 }

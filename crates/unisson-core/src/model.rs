@@ -21,6 +21,9 @@ pub enum SourceKind {
     Local,
     /// YouTube.
     YouTube,
+    /// Spotify. Its tracks are played by the official Spotify application,
+    /// which Unisson drives.
+    Spotify,
 }
 
 impl SourceKind {
@@ -30,6 +33,7 @@ impl SourceKind {
             Self::Radio => "Radio",
             Self::Local => "Local",
             Self::YouTube => "YouTube",
+            Self::Spotify => "Spotify",
         }
     }
 }
@@ -44,11 +48,12 @@ impl SourceKind {
             Self::Radio => "radio",
             Self::Local => "local",
             Self::YouTube => "youtube",
+            Self::Spotify => "spotify",
         }
     }
 
     /// Every source the application knows about.
-    pub const ALL: [Self; 3] = [Self::Radio, Self::Local, Self::YouTube];
+    pub const ALL: [Self; 4] = [Self::Radio, Self::Local, Self::YouTube, Self::Spotify];
 
     /// Returns the source with the given [`id`](Self::id), if there is one.
     pub fn from_id(id: &str) -> Option<Self> {
@@ -207,7 +212,9 @@ impl Media {
 pub struct StreamUri(String);
 
 impl StreamUri {
-    const SCHEMES: [&'static str; 3] = ["file://", "http://", "https://"];
+    /// `spotify:` addresses are not played by the audio engine: the
+    /// playback session hands them to the Spotify application.
+    const SCHEMES: [&'static str; 4] = ["file://", "http://", "https://", "spotify:"];
 
     /// Validates then wraps an address.
     ///
@@ -272,6 +279,12 @@ impl StreamUri {
     /// Returns the address as a string slice.
     pub fn as_str(&self) -> &str {
         &self.0
+    }
+
+    /// Tells whether the address is on the network: `http://` or
+    /// `https://`.
+    pub fn is_network(&self) -> bool {
+        self.0.starts_with("http://") || self.0.starts_with("https://")
     }
 }
 
@@ -430,7 +443,7 @@ mod tests {
 
     #[test]
     fn identifiers_are_stable_and_reversible() {
-        for kind in [SourceKind::Radio, SourceKind::Local, SourceKind::YouTube] {
+        for kind in SourceKind::ALL {
             assert_eq!(SourceKind::from_id(kind.id()), Some(kind));
         }
         for kind in [MediaKind::Track, MediaKind::Station] {
@@ -439,7 +452,8 @@ mod tests {
         // These values are stored on disk: they must never change.
         assert_eq!(SourceKind::YouTube.id(), "youtube");
         assert_eq!(MediaKind::Station.id(), "station");
-        assert_eq!(SourceKind::from_id("spotify"), None);
+        assert_eq!(SourceKind::Spotify.id(), "spotify");
+        assert_eq!(SourceKind::from_id("deezer"), None);
         assert_eq!(MediaKind::from_id("Track"), None);
     }
 
@@ -448,5 +462,16 @@ mod tests {
         assert_eq!(SourceKind::Radio.to_string(), "Radio");
         assert_eq!(SourceKind::Local.to_string(), "Local");
         assert_eq!(SourceKind::YouTube.to_string(), "YouTube");
+        assert_eq!(SourceKind::Spotify.to_string(), "Spotify");
+    }
+
+    #[test]
+    fn only_web_addresses_are_on_the_network() {
+        for uri in ["https://a.org/s", "http://a.org/s"] {
+            assert!(StreamUri::new(uri).unwrap().is_network(), "{uri}");
+        }
+        for uri in ["file:///a.mp3", "spotify:track:6rqhFgbbKwnb9MLmUQDhG6"] {
+            assert!(!StreamUri::new(uri).unwrap().is_network(), "{uri}");
+        }
     }
 }

@@ -36,9 +36,10 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
-use unisson_audio::{Engine, EngineEvent, PlaybackState};
+use unisson_audio::{EngineEvent, PlaybackState};
 use unisson_core::{Media, MediaId, PlayQueue, SourceError, StreamUri};
 
+use crate::output::Output;
 use crate::snapshot::{ErrorKind, PlaybackError, QueueView, Snapshot, Status};
 
 /// Turns a media into the address to play.
@@ -151,19 +152,22 @@ pub struct Session {
 }
 
 impl Session {
-    /// Starts a session on top of an engine.
+    /// Starts a session on top of an output: the audio
+    /// [`Engine`](unisson_audio::Engine), or a
+    /// [`Router`](crate::Router) that also drives a remote player.
     ///
-    /// `engine_events` is the receiver that came with the engine. Returns
+    /// `engine_events` is the receiver that came with the output. Returns
     /// the session and the receiver of its events.
     ///
     /// # Panics
     ///
     /// Panics if the operating system cannot start a thread.
     pub fn start(
-        engine: Engine,
+        engine: impl Output + 'static,
         engine_events: Receiver<EngineEvent>,
         resolver: Resolver,
     ) -> (Self, Receiver<SessionEvent>) {
+        let engine: Box<dyn Output> = Box::new(engine);
         let (messages, inbox) = mpsc::channel();
         let (events, outbox) = mpsc::channel();
         let shared = Arc::new(Mutex::new(Snapshot::default()));
@@ -353,7 +357,7 @@ fn lock<T>(shared: &Mutex<T>) -> MutexGuard<'_, T> {
 
 /// The state kept by the session thread.
 struct Worker {
-    engine: Engine,
+    engine: Box<dyn Output>,
     resolver: Resolver,
     /// To hand to the threads that ask the sources.
     messages: Sender<Message>,

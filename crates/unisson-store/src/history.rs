@@ -151,7 +151,7 @@ mod tests {
             .connection()
             .execute(
                 "INSERT INTO history (played_at, source, key, kind, title)
-                 VALUES (2, 'spotify', 'x', 'track', 'unknown')",
+                 VALUES (2, 'deezer', 'x', 'track', 'unknown')",
                 (),
             )
             .unwrap();
