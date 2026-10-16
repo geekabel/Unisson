@@ -8,8 +8,9 @@ use std::time::{Duration, Instant};
 
 use unisson_audio::Engine;
 use unisson_core::{Media, MediaId, SourceKind, SourceRegistry};
-use unisson_playback::{Session, SessionEvent, Snapshot};
+use unisson_playback::{Router, Session, SessionEvent, Snapshot};
 use unisson_radio::{Favorites, RadioBrowser, RadioSource, Station};
+use unisson_spotify::{Spotify, SpotifyRemote, SpotifySource};
 use unisson_store::{LocalSource, Store, StoreError};
 use unisson_youtube::YouTubeSource;
 
@@ -38,6 +39,11 @@ pub struct AppState {
     /// The YouTube source, kept apart to play pasted links and to tell
     /// whether yt-dlp is installed.
     pub youtube: Arc<YouTubeSource>,
+    /// The connection to Spotify, shared by its source and the player that
+    /// drives the Spotify application.
+    pub spotify: Arc<Spotify>,
+    /// The Spotify source, kept apart to play pasted links.
+    pub spotify_source: Arc<SpotifySource>,
     /// Every source, for the unified search.
     pub sources: Arc<SourceRegistry>,
     /// The favorite stations, kept in memory. The database holds a copy.
@@ -84,14 +90,29 @@ impl AppState {
         sources.register(Box::new(Arc::clone(&radio)));
         let youtube = Arc::new(YouTubeSource::new());
         sources.register(Box::new(Arc::clone(&youtube)));
+        // The tokens sit beside the settings, readable by the user only.
+        let spotify = Arc::new(Spotify::open(
+            settings_path
+                .as_deref()
+                .and_then(std::path::Path::parent)
+                .map(|folder| folder.join("spotify.json")),
+        ));
+        let spotify_source = Arc::new(SpotifySource::new(Arc::clone(&spotify)));
+        sources.register(Box::new(Arc::clone(&spotify_source)));
         let sources = Arc::new(sources);
 
         let (engine, engine_events) = Engine::spawn()?;
+        // Spotify tracks play in the Spotify application, everything else
+        // in the audio engine, all in the same queue.
+        let (output, output_events) = Router::new(engine, engine_events, {
+            let spotify = Arc::clone(&spotify);
+            move |sink| Box::new(SpotifyRemote::start(spotify, sink))
+        });
         let resolver = {
             let sources = Arc::clone(&sources);
             Arc::new(move |id: &MediaId| sources.resolve(id))
         };
-        let (session, events) = Session::start(engine, engine_events, resolver);
+        let (session, events) = Session::start(output, output_events, resolver);
         session.set_volume(settings.volume);
 
         // The station of the last session is the one to come back to.
@@ -105,6 +126,8 @@ impl AppState {
             store,
             radio,
             youtube,
+            spotify,
+            spotify_source,
             sources,
             stations: Mutex::new(stations),
             last_radio: Mutex::new(last_radio),

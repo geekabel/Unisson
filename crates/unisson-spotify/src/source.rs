@@ -22,6 +22,23 @@ impl SpotifySource {
     pub fn new(spotify: Arc<Spotify>) -> Self {
         Self { spotify }
     }
+
+    /// Finds the track a pasted link or `spotify:track:` address points to.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SourceError::Invalid`] if the text is not a link to a
+    /// track, [`SourceError::Unavailable`] without a connection, or what the
+    /// Web API answers.
+    pub fn lookup(&self, text: &str) -> Result<Media, SourceError> {
+        let id = crate::track_id(text)
+            .ok_or_else(|| SourceError::Invalid("not a link to a Spotify track".into()))?;
+        let api = self
+            .spotify
+            .api()
+            .ok_or_else(|| SourceError::Unavailable("not connected to Spotify".into()))?;
+        Ok(track_media(api.track(id)?))
+    }
 }
 
 /// Turns a track of the catalog into a media of Unisson.

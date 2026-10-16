@@ -16,7 +16,7 @@
 //! music_folder = "/home/me/Music"
 //!
 //! [sources]
-//! priority = ["local", "radio", "youtube"]
+//! priority = ["local", "radio", "spotify", "youtube"]
 //! disabled = ["youtube"]
 //! ```
 //!
@@ -94,8 +94,13 @@ impl ThemeChoice {
 /// The preferred order of the sources when the user chose none.
 ///
 /// A local file needs no network and no third-party service, so it wins.
-pub const DEFAULT_PRIORITY: [SourceKind; 3] =
-    [SourceKind::Local, SourceKind::Radio, SourceKind::YouTube];
+/// Spotify comes before YouTube: it gives the studio version of a track.
+pub const DEFAULT_PRIORITY: [SourceKind; 4] = [
+    SourceKind::Local,
+    SourceKind::Radio,
+    SourceKind::Spotify,
+    SourceKind::YouTube,
+];
 
 impl Default for Settings {
     fn default() -> Self {
@@ -414,12 +419,35 @@ disabled = ["radio", "minidisc"]
         assert_eq!(settings.music_folder, None);
         assert_eq!(
             settings.priority,
-            [SourceKind::YouTube, SourceKind::Local, SourceKind::Radio]
+            [
+                SourceKind::YouTube,
+                SourceKind::Local,
+                SourceKind::Radio,
+                SourceKind::Spotify
+            ]
         );
         assert_eq!(settings.disabled, [SourceKind::Radio]);
         assert_eq!(
             settings.enabled_sources(),
-            [SourceKind::YouTube, SourceKind::Local]
+            [SourceKind::YouTube, SourceKind::Local, SourceKind::Spotify]
+        );
+    }
+
+    #[test]
+    fn a_file_written_before_spotify_gets_it_after_its_own_choices() {
+        let path = test_path("before-spotify");
+        write(
+            &path,
+            "[sources]\npriority = [\"youtube\", \"local\", \"radio\"]\n",
+        );
+        assert_eq!(
+            Settings::load(&path).priority,
+            [
+                SourceKind::YouTube,
+                SourceKind::Local,
+                SourceKind::Radio,
+                SourceKind::Spotify
+            ]
         );
     }
 

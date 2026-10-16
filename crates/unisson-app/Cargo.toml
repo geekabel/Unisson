@@ -26,6 +26,7 @@ unisson-core.workspace = true
 unisson-local.workspace = true
 unisson-playback.workspace = true
 unisson-radio.workspace = true
+unisson-spotify.workspace = true
 unisson-store.workspace = true
 unisson-youtube.workspace = true
 serde.workspace = true
@@ -33,6 +34,8 @@ serde.workspace = true
 tauri = { version = "2", features = ["tray-icon"] }
 # Native dialogs: the folder picker of the settings.
 tauri-plugin-dialog = "2"
+# Opens the Spotify consent page in the browser of the user.
+tauri-plugin-opener = "2"
 # Starting Unisson again talks to the copy that is already open.
 tauri-plugin-single-instance = "2"
 # The settings file is written in TOML, which is easy to read and to edit.

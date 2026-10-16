@@ -222,6 +222,21 @@ impl SpotifyApi {
             .collect())
     }
 
+    /// Reads one track of the catalog, from its ID.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SourceError::NotFound`] if the ID is not a track, or
+    /// another [`SourceError`] if Spotify cannot be reached, or refuses.
+    pub fn track(&self, id: &str) -> Result<Track, SourceError> {
+        if !is_spotify_id(id) {
+            return Err(SourceError::NotFound);
+        }
+        let answer = self.get(&format!("/tracks/{id}"), &[])?;
+        let track: RawTrack = parse(&answer)?;
+        track.into_track().ok_or(SourceError::NotFound)
+    }
+
     /// Lists the Spotify applications of the account that can play.
     ///
     /// # Errors
@@ -821,6 +836,27 @@ mod tests {
             _ => (204, String::new(), vec![]),
         });
         assert_eq!(api_on(&server).playback().unwrap(), None);
+    }
+
+    #[test]
+    fn a_track_is_read_from_its_id() {
+        let server = TestServer::start(|request: &Request| match request.target.as_str() {
+            "/api/token" => ok(TOKEN),
+            "/tracks/6rqhFgbbKwnb9MLmUQDhG6" => ok(
+                r#"{"id":"6rqhFgbbKwnb9MLmUQDhG6","name":"So What","duration_ms":562000,
+                    "artists":[{"name":"Miles Davis"}],"album":{"name":"Kind of Blue","images":[]}}"#,
+            ),
+            _ => (404, String::new(), vec![]),
+        });
+        let api = api_on(&server);
+        let track = api.track("6rqhFgbbKwnb9MLmUQDhG6").unwrap();
+        assert_eq!(track.name, "So What");
+        assert_eq!(track.artists, ["Miles Davis"]);
+        assert_eq!(api.track("../me"), Err(SourceError::NotFound));
+        assert_eq!(
+            api.track("0000000000000000000000"),
+            Err(SourceError::NotFound)
+        );
     }
 
     #[test]

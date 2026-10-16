@@ -57,14 +57,16 @@ pub fn player_enqueue(state: State<'_, AppState>, media: MediaDto) -> Result<(),
     Ok(())
 }
 
-/// Plays what the user typed or pasted: a YouTube link, the address of a
-/// stream or of an audio file, or the path of a file on this computer.
+/// Plays what the user typed or pasted: a YouTube or Spotify link, the
+/// address of a stream or of an audio file, or the path of a file on this
+/// computer.
 ///
 /// A link to a YouTube playlist plays the whole playlist.
 #[tauri::command(async)]
 pub fn player_open(state: State<'_, AppState>, target: String) -> Result<(), CommandError> {
     let media = match Target::parse(&target)? {
         Target::YouTube(link) => state.youtube.tool().lookup(&link).map_err(source_error)?,
+        Target::Spotify(link) => vec![state.spotify_source.lookup(&link).map_err(source_error)?],
         Target::Stream(address) => {
             let station = Station::custom(&stream_name(&address), &address)
                 .map_err(|error| CommandError::invalid(error.to_string()))?;
@@ -91,7 +93,7 @@ pub fn player_open(state: State<'_, AppState>, target: String) -> Result<(), Com
     Ok(())
 }
 
-fn source_error(error: SourceError) -> CommandError {
+pub(crate) fn source_error(error: SourceError) -> CommandError {
     let kind = match error {
         SourceError::Network(_) => "network",
         SourceError::NotFound => "notFound",
@@ -137,6 +139,8 @@ pub fn player_set_volume(state: State<'_, AppState>, volume: f64) {
 enum Target {
     /// A link to YouTube: a video or a playlist.
     YouTube(String),
+    /// A link to a Spotify track, or its `spotify:track:` address.
+    Spotify(String),
     /// Any other network address.
     Stream(String),
     /// A file on this computer.
@@ -151,6 +155,9 @@ impl Target {
         let text = text.trim();
         if is_youtube_url(text) {
             return Ok(Self::YouTube(text.to_owned()));
+        }
+        if unisson_spotify::track_id(text).is_some() {
+            return Ok(Self::Spotify(text.to_owned()));
         }
         if text.starts_with("http://") || text.starts_with("https://") {
             return Ok(Self::Stream(text.to_owned()));
@@ -208,6 +215,22 @@ mod tests {
         assert_eq!(
             Target::parse("https://example.org/youtube.mp3"),
             Ok(Target::Stream("https://example.org/youtube.mp3".to_owned()))
+        );
+    }
+
+    #[test]
+    fn a_spotify_link_is_told_apart_from_other_addresses() {
+        for link in [
+            "https://open.spotify.com/track/6rqhFgbbKwnb9MLmUQDhG6?si=x",
+            "spotify:track:6rqhFgbbKwnb9MLmUQDhG6",
+        ] {
+            assert_eq!(Target::parse(link), Ok(Target::Spotify(link.to_owned())));
+        }
+        assert_eq!(
+            Target::parse("https://open.spotify.com/album/6rqhFgbbKwnb9MLmUQDhG6"),
+            Ok(Target::Stream(
+                "https://open.spotify.com/album/6rqhFgbbKwnb9MLmUQDhG6".to_owned()
+            ))
         );
     }
 

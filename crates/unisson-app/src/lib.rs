@@ -57,6 +57,7 @@ pub fn run() {
             windows::handle_launch(app, &arguments);
         }))
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_opener::init())
         .setup(|app| {
             let (state, session_events) = match AppState::start() {
                 Ok(started) => started,
@@ -190,6 +191,8 @@ pub fn run() {
             commands::settings::settings_set_theme,
             commands::settings::settings_install_shortcut,
             commands::settings::settings_remove_shortcut,
+            commands::settings::spotify_connect,
+            commands::settings::spotify_disconnect,
             commands::window::window_show_main,
             commands::window::window_show_mini,
             commands::window::window_show_search,

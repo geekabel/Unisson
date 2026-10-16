@@ -25,7 +25,7 @@ fn to_milliseconds(duration: Duration) -> u64 {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MediaDto {
-    /// The source, as [`SourceKind::id`]: `radio`, `local`, `youtube`.
+    /// The source, as [`SourceKind::id`]: `radio`, `local`, `spotify`, `youtube`.
     pub source: String,
     /// The identifier of the media inside its source.
     pub key: String,

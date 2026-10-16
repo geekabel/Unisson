@@ -146,6 +146,23 @@ pub struct Texts {
     pub cannot_start_other: &'static str,
     /// Start failure: what comes before the technical reason.
     pub technical_detail: &'static str,
+    /// The page the browser shows after the Spotify consent: its title.
+    pub spotify_page_title: &'static str,
+    /// The same page, when the connection worked.
+    pub spotify_page_success: &'static str,
+    /// The same page, when it did not.
+    pub spotify_page_failure: &'static str,
+}
+
+impl Texts {
+    /// The words of the page the browser shows after the Spotify consent.
+    pub fn spotify_page(&self) -> unisson_spotify::auth::CallbackPage {
+        unisson_spotify::auth::CallbackPage {
+            title: self.spotify_page_title,
+            success: self.spotify_page_success,
+            failure: self.spotify_page_failure,
+        }
+    }
 }
 
 static FRENCH: Texts = Texts {
@@ -176,6 +193,9 @@ static FRENCH: Texts = Texts {
         le disque n'est pas plein.",
     cannot_start_other: "Une erreur inattendue empêche le démarrage.",
     technical_detail: "Détail technique : ",
+    spotify_page_title: "Unisson et Spotify",
+    spotify_page_success: "Unisson est connecté à Spotify. Vous pouvez fermer cette page.",
+    spotify_page_failure: "La connexion à Spotify n'a pas abouti. Revenez dans Unisson pour réessayer.",
 };
 
 static ENGLISH: Texts = Texts {
@@ -206,6 +226,9 @@ static ENGLISH: Texts = Texts {
         not full.",
     cannot_start_other: "An unexpected error prevents the start.",
     technical_detail: "Technical detail: ",
+    spotify_page_title: "Unisson and Spotify",
+    spotify_page_success: "Unisson is connected to Spotify. You can close this page.",
+    spotify_page_failure: "The connection to Spotify did not work. Go back to Unisson to try again.",
 };
 
 #[cfg(test)]
