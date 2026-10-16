@@ -38,6 +38,16 @@ unisson-youtube = { path = "crates/unisson-youtube", version = "0.1.0" }
 gst = { package = "gstreamer", version = "0.25" }
 # Blocking HTTP client. It fits the blocking `Source` trait, with no async runtime.
 ureq = { version = "3", features = ["json"] }
+# The appsrc element, to push sound made in Rust into GStreamer.
+gst-app = { package = "gstreamer-app", version = "0.25" }
+# librespot plays Spotify inside Unisson. Taken from its `dev` branch at a
+# fixed commit: the last release (0.8.0) lacks the fallback between audio
+# servers that fixed the June 2026 failures. TLS through rustls, and no audio
+# backend of its own: Unisson gives it a GStreamer output.
+librespot-core = { git = "https://github.com/librespot-org/librespot", rev = "19959512c212cbc48a3ff64382fe204f52c659a7", default-features = false, features = ["rustls-tls-native-roots"] }
+librespot-metadata = { git = "https://github.com/librespot-org/librespot", rev = "19959512c212cbc48a3ff64382fe204f52c659a7", default-features = false, features = ["rustls-tls-native-roots"] }
+librespot-playback = { git = "https://github.com/librespot-org/librespot", rev = "19959512c212cbc48a3ff64382fe204f52c659a7", default-features = false, features = ["rustls-tls-native-roots"] }
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "time", "macros"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # SQLite, compiled from the bundled sources: no system package is needed.

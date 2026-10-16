@@ -1,0 +1,25 @@
+# Advisories accepted after review, read by `cargo audit`.
+#
+# Each comes with librespot (the built-in Spotify playback), which pins
+# these versions. Review them again when librespot is updated.
+[advisories]
+ignore = [
+    # rustls 0.22 and rustls-webpki 0.102 come through hyper-proxy2, which
+    # only uses them for a TLS connection to an HTTP proxy. Unisson never
+    # gives librespot a proxy: its connections to Spotify go through
+    # hyper-rustls 0.27 and rustls 0.23, which are up to date.
+    "RUSTSEC-2026-0346",
+    "RUSTSEC-2026-0349",
+    "RUSTSEC-2026-0049",
+    "RUSTSEC-2026-0098",
+    "RUSTSEC-2026-0099",
+    "RUSTSEC-2026-0104",
+    # quick-xml 0.38: slow or memory-hungry on hostile XML. librespot only
+    # parses XML that Spotify's own servers send, over TLS.
+    "RUSTSEC-2026-0194",
+    "RUSTSEC-2026-0195",
+    # rsa: the Marvin attack recovers a key by timing decryptions. librespot
+    # only verifies signatures with Spotify's public key, and holds no
+    # private key. No fixed version exists.
+    "RUSTSEC-2023-0071",
+]

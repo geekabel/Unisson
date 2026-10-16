@@ -70,6 +70,7 @@ pub fn run() {
             };
             let store = Arc::clone(&state.store);
             let music_folder = state.music_folder();
+            commands::spotify::watch(app.handle().clone(), &state.spotify);
             app.manage(state);
             windows::apply_theme(app.handle());
 
@@ -191,8 +192,13 @@ pub fn run() {
             commands::settings::settings_set_theme,
             commands::settings::settings_install_shortcut,
             commands::settings::settings_remove_shortcut,
-            commands::settings::spotify_connect,
-            commands::settings::spotify_disconnect,
+            commands::spotify::spotify_sign_in,
+            commands::spotify::spotify_cancel_sign_in,
+            commands::spotify::spotify_sign_out,
+            commands::spotify::spotify_set_up_backup,
+            commands::spotify::spotify_remove_backup,
+            commands::spotify::spotify_set_auto_switch,
+            commands::spotify::spotify_retry,
             commands::window::window_show_main,
             commands::window::window_show_mini,
             commands::window::window_show_search,

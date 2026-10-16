@@ -1,5 +1,7 @@
-//! The remote player: the official Spotify application, driven through the
-//! Web API.
+//! The backup player: the official Spotify application, driven through the
+//! Web API with the backup application the user registered. The
+//! [`SpotifyPlayer`](crate::SpotifyPlayer) hands it the tracks the built-in
+//! playback cannot play.
 //!
 //! # Design
 //!
@@ -212,8 +214,8 @@ impl Worker {
 
     fn api(&self) -> Result<Arc<SpotifyApi>, SourceError> {
         self.spotify
-            .api()
-            .ok_or_else(|| SourceError::Unavailable("not connected to Spotify".into()))
+            .app_api()
+            .ok_or_else(|| SourceError::Unavailable("the Spotify backup is not set up".into()))
     }
 
     fn fail(&mut self, error: &SourceError) {
@@ -222,8 +224,8 @@ impl Worker {
     }
 
     fn play(&mut self, uri: StreamUri) {
-        // First of all: the session only listens to what follows this.
-        self.sink.send(EngineEvent::Loaded(uri.clone()));
+        // The `Loaded` event comes from the `SpotifyPlayer` that hands the
+        // track over, once, even when this player takes over a track.
         self.tracker = None;
         self.poll_failures = 0;
         let started = self.api().and_then(|api| {
@@ -303,7 +305,7 @@ impl Worker {
         let Some(tracker) = self.tracker.as_mut() else {
             return;
         };
-        let state = match self.spotify.api().map(|api| api.playback()) {
+        let state = match self.spotify.app_api().map(|api| api.playback()) {
             Some(Ok(state)) => state,
             Some(Err(error)) => {
                 self.poll_failures += 1;
@@ -647,7 +649,7 @@ mod tests {
             }
         });
         let api = SpotifyApi::with_bases(&server.url, &server.url, "cid", "R", |_| {});
-        let spotify = Arc::new(Spotify::with_api(api));
+        let spotify = Arc::new(Spotify::with_apis(None, Some(api)));
         let (sink, events) = EventSink::for_tests();
         let remote = SpotifyRemote::start_with(
             spotify,
@@ -671,7 +673,6 @@ mod tests {
         assert_eq!(
             seen,
             [
-                EngineEvent::Loaded(StreamUri::new(URI).unwrap()),
                 EngineEvent::StateChanged(AudioState::Playing),
                 EngineEvent::Position {
                     position: Duration::from_millis(1000),
@@ -715,14 +716,10 @@ mod tests {
         });
         let api = SpotifyApi::with_bases(&server.url, &server.url, "cid", "R", |_| {});
         let (sink, events) = EventSink::for_tests();
-        let remote = SpotifyRemote::start(Arc::new(Spotify::with_api(api)), sink);
+        let remote = SpotifyRemote::start(Arc::new(Spotify::with_apis(None, Some(api))), sink);
 
         remote.play_uri(StreamUri::new(URI).unwrap());
 
-        assert!(matches!(
-            events.recv_timeout(Duration::from_secs(5)),
-            Ok(EngineEvent::Loaded(_))
-        ));
         assert!(matches!(
             events.recv_timeout(Duration::from_secs(5)),
             Ok(EngineEvent::Error(failure)) if failure.message.contains("open the Spotify application")

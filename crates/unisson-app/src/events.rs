@@ -47,6 +47,12 @@ pub const PLAYLISTS_CHANGED: &str = "playlists:changed";
 pub const STATIONS_CHANGED: &str = "stations:changed";
 /// A media was added to the listening history. No payload.
 pub const HISTORY_CHANGED: &str = "history:changed";
+/// Where Spotify plays changed, or its connection. Payload:
+/// [`SpotifyDto`](crate::commands::spotify::SpotifyDto).
+pub const SPOTIFY_CHANGED: &str = "spotify:changed";
+/// A Spotify sign-in opened its page in the browser. Payload: the address
+/// of the page, to copy when no browser appeared.
+pub const SPOTIFY_SIGN_IN_LINK: &str = "spotify:sign-in-link";
 
 /// Forwards the session events to the interface, until the session ends.
 ///

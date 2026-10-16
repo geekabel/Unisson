@@ -1,12 +1,15 @@
 //! The Spotify catalog, as a source of Unisson.
 
 use std::sync::Arc;
+use std::time::SystemTime;
 
 use unisson_core::{Media, MediaId, SearchQuery, Source, SourceError, SourceKind, StreamUri};
 
 use crate::api::{Device, NO_DEVICE, Track};
 use crate::connection::Spotify;
 use crate::is_spotify_id;
+use crate::player::{Situation, choose_route};
+use crate::status::Route;
 
 /// Searches the Spotify catalog, and gives the address of a track.
 ///
@@ -35,7 +38,7 @@ impl SpotifySource {
             .ok_or_else(|| SourceError::Invalid("not a link to a Spotify track".into()))?;
         let api = self
             .spotify
-            .api()
+            .search_api()
             .ok_or_else(|| SourceError::Unavailable("not connected to Spotify".into()))?;
         Ok(track_media(api.track(id)?))
     }
@@ -80,7 +83,7 @@ impl Source for SpotifySource {
     }
 
     fn search(&self, query: &SearchQuery) -> Result<Vec<Media>, SourceError> {
-        let Some(api) = self.spotify.api() else {
+        let Some(api) = self.spotify.search_api() else {
             return Ok(Vec::new());
         };
         if query.is_empty() {
@@ -90,8 +93,8 @@ impl Source for SpotifySource {
         Ok(tracks.into_iter().map(track_media).collect())
     }
 
-    /// Gives the `spotify:track:...` address of a track, after checking
-    /// that a Spotify application is there to play it.
+    /// Gives the `spotify:track:...` address of a track. When it is going to
+    /// play in the official application, checks first that one is open.
     fn resolve(&self, id: &MediaId) -> Result<StreamUri, SourceError> {
         if id.source != SourceKind::Spotify {
             return Err(SourceError::Invalid(format!(
@@ -102,12 +105,15 @@ impl Source for SpotifySource {
         if !is_spotify_id(&id.key) {
             return Err(SourceError::NotFound);
         }
-        let api = self
-            .spotify
-            .api()
-            .ok_or_else(|| SourceError::Unavailable("not connected to Spotify".into()))?;
-        let devices = api.devices()?;
-        if choose_device(&devices).is_none() {
+        if !self.spotify.is_connected() {
+            return Err(SourceError::Unavailable("not connected to Spotify".into()));
+        }
+        let situation = Situation::of(&self.spotify);
+        let route = choose_route(situation, &self.spotify.status(), SystemTime::now());
+        if route == Some(Route::App)
+            && let Some(api) = self.spotify.app_api()
+            && choose_device(&api.devices()?).is_none()
+        {
             return Err(SourceError::Unavailable(NO_DEVICE.into()));
         }
         StreamUri::new(format!("spotify:track:{}", id.key))

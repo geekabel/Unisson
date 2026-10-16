@@ -2,43 +2,50 @@
 //!
 //! # Design
 //!
-//! Spotify does not let a third-party program decode its audio. What it
-//! offers is the [Web API](https://developer.spotify.com/documentation/web-api):
-//! search the catalog, and tell a Spotify application (a "device") what to
-//! play. So:
+//! Spotify plays in two ways:
 //!
-//! - [`SpotifySource`] searches the catalog, like the other sources, and
-//!   turns a track into a `spotify:track:...` address;
-//! - [`SpotifyRemote`] is the remote player the playback session hands those
-//!   addresses to. It asks the official Spotify application, open on the
-//!   computer, to play them, and follows the playback to report the
-//!   position and the end of each track.
+//! - **inside Unisson**, by default: [`builtin`] signs in like the Spotify
+//!   desktop application and plays the audio itself, through librespot.
+//!   One sign-in, nothing else to install. Spotify does not endorse it,
+//!   and refuses it on some accounts or for a while;
+//! - **in the official Spotify application**, as a backup: Unisson drives
+//!   it through the [Web API](https://developer.spotify.com/documentation/web-api),
+//!   with an application the user registers on the Spotify developer site.
+//!   An application in development mode only serves the few accounts its
+//!   owner lists, so each user registers their own: see [`auth`].
 //!
-//! Playing through the Web API needs a Spotify Premium account. Each user
-//! registers their own application on the Spotify developer dashboard and
-//! gives its client ID to Unisson: an application in development mode only
-//! serves the few accounts its owner lists, so a client ID shared by every
-//! user of Unisson could not work. The user then connects with the
-//! "authorization code with PKCE" flow, made for programs that cannot keep
-//! a secret: see [`auth`].
+//! [`SpotifyPlayer`] is the remote player the playback session hands
+//! `spotify:track:...` addresses to. It plays inside Unisson, and moves to
+//! the official application when the built-in playback fails for a known
+//! reason, if the backup is set up. Both ways need Spotify Premium.
 //!
-//! [`Spotify`] holds the connection, shared by the source and the remote
-//! player.
+//! [`SpotifySource`] searches the catalog like the other sources, and turns
+//! a track into a `spotify:track:...` address. [`Spotify`] holds the
+//! connection, shared by all, and the [`PlaybackStatus`] the interface
+//! shows.
 
 pub mod api;
 pub mod auth;
+pub mod builtin;
 mod connection;
 mod credentials;
+mod player;
 mod remote;
 mod source;
+mod status;
 #[cfg(test)]
 mod test_server;
 
 pub use api::{Device, PlaybackState, SpotifyApi, Track};
 pub use connection::Spotify;
 pub use credentials::Credentials;
+pub use player::{
+    Decision, RETRY_WITH_BACKUP, RETRY_WITHOUT_BACKUP, Situation, SpotifyPlayer, after_failure,
+    choose_route,
+};
 pub use remote::SpotifyRemote;
 pub use source::SpotifySource;
+pub use status::{PlaybackStatus, Problem, Route};
 
 /// The scheme of the addresses handed to the remote player.
 pub const SCHEME: &str = "spotify:";

@@ -6,7 +6,7 @@ rust-version.workspace = true
 repository.workspace = true
 license.workspace = true
 publish.workspace = true
-description = "Spotify source of Unisson: searches through the Web API and plays through the official Spotify application."
+description = "Spotify source of Unisson: plays inside Unisson through librespot, with the official Spotify application as a backup."
 
 [lints]
 workspace = true
@@ -24,3 +24,11 @@ base64 = "0.22"
 getrandom = "0.3"
 # Builds the authorization address and reads the answer of the browser.
 url = "2"
+# Built-in playback: a Spotify session and player, and the sound sent to
+# GStreamer. librespot runs on tokio, in a runtime of its own.
+librespot-core.workspace = true
+librespot-metadata.workspace = true
+librespot-playback.workspace = true
+tokio.workspace = true
+gst.workspace = true
+gst-app.workspace = true

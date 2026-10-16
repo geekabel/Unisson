@@ -15,4 +15,5 @@ pub mod queue;
 pub mod radio;
 pub mod search;
 pub mod settings;
+pub mod spotify;
 pub mod window;

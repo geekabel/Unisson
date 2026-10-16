@@ -10,7 +10,7 @@ use unisson_audio::Engine;
 use unisson_core::{Media, MediaId, SourceKind, SourceRegistry};
 use unisson_playback::{Router, Session, SessionEvent, Snapshot};
 use unisson_radio::{Favorites, RadioBrowser, RadioSource, Station};
-use unisson_spotify::{Spotify, SpotifyRemote, SpotifySource};
+use unisson_spotify::{Spotify, SpotifyPlayer, SpotifySource};
 use unisson_store::{LocalSource, Store, StoreError};
 use unisson_youtube::YouTubeSource;
 
@@ -39,8 +39,7 @@ pub struct AppState {
     /// The YouTube source, kept apart to play pasted links and to tell
     /// whether yt-dlp is installed.
     pub youtube: Arc<YouTubeSource>,
-    /// The connection to Spotify, shared by its source and the player that
-    /// drives the Spotify application.
+    /// The connection to Spotify, shared by its source and its player.
     pub spotify: Arc<Spotify>,
     /// The Spotify source, kept apart to play pasted links.
     pub spotify_source: Arc<SpotifySource>,
@@ -102,11 +101,11 @@ impl AppState {
         let sources = Arc::new(sources);
 
         let (engine, engine_events) = Engine::spawn()?;
-        // Spotify tracks play in the Spotify application, everything else
-        // in the audio engine, all in the same queue.
+        // Spotify tracks go to their own player, everything else to the
+        // audio engine, all in the same queue.
         let (output, output_events) = Router::new(engine, engine_events, {
             let spotify = Arc::clone(&spotify);
-            move |sink| Box::new(SpotifyRemote::start(spotify, sink))
+            move |sink| Box::new(SpotifyPlayer::start(spotify, sink))
         });
         let resolver = {
             let sources = Arc::clone(&sources);

@@ -13,12 +13,21 @@
 //!
 //! No client secret is involved, so nothing secret is built into the
 //! program. The redirect address is a small web server of Unisson itself,
-//! on the loopback address `127.0.0.1` and a port the system picks.
-//! Spotify allows a loopback address registered without a port, and
-//! accepts any port for it.
+//! on the loopback address `127.0.0.1`.
+//!
+//! Two applications use this flow, described by a [`Flow`]:
+//!
+//! - [`BUILTIN`]: the identity Spotify gives its own desktop application,
+//!   which librespot also uses. Spotify only accepts the audio of a session
+//!   signed in with it. Its redirect addresses are fixed: the ports
+//!   librespot uses, and the path `/login`.
+//! - the application the user registers on the Spotify developer site, for
+//!   the backup route: see [`app_flow`]. Spotify allows a loopback address
+//!   registered without a port, and accepts any port for it.
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
 
 use base64::Engine as _;
@@ -37,8 +46,51 @@ pub const REDIRECT_PATH: &str = "/callback";
 /// port: Spotify accepts any port for a loopback address.
 pub const REDIRECT_TO_REGISTER: &str = "http://127.0.0.1/callback";
 
-/// What Unisson asks to do: read what plays, and control it.
+/// What Unisson asks of the backup application: read what plays, and
+/// control it.
 pub const SCOPES: &str = "user-read-playback-state user-modify-playback-state";
+
+/// The client ID Spotify gives its own desktop application. librespot uses
+/// it as well: since August 2026, Spotify only plays audio for a session
+/// signed in with it.
+pub const BUILTIN_CLIENT_ID: &str = "65b708073fc0480ea92a077233ca87bd";
+
+/// The application a sign-in is for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Flow<'a> {
+    /// Its client ID.
+    pub client_id: &'a str,
+    /// What it asks to do, separated by spaces.
+    pub scopes: &'static str,
+    /// The path of its redirect address.
+    pub path: &'static str,
+    /// The ports its redirect address may use. Empty: any port.
+    pub ports: &'static [u16],
+}
+
+/// The built-in playback: sign in once, and Spotify plays inside Unisson.
+/// `streaming` lets the session play audio; `user-read-private` lets it
+/// search the catalog of the right country.
+pub const BUILTIN: Flow<'static> = Flow {
+    client_id: BUILTIN_CLIENT_ID,
+    scopes: "streaming user-read-private",
+    path: "/login",
+    // The ports librespot uses: Spotify knows these addresses.
+    ports: &[5588, 8898],
+};
+
+/// The backup application the user registered.
+pub fn app_flow(client_id: &str) -> Flow<'_> {
+    Flow {
+        client_id,
+        scopes: SCOPES,
+        path: REDIRECT_PATH,
+        ports: &[],
+    }
+}
+
+/// What a cancelled sign-in returns, in a [`SourceError::Unavailable`].
+pub const CANCELLED: &str = "sign-in cancelled";
 
 /// How long the user has to accept in the browser.
 pub const CONSENT_TIMEOUT: Duration = Duration::from_secs(300);
@@ -125,7 +177,7 @@ pub fn new_state() -> Result<String, SourceError> {
 ///
 /// Returns [`SourceError::Invalid`] if the address cannot be built.
 pub fn authorize_url(
-    client_id: &str,
+    flow: &Flow<'_>,
     redirect_uri: &str,
     pkce: &Pkce,
     state: &str,
@@ -134,11 +186,11 @@ pub fn authorize_url(
         AUTHORIZE_URL,
         [
             ("response_type", "code"),
-            ("client_id", client_id),
+            ("client_id", flow.client_id),
             ("redirect_uri", redirect_uri),
             ("code_challenge_method", "S256"),
             ("code_challenge", &pkce.challenge),
-            ("scope", SCOPES),
+            ("scope", flow.scopes),
             ("state", state),
         ],
     )
@@ -147,7 +199,7 @@ pub fn authorize_url(
 }
 
 /// Reads the code from the request the browser makes to the redirect
-/// address, such as `/callback?code=AQB...&state=xyz`.
+/// address at `path`, such as `/callback?code=AQB...&state=xyz`.
 ///
 /// # Errors
 ///
@@ -155,9 +207,13 @@ pub fn authorize_url(
 ///   its `state` is not the one sent;
 /// - [`SourceError::Unavailable`] if the user refused, with the reason
 ///   Spotify gives.
-pub fn read_callback(target: &str, expected_state: &str) -> Result<String, SourceError> {
+pub fn read_callback(
+    target: &str,
+    expected_state: &str,
+    expected_path: &str,
+) -> Result<String, SourceError> {
     let (path, query) = target.split_once('?').unwrap_or((target, ""));
-    if path != REDIRECT_PATH {
+    if path != expected_path {
         return Err(SourceError::Invalid(format!("unexpected request: {path}")));
     }
     let mut code = None;
@@ -189,19 +245,33 @@ pub fn read_callback(target: &str, expected_state: &str) -> Result<String, Sourc
 #[derive(Debug)]
 pub struct Callback {
     listener: TcpListener,
+    path: &'static str,
 }
 
 impl Callback {
-    /// Opens the server on the loopback address, on a port the system
-    /// picks.
+    /// Opens the server on the loopback address, for a flow: on the first
+    /// of its ports that is free, or on a port the system picks.
     ///
     /// # Errors
     ///
     /// Returns [`SourceError::Unavailable`] if no port can be opened.
-    pub fn open() -> Result<Self, SourceError> {
-        let listener = TcpListener::bind("127.0.0.1:0")
-            .map_err(|error| SourceError::Unavailable(format!("cannot open a port: {error}")))?;
-        Ok(Self { listener })
+    pub fn open(flow: &Flow<'_>) -> Result<Self, SourceError> {
+        let listener = if flow.ports.is_empty() {
+            TcpListener::bind("127.0.0.1:0")
+        } else {
+            TcpListener::bind(
+                flow.ports
+                    .iter()
+                    .map(|port| std::net::SocketAddr::from(([127, 0, 0, 1], *port)))
+                    .collect::<Vec<_>>()
+                    .as_slice(),
+            )
+        }
+        .map_err(|error| SourceError::Unavailable(format!("cannot open a port: {error}")))?;
+        Ok(Self {
+            listener,
+            path: flow.path,
+        })
     }
 
     /// Returns the redirect address, with the port of the server.
@@ -215,7 +285,7 @@ impl Callback {
             .local_addr()
             .map_err(|error| SourceError::Unavailable(error.to_string()))?
             .port();
-        Ok(format!("http://127.0.0.1:{port}{REDIRECT_PATH}"))
+        Ok(format!("http://127.0.0.1:{port}{}", self.path))
     }
 
     /// Waits for the browser, and returns the code it brings.
@@ -227,18 +297,24 @@ impl Callback {
     /// # Errors
     ///
     /// - [`SourceError::Network`] if nothing came in `timeout`;
+    /// - [`SourceError::Unavailable`] with [`CANCELLED`] once `cancel` is
+    ///   set;
     /// - the errors of [`read_callback`] for an answer that is not valid.
     pub fn wait_for_code(
         self,
         expected_state: &str,
         timeout: Duration,
         page: &CallbackPage,
+        cancel: &AtomicBool,
     ) -> Result<String, SourceError> {
         let deadline = Instant::now() + timeout;
         self.listener
             .set_nonblocking(true)
             .map_err(|error| SourceError::Unavailable(error.to_string()))?;
         loop {
+            if cancel.load(Ordering::SeqCst) {
+                return Err(SourceError::Unavailable(CANCELLED.into()));
+            }
             if Instant::now() >= deadline {
                 return Err(SourceError::Network(
                     "no answer from the browser in time".into(),
@@ -255,11 +331,11 @@ impl Callback {
             let Some(target) = read_target(&stream) else {
                 continue;
             };
-            if !target.starts_with(REDIRECT_PATH) {
+            if !target.starts_with(self.path) {
                 respond(stream, 404, "");
                 continue;
             }
-            let result = read_callback(&target, expected_state);
+            let result = read_callback(&target, expected_state, self.path);
             let text = if result.is_ok() {
                 page.success
             } else {
@@ -349,7 +425,7 @@ mod tests {
     fn the_authorization_address_carries_every_parameter() {
         let pkce = Pkce::from_verifier("v".repeat(43));
         let address = authorize_url(
-            "0123456789abcdef0123456789abcdef",
+            &app_flow("0123456789abcdef0123456789abcdef"),
             "http://127.0.0.1:43210/callback",
             &pkce,
             "st&te",
@@ -377,25 +453,45 @@ mod tests {
     #[test]
     fn the_answer_of_the_browser_is_read_and_checked() {
         assert_eq!(
-            read_callback("/callback?code=AQB%2Bx&state=abc", "abc"),
+            read_callback("/callback?code=AQB%2Bx&state=abc", "abc", "/callback"),
             Ok("AQB+x".to_owned())
         );
         assert!(matches!(
-            read_callback("/callback?code=AQB&state=other", "abc"),
+            read_callback("/callback?code=AQB&state=other", "abc", "/callback"),
             Err(SourceError::Invalid(_))
         ));
         assert!(matches!(
-            read_callback("/callback?error=access_denied&state=abc", "abc"),
+            read_callback("/callback?error=access_denied&state=abc", "abc", "/callback"),
             Err(SourceError::Unavailable(message)) if message.contains("access_denied")
         ));
         assert!(matches!(
-            read_callback("/favicon.ico", "abc"),
+            read_callback("/favicon.ico", "abc", "/callback"),
             Err(SourceError::Invalid(_))
         ));
         assert!(matches!(
-            read_callback("/callback?state=abc", "abc"),
+            read_callback("/callback?state=abc", "abc", "/callback"),
             Err(SourceError::Invalid(_))
         ));
+    }
+
+    #[test]
+    fn the_built_in_sign_in_asks_to_stream_and_comes_back_to_login() {
+        let pkce = Pkce::from_verifier("v".repeat(43));
+        let address = authorize_url(&BUILTIN, "http://127.0.0.1:5588/login", &pkce, "s").unwrap();
+        assert!(address.contains("client_id=65b708073fc0480ea92a077233ca87bd"));
+        assert!(address.contains("scope=streaming+user-read-private"));
+        assert_eq!(
+            read_callback("/login?code=c&state=s", "s", BUILTIN.path),
+            Ok("c".to_owned())
+        );
+    }
+
+    #[test]
+    fn the_built_in_identity_is_the_one_librespot_uses() {
+        assert_eq!(
+            librespot_core::config::SessionConfig::default().client_id,
+            BUILTIN_CLIENT_ID
+        );
     }
 
     #[test]
@@ -408,7 +504,7 @@ mod tests {
 
     #[test]
     fn the_browser_is_answered_and_its_code_returned() {
-        let callback = Callback::open().unwrap();
+        let callback = Callback::open(&app_flow("x")).unwrap();
         let redirect = callback.redirect_uri().unwrap();
         assert!(redirect.starts_with("http://127.0.0.1:"));
         assert!(redirect.ends_with(REDIRECT_PATH));
@@ -435,7 +531,12 @@ mod tests {
         });
 
         let code = callback
-            .wait_for_code("abc", Duration::from_secs(5), &page)
+            .wait_for_code(
+                "abc",
+                Duration::from_secs(5),
+                &page,
+                &AtomicBool::new(false),
+            )
             .unwrap();
 
         assert_eq!(code, "xyz");
@@ -446,13 +547,35 @@ mod tests {
 
     #[test]
     fn waiting_ends_when_the_user_never_comes_back() {
-        let callback = Callback::open().unwrap();
+        let callback = Callback::open(&app_flow("x")).unwrap();
         let page = CallbackPage {
             title: "",
             success: "",
             failure: "",
         };
-        let result = callback.wait_for_code("abc", Duration::from_millis(200), &page);
+        let result = callback.wait_for_code(
+            "abc",
+            Duration::from_millis(200),
+            &page,
+            &AtomicBool::new(false),
+        );
         assert!(matches!(result, Err(SourceError::Network(_))));
+    }
+
+    #[test]
+    fn a_cancelled_wait_ends_at_once() {
+        let callback = Callback::open(&app_flow("x")).unwrap();
+        let page = CallbackPage {
+            title: "",
+            success: "",
+            failure: "",
+        };
+        let result = callback.wait_for_code(
+            "abc",
+            Duration::from_secs(60),
+            &page,
+            &AtomicBool::new(true),
+        );
+        assert_eq!(result, Err(SourceError::Unavailable(CANCELLED.into())));
     }
 }

@@ -192,6 +192,16 @@ impl SpotifyApi {
             .ok_or_else(|| SourceError::Invalid("Spotify gave no refresh token".into()))
     }
 
+    /// Returns a valid access token, renewed when it expired.
+    ///
+    /// # Errors
+    ///
+    /// Returns a [`SourceError`] if Spotify refuses the refresh token, or
+    /// cannot be reached.
+    pub fn access_token_now(&self) -> Result<String, SourceError> {
+        self.access_token(false)
+    }
+
     /// Returns the client ID of the connection.
     pub fn client_id(&self) -> &str {
         &self.client_id

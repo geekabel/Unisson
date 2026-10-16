@@ -3,10 +3,8 @@
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
 use tauri_plugin_dialog::DialogExt;
-use tauri_plugin_opener::OpenerExt;
 use unisson_core::SourceKind;
 
-use crate::commands::player::source_error;
 use crate::dto::CommandError;
 use crate::events::SETTINGS_CHANGED;
 use crate::library::LibrarySync;
@@ -60,19 +58,7 @@ pub struct SettingsDto {
     /// The keyboard shortcut of the quick launcher.
     pub shortcut: ShortcutDto,
     /// The connection to Spotify.
-    pub spotify: SpotifyDto,
-}
-
-/// The connection to Spotify, as the interface sees it.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SpotifyDto {
-    /// Whether an account is connected.
-    pub connected: bool,
-    /// The client ID of the last connection, to fill the form again.
-    pub client_id: Option<String>,
-    /// The redirect URI the user must register for their application.
-    pub redirect_uri: &'static str,
+    pub spotify: crate::commands::spotify::SpotifyDto,
 }
 
 /// The keyboard shortcut of the quick launcher, as the interface sees it.
@@ -110,7 +96,12 @@ impl ShortcutDto {
     }
 }
 
-fn describe(state: &AppState) -> Result<SettingsDto, CommandError> {
+/// Describes the settings.
+///
+/// # Errors
+///
+/// Returns a [`CommandError`] if the library cannot be counted.
+pub fn describe(state: &AppState) -> Result<SettingsDto, CommandError> {
     let settings = state.settings();
     let registered = state.sources.kinds();
     let folder = state.music_folder();
@@ -138,11 +129,7 @@ fn describe(state: &AppState) -> Result<SettingsDto, CommandError> {
             .map(|path| path.to_string_lossy().into_owned()),
         yt_dlp_version: state.yt_dlp_version(false),
         shortcut: ShortcutDto::read(),
-        spotify: SpotifyDto {
-            connected: state.spotify.is_connected(),
-            client_id: state.spotify.client_id(),
-            redirect_uri: unisson_spotify::auth::REDIRECT_TO_REGISTER,
-        },
+        spotify: crate::commands::spotify::SpotifyDto::read(&state.spotify),
     })
 }
 
@@ -340,44 +327,6 @@ pub fn settings_check_yt_dlp(
     state: State<'_, AppState>,
 ) -> Result<SettingsDto, CommandError> {
     state.yt_dlp_version(true);
-    changed(&app, &state)
-}
-
-/// Connects a Spotify account: opens the consent page of Spotify in the
-/// browser, and waits for the user to accept, at most five minutes.
-///
-/// `client_id` is the one of the application the user registered on the
-/// Spotify developer site.
-#[tauri::command(async)]
-pub fn spotify_connect(
-    app: AppHandle,
-    state: State<'_, AppState>,
-    client_id: String,
-) -> Result<SettingsDto, CommandError> {
-    let page = state.language().texts().spotify_page();
-    state
-        .spotify
-        .connect(
-            &client_id,
-            |address| {
-                app.opener()
-                    .open_url(address, None::<&str>)
-                    .map_err(|error| format!("cannot open the browser: {error}"))
-            },
-            &page,
-        )
-        .map_err(source_error)?;
-    changed(&app, &state)
-}
-
-/// Forgets the Spotify account.
-#[tauri::command(async)]
-pub fn spotify_disconnect(
-    app: AppHandle,
-    state: State<'_, AppState>,
-) -> Result<SettingsDto, CommandError> {
-    // What plays in the Spotify application stays there.
-    state.spotify.disconnect().map_err(source_error)?;
     changed(&app, &state)
 }
 
