@@ -9,6 +9,7 @@ export default {
     "format.sourceLocal": "Local",
     "format.sourceLocalFiles": "Fichiers locaux",
     "format.sourceYoutube": "YouTube",
+    "format.sourceSpotify": "Spotify",
 
     // Media and tiles.
     "format.live": "En direct",
@@ -42,6 +43,8 @@ export default {
     "format.networkDown": "Le réseau ne répond pas. Vérifiez votre connexion.",
     "format.youtubeUnavailable": "YouTube n'a pas répondu. Vérifiez son composant dans Sources.",
     "format.sourceUnavailable": "Cette source est indisponible pour le moment.",
+    "format.spotifyUnavailable": "Spotify n'est pas prêt. Ouvrez l'application Spotify, et vérifiez le compte dans Sources.",
+    "format.spotifyPlaybackFailed": "Spotify n'a pas lu ce titre. Il faut un compte Premium et l'application Spotify ouverte.",
     "format.streamUnsupported": "Le format de ce flux n'est pas pris en charge.",
     "format.audioUnsupported": "Ce format audio n'est pas pris en charge.",
     "format.stationPlaybackFailed": "Lecture impossible. Le flux de la station est peut-être arrêté.",
@@ -67,6 +70,7 @@ export default {
     "format.sourceLocal": "Local",
     "format.sourceLocalFiles": "Local files",
     "format.sourceYoutube": "YouTube",
+    "format.sourceSpotify": "Spotify",
 
     // Media and tiles.
     "format.live": "Live",
@@ -100,6 +104,8 @@ export default {
     "format.networkDown": "The network is not responding. Check your connection.",
     "format.youtubeUnavailable": "YouTube did not respond. Check its component in Sources.",
     "format.sourceUnavailable": "This source is unavailable right now.",
+    "format.spotifyUnavailable": "Spotify is not ready. Open the Spotify application, and check the account in Sources.",
+    "format.spotifyPlaybackFailed": "Spotify did not play this track. It needs a Premium account and the Spotify application open.",
     "format.streamUnsupported": "This stream format is not supported.",
     "format.audioUnsupported": "This audio format is not supported.",
     "format.stationPlaybackFailed": "Playback failed. The station's stream may have stopped.",

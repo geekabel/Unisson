@@ -37,6 +37,7 @@
   --color-source-radio: #2F5D62;
   --color-source-local: #5A4A7A;
   --color-source-youtube: #7A4B3B;
+  --color-source-spotify: #3E6B3A;
   --color-on-source: #E3E8EC;
 
   --font-text: "Ubuntu", "Noto Sans", "DejaVu Sans", sans-serif;
@@ -73,6 +74,7 @@
   --color-source-radio: #BFE0DD;
   --color-source-local: #D6CCEE;
   --color-source-youtube: #EFCFC2;
+  --color-source-spotify: #CBE6C4;
   --color-on-source: #2E363E;
 }
 
@@ -509,6 +511,10 @@ kbd {
 
 .tile[data-source="youtube"] .tile-band {
   background: var(--color-source-youtube);
+}
+
+.tile[data-source="spotify"] .tile-band {
+  background: var(--color-source-spotify);
 }
 
 .tile-badge {
@@ -1083,6 +1089,17 @@ kbd {
   border-top: 1px solid var(--color-border);
 }
 
+/* Numbered steps to follow, such as setting up an account. */
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
 .path {
   font-family: var(--font-mono);
   font-size: 13px;
@@ -1411,7 +1428,8 @@ kbd {
 
 .cover[data-source="radio"],
 .cover[data-source="local"],
-.cover[data-source="youtube"] {
+.cover[data-source="youtube"],
+.cover[data-source="spotify"] {
   color: var(--color-on-source);
 }
 
@@ -1425,6 +1443,10 @@ kbd {
 
 .cover[data-source="youtube"] {
   background: var(--color-source-youtube);
+}
+
+.cover[data-source="spotify"] {
+  background: var(--color-source-spotify);
 }
 
 .cover .icon {

@@ -8,14 +8,17 @@ import { iconButton, section } from "../components.js";
 import { element, icon } from "../dom.js";
 import { displayPath, moved, sourceName } from "../format.js";
 import { plural, t } from "../i18n.js";
-import { showNotice } from "../notice.js";
+import { hideNotice, showNotice } from "../notice.js";
 import { SHORTCUT_GROUPS } from "../shortcut-list.js";
 import { currentSettings, onSettingsChange, useSettings } from "../settings.js";
 
-const SOURCE_ICONS = { radio: "radio", local: "folder", youtube: "video" };
+const SOURCE_ICONS = { radio: "radio", local: "folder", youtube: "video", spotify: "note" };
 
 /** The area redrawn when the settings change. */
 let area = element("div");
+
+/** The Spotify form, kept across redraws: what was typed, and whether the browser is open. */
+const spotifyForm = { clientId: "", waiting: false };
 
 /**
  * Builds the view.
@@ -297,11 +300,14 @@ function toggle({ key, checked, label, labelledBy, onChange }) {
  */
 function sourceCard(source, settings) {
   const missingTool = source.id === "youtube" && !settings.ytDlpVersion;
-  const status = !source.enabled
-    ? t("sources.statusOff")
-    : missingTool
-      ? t("sources.statusMissingTool")
-      : t("sources.statusOn");
+  let status = t("sources.statusOn");
+  if (!source.enabled) {
+    status = t("sources.statusOff");
+  } else if (missingTool) {
+    status = t("sources.statusMissingTool");
+  } else if (source.id === "spotify") {
+    status = settings.spotify.connected ? t("sources.spotifyStatusOn") : t("sources.spotifyStatusOff");
+  }
   return element("div", { class: "source-card", "data-enabled": String(source.enabled) }, [
     element("div", { class: "source-card-head" }, [
       element("span", { class: "cover", "data-source": source.id }, [icon(SOURCE_ICONS[source.id] ?? "note")]),
@@ -318,6 +324,89 @@ function sourceCard(source, settings) {
     ]),
     source.id === "local" ? localDetails(settings) : null,
     source.id === "youtube" ? youtubeDetails(settings) : null,
+    source.id === "spotify" ? spotifyDetails(settings.spotify) : null,
+  ]);
+}
+
+/** Where a Spotify app is created. It is shown as text, to copy. */
+const SPOTIFY_DASHBOARD = "developer.spotify.com/dashboard";
+
+/** @param {import("../api.js").Settings["spotify"]} spotify */
+function spotifyDetails(spotify) {
+  if (spotify.connected) {
+    const disconnect = element(
+      "button",
+      { class: "text-button", type: "button", "data-focus-key": "spotify-disconnect" },
+      [t("sources.spotifyDisconnect")],
+    );
+    disconnect.addEventListener("click", async () => {
+      try {
+        useSettings(await api.spotifyDisconnect());
+      } catch {
+        showNotice({ owner: "settings", tone: "error", text: t("sources.spotifyDisconnectFailed"), duration: 8000 });
+      }
+    });
+    return element("div", { class: "source-card-details" }, [
+      element("p", { class: "station-detail" }, [t("sources.spotifyConnected")]),
+      element("div", { class: "inline-form" }, [disconnect]),
+    ]);
+  }
+
+  if (!spotifyForm.clientId && spotify.clientId) {
+    spotifyForm.clientId = spotify.clientId;
+  }
+  const input = /** @type {HTMLInputElement} */ (element("input", {
+    class: "field field-wide",
+    type: "text",
+    required: true,
+    spellcheck: "false",
+    autocomplete: "off",
+    placeholder: t("sources.spotifyClientId"),
+    "aria-label": t("sources.spotifyClientId"),
+    "data-focus-key": "spotify-client-id",
+  }));
+  input.value = spotifyForm.clientId;
+  input.disabled = spotifyForm.waiting;
+  input.addEventListener("input", () => {
+    spotifyForm.clientId = input.value;
+  });
+  const connect = element(
+    "button",
+    { class: "text-button text-button-strong", type: "submit", "data-focus-key": "spotify-connect" },
+    [spotifyForm.waiting ? t("sources.spotifyWaiting") : t("sources.spotifyConnect")],
+  );
+  connect.disabled = spotifyForm.waiting;
+  const form = element("form", { class: "inline-form" }, [input, connect]);
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    // The message of a previous attempt is out of date.
+    hideNotice("settings");
+    spotifyForm.waiting = true;
+    draw();
+    try {
+      const settings = await api.spotifyConnect(spotifyForm.clientId.trim());
+      spotifyForm.waiting = false;
+      useSettings(settings);
+    } catch (error) {
+      spotifyForm.waiting = false;
+      draw();
+      const text = {
+        invalid: t("sources.spotifyInvalidId"),
+        network: t("sources.spotifyNetwork"),
+      }[error?.kind] ?? t("sources.spotifyFailed");
+      showNotice({ owner: "settings", tone: "error", text, duration: 10000 });
+    }
+  });
+
+  return element("div", { class: "source-card-details" }, [
+    element("p", { class: "station-detail" }, [t("sources.spotifyIntro")]),
+    element("ol", { class: "steps" }, [
+      element("li", {}, [t("sources.spotifyStep1"), element("span", { class: "path" }, [SPOTIFY_DASHBOARD])]),
+      element("li", {}, [t("sources.spotifyStep2"), element("span", { class: "path" }, [spotify.redirectUri])]),
+      element("li", {}, [t("sources.spotifyStep3")]),
+      element("li", {}, [t("sources.spotifyStep4")]),
+    ]),
+    form,
   ]);
 }
 

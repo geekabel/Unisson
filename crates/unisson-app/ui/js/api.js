@@ -7,7 +7,7 @@
  * `tauri.conf.json`.
  *
  * @typedef {object} Media
- * @property {"radio"|"local"|"youtube"} source
+ * @property {"radio"|"local"|"spotify"|"youtube"} source
  * @property {string} key Identifier of the media inside its source.
  * @property {"track"|"station"} kind
  * @property {string} title
@@ -83,6 +83,8 @@
  * @property {?string} ytDlpVersion The yt-dlp program YouTube needs, if installed.
  * @property {{supported: boolean, binding: ?string, choices: [string, string][], command: string}} shortcut
  *   The keyboard shortcut of the quick launcher.
+ * @property {{connected: boolean, clientId: ?string, redirectUri: string}} spotify
+ *   The connection to Spotify.
  *
  * @typedef {object} SearchUpdate
  * @property {{media: Media, sources: string[]}[]} hits The best match first.
@@ -381,6 +383,22 @@ export const settingsSetNotifications = (enabled) => invoke("settings_set_notifi
  * @returns {Promise<Settings>}
  */
 export const settingsCheckYtDlp = () => invoke("settings_check_yt_dlp");
+
+/**
+ * Connects a Spotify account: the consent page opens in the browser, and
+ * the promise ends once the user accepted, at most five minutes later.
+ *
+ * @param {string} clientId The client ID of the user's Spotify app.
+ * @returns {Promise<Settings>}
+ */
+export const spotifyConnect = (clientId) => invoke("spotify_connect", { clientId });
+
+/**
+ * Forgets the Spotify account.
+ *
+ * @returns {Promise<Settings>}
+ */
+export const spotifyDisconnect = () => invoke("spotify_disconnect");
 
 /** Reads the music folder again, from scratch. */
 export const settingsRescanLibrary = () => invoke("settings_rescan_library");

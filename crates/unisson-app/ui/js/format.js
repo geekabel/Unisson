@@ -29,11 +29,13 @@ const SOURCE_LABELS = {
   radio: "format.sourceRadio",
   local: "format.sourceLocal",
   youtube: "format.sourceYoutube",
+  spotify: "format.sourceSpotify",
 };
 const SOURCE_NAMES = {
   radio: "format.sourceRadio",
   local: "format.sourceLocalFiles",
   youtube: "format.sourceYoutube",
+  spotify: "format.sourceSpotify",
 };
 
 /**
@@ -347,6 +349,20 @@ export function resolveTheme(choice, desktopIsLight) {
 export function playbackProblem(error, media) {
   const station = media?.kind === "station";
   const youtube = media?.source === "youtube";
+  if (media?.source === "spotify") {
+    // Spotify plays in its own application: most failures mean it is not
+    // open, or the account cannot be driven.
+    switch (error?.kind) {
+      case "network":
+        return { text: t("format.networkDown"), action: "retry" };
+      case "unavailable":
+        return { text: t("format.spotifyUnavailable"), action: "sources" };
+      case "notFound":
+        return { text: t("format.trackNotFound"), action: "retry" };
+      default:
+        return { text: t("format.spotifyPlaybackFailed"), action: "retry" };
+    }
+  }
   switch (error?.kind) {
     case "notFound":
       if (station) {

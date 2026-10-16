@@ -44,7 +44,7 @@ const RULES = [
   { inks: ["text", "text-soft", "text-muted"], on: BACKGROUNDS, least: 4.5 },
   { inks: ["accent-ink", "live", "danger"], on: BACKGROUNDS, least: 4.5 },
   { inks: ["on-accent"], on: ["accent"], least: 4.5 },
-  { inks: ["on-source"], on: ["source-radio", "source-local", "source-youtube"], least: 4.5 },
+  { inks: ["on-source"], on: ["source-radio", "source-local", "source-youtube", "source-spotify"], least: 4.5 },
   { inks: ["control"], on: ["bg", "panel", "surface"], least: 3 },
   { inks: ["knob"], on: ["control"], least: 3 },
 ];

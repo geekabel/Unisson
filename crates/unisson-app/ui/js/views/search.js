@@ -392,6 +392,11 @@ function drawResults() {
       repair.addEventListener("click", () => showView("sources"));
       ways.push(repair);
     }
+    if (errors.some((error) => error.source === "spotify" && error.kind === "unavailable")) {
+      const repair = element("button", { class: "link-button", type: "button" }, [t("search.checkSpotify")]);
+      repair.addEventListener("click", () => showView("sources"));
+      ways.push(repair);
+    }
     content.push(element("p", { class: "search-notes" }, [...notes, ...ways]));
   }
 

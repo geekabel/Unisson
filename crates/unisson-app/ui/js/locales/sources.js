@@ -21,6 +21,24 @@ export default {
     "sources.componentMissing": "YouTube a besoin d'un composant qui n'est pas installé sur cet ordinateur.",
     "sources.installGuide": "Le guide d'installation explique comment l'ajouter : ",
 
+    // Spotify.
+    "sources.spotifyStatusOff": "Active, mais aucun compte n'est connecté.",
+    "sources.spotifyStatusOn": "Active. Compte connecté.",
+    "sources.spotifyIntro": "Unisson pilote l'application Spotify officielle. Il faut un compte Premium, et l'application ouverte sur cet ordinateur.",
+    "sources.spotifyStep1": "Sur le site des développeurs Spotify, créez une application, avec l'API Web : ",
+    "sources.spotifyStep2": "Ajoutez cette adresse de redirection : ",
+    "sources.spotifyStep3": "Dans « User Management », ajoutez l'e-mail du compte qui écoute.",
+    "sources.spotifyStep4": "Copiez son Client ID ci-dessous, puis connectez-vous.",
+    "sources.spotifyClientId": "Client ID de votre application Spotify",
+    "sources.spotifyConnect": "Se connecter",
+    "sources.spotifyWaiting": "Validez dans votre navigateur…",
+    "sources.spotifyConnected": "Gardez l'application Spotify ouverte pour écouter ses titres.",
+    "sources.spotifyDisconnect": "Se déconnecter",
+    "sources.spotifyInvalidId": "Ce Client ID n'est pas valide. Il compte 32 lettres et chiffres.",
+    "sources.spotifyNetwork": "Spotify ne répond pas. Vérifiez votre connexion.",
+    "sources.spotifyFailed": "La connexion à Spotify n'a pas abouti. Vérifiez l'adresse de redirection et l'accès du compte, puis réessayez.",
+    "sources.spotifyDisconnectFailed": "La déconnexion de Spotify n'a pas pu être enregistrée.",
+
     // Local files.
     "sources.folder": "Dossier : ",
     "sources.folderDefault": "{path} (dossier Musique du bureau)",
@@ -90,6 +108,24 @@ export default {
     "sources.componentInstalled": "YouTube component installed, version {version}.",
     "sources.componentMissing": "YouTube needs a component that is not installed on this computer.",
     "sources.installGuide": "The installation guide explains how to add it: ",
+
+    // Spotify.
+    "sources.spotifyStatusOff": "On, but no account is connected.",
+    "sources.spotifyStatusOn": "On. Account connected.",
+    "sources.spotifyIntro": "Unisson drives the official Spotify application. It needs a Premium account, and the application open on this computer.",
+    "sources.spotifyStep1": "On the Spotify developer site, create an app, with the Web API: ",
+    "sources.spotifyStep2": "Add this redirect URI: ",
+    "sources.spotifyStep3": "In \u201cUser Management\u201d, add the email of the account that listens.",
+    "sources.spotifyStep4": "Copy its Client ID below, then connect.",
+    "sources.spotifyClientId": "Client ID of your Spotify app",
+    "sources.spotifyConnect": "Connect",
+    "sources.spotifyWaiting": "Confirm in your browser…",
+    "sources.spotifyConnected": "Keep the Spotify application open to listen to its tracks.",
+    "sources.spotifyDisconnect": "Disconnect",
+    "sources.spotifyInvalidId": "This Client ID is not valid. It has 32 letters and digits.",
+    "sources.spotifyNetwork": "Spotify is not responding. Check your connection.",
+    "sources.spotifyFailed": "The connection to Spotify did not work. Check the redirect URI and the access of the account, then try again.",
+    "sources.spotifyDisconnectFailed": "The disconnection from Spotify could not be saved.",
 
     // Local files.
     "sources.folder": "Folder: ",
