@@ -4656,6 +4656,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "unisson-spotify"
+version = "0.1.0"
+dependencies = [
+ "base64 0.22.1",
+ "getrandom 0.3.4",
+ "serde",
+ "serde_json",
+ "sha2",
+ "unisson-audio",
+ "unisson-core",
+ "unisson-playback",
+ "ureq",
+ "url",
+]
+
+[[package]]
 name = "unisson-store"
 version = "0.1.0"
 dependencies = [

@@ -31,6 +31,7 @@ unisson-local = { path = "crates/unisson-local", version = "0.1.0" }
 unisson-playback = { path = "crates/unisson-playback", version = "0.1.0" }
 unisson-radio = { path = "crates/unisson-radio", version = "0.1.0" }
 unisson-store = { path = "crates/unisson-store", version = "0.1.0" }
+unisson-spotify = { path = "crates/unisson-spotify", version = "0.1.0" }
 unisson-youtube = { path = "crates/unisson-youtube", version = "0.1.0" }
 # GStreamer bindings. Default features target the GStreamer 1.14 API, which
 # keeps the build compatible with Ubuntu 22.04 (GStreamer 1.20).

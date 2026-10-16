@@ -1,0 +1,26 @@
+[package]
+name = "unisson-spotify"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+license.workspace = true
+publish.workspace = true
+description = "Spotify source of Unisson: searches through the Web API and plays through the official Spotify application."
+
+[lints]
+workspace = true
+
+[dependencies]
+unisson-core.workspace = true
+unisson-audio.workspace = true
+unisson-playback.workspace = true
+ureq.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+# PKCE: the challenge is the SHA-256 of a random secret, in base64url.
+sha2 = "0.10"
+base64 = "0.22"
+getrandom = "0.3"
+# Builds the authorization address and reads the answer of the browser.
+url = "2"
