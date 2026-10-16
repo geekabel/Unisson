@@ -10,10 +10,11 @@
 import * as api from "./api.js";
 import { byId } from "./dom.js";
 import { nudgeVolume } from "./player-bar.js";
+import { openShortcuts } from "./shortcut-dialog.js";
 import { showView } from "./views.js";
 
-/** The screens of Alt+1 to Alt+5, in the order of the sidebar. */
-const VIEWS = ["home", "radios", "favorites", "history", "sources"];
+/** The screens of Alt+1 to Alt+6, in the order of the sidebar. */
+const VIEWS = ["home", "radios", "favorites", "history", "sources", "settings"];
 /** One step of the volume shortcuts, in percent. */
 const VOLUME_STEP = 5;
 
@@ -80,7 +81,12 @@ document.addEventListener("keydown", (event) => {
     moveZone(event.shiftKey);
     return;
   }
-  if (event.altKey && !command && !event.shiftKey && /^[1-5]$/.test(event.key)) {
+  if (event.key === "F1") {
+    event.preventDefault();
+    openShortcuts();
+    return;
+  }
+  if (event.altKey && !command && !event.shiftKey && /^[1-6]$/.test(event.key)) {
     event.preventDefault();
     // The keyboard follows: Tab then walks the new screen.
     showView(VIEWS[Number(event.key) - 1]).then(() => view.focus());

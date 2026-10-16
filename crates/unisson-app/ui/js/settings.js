@@ -34,6 +34,18 @@ export function useSettings(fresh) {
   }
 }
 
+/**
+ * Takes a new state of the Spotify connection, sent by the backend when
+ * where Spotify plays changes.
+ *
+ * @param {import("./api.js").Spotify} spotify
+ */
+export function useSpotify(spotify) {
+  if (settings) {
+    useSettings({ ...settings, spotify });
+  }
+}
+
 /** Returns the settings, or `null` before they were first loaded. */
 export function currentSettings() {
   return settings;

@@ -8,7 +8,7 @@
 import * as api from "./api.js";
 import { iconButton, sourceBadge } from "./components.js";
 import { byId, element, icon, replaceKeepingFocus } from "./dom.js";
-import { mediaSubtitle } from "./format.js";
+import { mediaSubtitle, sourceLabel } from "./format.js";
 import { plural, t } from "./i18n.js";
 
 /** Where the choice to show or hide the panel is remembered. */
@@ -113,11 +113,16 @@ async function draw() {
   }
 }
 
-/** @param {import("./api.js").Media} media */
-function itemText(media) {
+/**
+ * @param {import("./api.js").Media} media
+ * @param {boolean} [withSource] Whether the source joins the second line,
+ *   for the rows that have no room for its badge.
+ */
+function itemText(media, withSource = false) {
+  const subtitle = withSource ? `${mediaSubtitle(media)} · ${sourceLabel(media.source)}` : mediaSubtitle(media);
   return element("span", { class: "station-text" }, [
     element("span", { class: "queue-title truncate" }, [media.title]),
-    element("span", { class: "station-detail truncate" }, [mediaSubtitle(media)]),
+    element("span", { class: "station-detail truncate" }, [subtitle]),
   ]);
 }
 
@@ -144,7 +149,7 @@ function upcomingItem(media, index, count) {
       "aria-label": t("shell.jumpTo", { title: media.title }),
       title: t("shell.playNow"),
     },
-    [element("span", { class: "queue-number" }, [String(index + 1)]), itemText(media)],
+    [element("span", { class: "queue-number" }, [String(index + 1)]), itemText(media, true)],
   );
   main.addEventListener("click", () => api.queueJump(index));
 

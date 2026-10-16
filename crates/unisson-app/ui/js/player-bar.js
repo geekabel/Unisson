@@ -17,6 +17,7 @@ import {
 } from "./format.js";
 import { t } from "./i18n.js";
 import { hideNotice, showNotice } from "./notice.js";
+import { currentSettings, onSettingsChange } from "./settings.js";
 import { showView } from "./views.js";
 
 const cover = byId("player-cover");
@@ -25,6 +26,7 @@ const coverImage = byId("player-cover-image");
 const title = byId("player-title");
 const subtitle = byId("player-subtitle");
 const source = byId("player-source");
+const route = byId("player-route");
 const previousButton = byId("player-previous");
 const toggleButton = byId("player-toggle");
 const toggleIcon = byId("player-toggle-icon");
@@ -53,6 +55,15 @@ let favoriteOf = null;
 let isFavorite = false;
 /** The error already shown, so that closing its message is final. */
 let shownError = null;
+/** The source of the media shown, for the label of the Spotify route. */
+let shownSource = null;
+
+/** Says when a Spotify track plays in the official application. */
+function renderRoute() {
+  route.hidden = !(shownSource === "spotify" && currentSettings()?.spotify?.status?.route === "app");
+}
+
+onSettingsChange(renderRoute);
 
 /**
  * Shows a playback state.
@@ -69,6 +80,8 @@ export function renderPlayer(snapshot) {
   subtitle.title = media ? subtitle.textContent : "";
   source.hidden = !media;
   source.textContent = media ? sourceLabel(media.source) : "";
+  shownSource = media?.source ?? null;
+  renderRoute();
   renderCover(media);
 
   const busy = snapshot.status === "loading";
@@ -177,7 +190,7 @@ function renderNotice(snapshot) {
     return;
   }
   shownError = identity;
-  const problem = playbackProblem(error, snapshot.current);
+  const problem = playbackProblem(error, snapshot.current, currentSettings()?.spotify?.status);
   showNotice({
     owner: "player",
     tone: "error",

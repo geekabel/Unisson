@@ -14,9 +14,10 @@ import * as home from "./views/home.js";
 import * as playlist from "./views/playlist.js";
 import * as radios from "./views/radios.js";
 import * as search from "./views/search.js";
+import * as settings from "./views/settings.js";
 import * as sources from "./views/sources.js";
 
-const VIEWS = { home, radios, search, sources, favorites, history, playlist };
+const VIEWS = { home, radios, search, sources, settings, favorites, history, playlist };
 
 const container = byId("view");
 const navItems = [...document.querySelectorAll(".nav-item[data-view]")];

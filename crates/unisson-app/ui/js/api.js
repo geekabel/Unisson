@@ -83,8 +83,14 @@
  * @property {?string} ytDlpVersion The yt-dlp program YouTube needs, if installed.
  * @property {{supported: boolean, binding: ?string, choices: [string, string][], command: string}} shortcut
  *   The keyboard shortcut of the quick launcher.
- * @property {{connected: boolean, clientId: ?string, redirectUri: string}} spotify
- *   The connection to Spotify.
+ * @property {Spotify} spotify The connection to Spotify.
+ *
+ * @typedef {object} Spotify
+ * @property {boolean} signedIn Whether playback inside Unisson is signed in.
+ * @property {{ready: boolean, clientId: ?string, autoSwitch: boolean, redirectUri: string}} backup
+ *   The backup app the user registered, which drives the official application.
+ * @property {{route: ?("builtin"|"app"), problem: ?("limited"|"accountRefused"|"premiumRequired"|"offline"), retryAtMs: ?number}} status
+ *   Where Spotify plays now, and why not inside Unisson.
  *
  * @typedef {object} SearchUpdate
  * @property {{media: Media, sources: string[]}[]} hits The best match first.
@@ -385,20 +391,47 @@ export const settingsSetNotifications = (enabled) => invoke("settings_set_notifi
 export const settingsCheckYtDlp = () => invoke("settings_check_yt_dlp");
 
 /**
- * Connects a Spotify account: the consent page opens in the browser, and
- * the promise ends once the user accepted, at most five minutes later.
+ * Signs in to Spotify, to play inside Unisson. The consent page opens in
+ * the browser, and the promise ends once the user accepted, at most five
+ * minutes later.
  *
- * @param {string} clientId The client ID of the user's Spotify app.
  * @returns {Promise<Settings>}
  */
-export const spotifyConnect = (clientId) => invoke("spotify_connect", { clientId });
+export const spotifySignIn = () => invoke("spotify_sign_in");
+
+/** Stops a Spotify sign-in that waits for the browser. */
+export const spotifyCancelSignIn = () => invoke("spotify_cancel_sign_in");
+
+/** @returns {Promise<Settings>} */
+export const spotifySignOut = () => invoke("spotify_sign_out");
 
 /**
- * Forgets the Spotify account.
+ * Sets up the backup app, which drives the official Spotify application.
+ * Like the sign-in, it waits for the consent in the browser.
+ *
+ * @param {string} clientId The client ID of the app the user registered.
+ * @returns {Promise<Settings>}
+ */
+export const spotifySetUpBackup = (clientId) => invoke("spotify_set_up_backup", { clientId });
+
+/** @returns {Promise<Settings>} */
+export const spotifyRemoveBackup = () => invoke("spotify_remove_backup");
+
+/**
+ * @param {boolean} enabled Whether playback moves to the backup on its own.
+ * @returns {Promise<Settings>}
+ */
+export const spotifySetAutoSwitch = (enabled) => invoke("spotify_set_auto_switch", { enabled });
+
+/**
+ * Tries playback inside Unisson again, from the next track.
  *
  * @returns {Promise<Settings>}
  */
-export const spotifyDisconnect = () => invoke("spotify_disconnect");
+export const spotifyRetry = () => invoke("spotify_retry");
+
+/** Opens the Spotify developer site in the browser. */
+export const spotifyOpenDashboard = () => invoke("spotify_open_dashboard");
 
 /** Reads the music folder again, from scratch. */
 export const settingsRescanLibrary = () => invoke("settings_rescan_library");
@@ -474,3 +507,9 @@ export const onStationsChanged = (handler) => on("stations:changed", handler);
 
 /** @param {() => void} handler */
 export const onHistoryChanged = (handler) => on("history:changed", handler);
+
+/** @param {(spotify: Spotify) => void} handler */
+export const onSpotifyChanged = (handler) => on("spotify:changed", handler);
+
+/** @param {(address: string) => void} handler Gets the address of the Spotify sign-in page. */
+export const onSpotifySignInLink = (handler) => on("spotify:sign-in-link", handler);

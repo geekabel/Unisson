@@ -199,6 +199,7 @@ pub fn run() {
             commands::spotify::spotify_remove_backup,
             commands::spotify::spotify_set_auto_switch,
             commands::spotify::spotify_retry,
+            commands::spotify::spotify_open_dashboard,
             commands::window::window_show_main,
             commands::window::window_show_mini,
             commands::window::window_show_search,

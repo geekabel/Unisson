@@ -193,6 +193,18 @@ pub fn spotify_set_auto_switch(
     changed(&app, &state)
 }
 
+/// Where the backup application is registered.
+const DASHBOARD: &str = "https://developer.spotify.com/dashboard";
+
+/// Opens the Spotify developer site in the browser. The address is fixed:
+/// the interface cannot open anything else through this.
+#[tauri::command]
+pub fn spotify_open_dashboard(app: AppHandle) -> Result<(), CommandError> {
+    app.opener()
+        .open_url(DASHBOARD, None::<&str>)
+        .map_err(|error| CommandError::new("unavailable", error.to_string()))
+}
+
 /// Tries the built-in playback again, from the next track, and forgets
 /// that Spotify refused it.
 #[tauri::command(async)]

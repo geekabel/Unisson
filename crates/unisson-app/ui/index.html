@@ -32,6 +32,14 @@
   <symbol id="icon-mini" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="14" rx="2"/><rect x="12" y="12" width="6" height="4.5" rx="1"/></symbol>
   <symbol id="icon-up" viewBox="0 0 24 24"><path d="M6 14l6-6 6 6"/></symbol>
   <symbol id="icon-down" viewBox="0 0 24 24"><path d="M6 10l6 6 6-6"/></symbol>
+  <symbol id="icon-right" viewBox="0 0 24 24"><path d="M10 6l6 6-6 6"/></symbol>
+  <symbol id="icon-settings" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></symbol>
+  <symbol id="icon-swap" viewBox="0 0 24 24"><path d="M7 7h12l-3-3M17 17H5l3 3"/></symbol>
+  <symbol id="icon-check" viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></symbol>
+  <symbol id="icon-alert" viewBox="0 0 24 24"><path d="M12 3.5l9 15.5H3z"/><path d="M12 10v4M12 16.8v.2"/></symbol>
+  <symbol id="icon-copy" viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/></symbol>
+  <symbol id="icon-external" viewBox="0 0 24 24"><path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></symbol>
+  <symbol id="icon-keyboard" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h.01M10 10h.01M14 10h.01M17.5 10h.01M7.5 14h9"/></symbol>
   <!-- Filled icons. -->
   <symbol id="icon-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
   <symbol id="icon-pause" viewBox="0 0 24 24"><path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/></symbol>
@@ -74,6 +82,9 @@
     <div class="nav-group nav-group-end">
       <button class="nav-item" type="button" data-view="sources" title="Sources" data-i18n-attrs="title:shell.navSources">
         <svg class="icon" aria-hidden="true"><use href="#icon-sources"/></svg><span class="nav-label" data-i18n="shell.navSources">Sources</span><span class="nav-count" id="sources-count"></span>
+      </button>
+      <button class="nav-item" type="button" data-view="settings" title="Réglages" data-i18n-attrs="title:shell.navSettings">
+        <svg class="icon" aria-hidden="true"><use href="#icon-settings"/></svg><span class="nav-label" data-i18n="shell.navSettings">Réglages</span>
       </button>
     </div>
   </nav>
@@ -118,7 +129,12 @@
         <div class="player-title" id="player-title" data-i18n="shell.nothingPlaying">Rien en lecture</div>
         <div class="player-subtitle" id="player-subtitle" data-i18n="shell.nothingPlayingHint">Choisissez un titre ou collez un lien</div>
       </div>
-      <span class="badge" id="player-source" hidden></span>
+      <span class="player-source">
+        <span class="badge" id="player-source" hidden></span>
+        <span class="player-route" id="player-route" hidden>
+          <svg class="icon" aria-hidden="true"><use href="#icon-swap"/></svg><span data-i18n="shell.spotifyViaApp">par l'appli Spotify</span>
+        </span>
+      </span>
     </div>
 
     <div class="player-center">
@@ -172,5 +188,15 @@
   </footer>
 
 </div>
+<dialog class="dialog" id="shortcuts-dialog" aria-labelledby="shortcuts-title">
+  <div class="dialog-head">
+    <h2 class="section-title" id="shortcuts-title" data-i18n="shell.shortcutsTitle">Raccourcis clavier</h2>
+    <button class="icon-button" id="shortcuts-close" type="button" aria-label="Fermer" data-i18n-attrs="aria-label:shell.closeDialog">
+      <svg class="icon" aria-hidden="true"><use href="#icon-close"/></svg>
+    </button>
+  </div>
+  <div class="dialog-body" id="shortcuts-body"></div>
+</dialog>
+
 </body>
 </html>

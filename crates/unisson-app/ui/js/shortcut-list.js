@@ -2,7 +2,7 @@
  * The keyboard shortcuts of the main window, as the user reads them.
  *
  * This list is only text: `shortcuts.js` and `search-box.js` hold the
- * behavior. It lives apart so that the settings screen can show it without
+ * behavior. It lives apart so that the help window can show it without
  * loading them.
  */
 
@@ -33,10 +33,11 @@ export const SHORTCUT_GROUPS = [
     title: t("shell.shortcutsMoving"),
     items: [
       { keys: [["Ctrl", "K"], ["/"]], text: t("shell.shortcutSearch") },
-      { keys: [["Alt", "1"], ["…"], ["Alt", "5"]], text: t("shell.shortcutViews") },
+      { keys: [["Alt", "1"], ["…"], ["Alt", "6"]], text: t("shell.shortcutViews") },
       { keys: [["F6"], [SHIFT, "F6"]], text: t("shell.shortcutZones") },
       { keys: [["Tab"], [SHIFT, "Tab"]], text: t("shell.shortcutTab") },
       { keys: [["Ctrl", "+"], ["Ctrl", "-"], ["Ctrl", "0"]], text: t("shell.shortcutZoom") },
+      { keys: [["F1"]], text: t("shell.shortcutHelp") },
     ],
   },
   {
@@ -48,5 +49,9 @@ export const SHORTCUT_GROUPS = [
       { keys: [["Ctrl", ENTER]], text: t("shell.shortcutPlayNext") },
       { keys: [[ESCAPE]], text: t("shell.shortcutClear") },
     ],
+  },
+  {
+    title: t("shell.shortcutsOrdering"),
+    items: [{ keys: [["Alt", "↑"], ["Alt", "↓"]], text: t("shell.shortcutReorder") }],
   },
 ];

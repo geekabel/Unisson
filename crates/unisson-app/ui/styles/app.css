@@ -32,6 +32,8 @@
   --color-on-accent: #1A1300;
   --color-live: #6FD3C7;
   --color-danger: #FF9B8A;
+  /* Behind a message about something that stopped. */
+  --color-danger-soft: #2A1E1C;
 
   /* One color per source, used behind covers without a picture. */
   --color-source-radio: #2F5D62;
@@ -70,6 +72,7 @@
   --color-on-accent: #1A1300;
   --color-live: #0B6B63;
   --color-danger: #A8261B;
+  --color-danger-soft: #FBE9E6;
 
   --color-source-radio: #BFE0DD;
   --color-source-local: #D6CCEE;
@@ -206,11 +209,20 @@ p {
 
 .text-button {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   height: 32px;
   padding: 0 12px;
   border: 1px solid var(--color-control);
   border-radius: var(--radius);
   background: transparent;
+}
+
+.text-button .icon {
+  width: 16px;
+  height: 16px;
 }
 
 .text-button:hover {
@@ -1089,15 +1101,289 @@ kbd {
   border-top: 1px solid var(--color-border);
 }
 
+/* The title of a view, with a sentence under it. */
+.view-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* A line of a card: a label, what it says, and its actions. */
+.card-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px 16px;
+}
+
+.card-row-label {
+  flex: none;
+  width: 72px;
+  padding-top: 6px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+.card-row-value {
+  flex: 1 1 220px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  padding-top: 5px;
+  min-width: 0;
+}
+
+.card-row-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-row-text {
+  color: var(--color-text-soft);
+  font-size: 13px;
+}
+
+.card-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* A short state, with an icon and words: the color is never alone. */
+.status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 24px;
+  padding: 2px 10px;
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-chip .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.status-chip[data-tone="ok"] {
+  color: var(--color-live);
+}
+
+.status-chip[data-tone="info"] {
+  border-color: var(--color-text-soft);
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.status-chip[data-tone="error"] {
+  color: var(--color-danger);
+}
+
+.station-detail[data-tone="ok"] {
+  color: var(--color-live);
+}
+
+/* A section that opens: a heading button, then what it holds. */
+.expander {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-panel);
+}
+
+.expander-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: var(--target);
+  padding: 8px 14px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  text-align: left;
+}
+
+.expander-head:hover {
+  background: var(--color-hover);
+}
+
+.expander-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 14px 16px 44px;
+}
+
 /* Numbered steps to follow, such as setting up an account. */
 .steps {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 16px;
   margin: 0;
-  padding-left: 20px;
-  color: var(--color-text-muted);
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  display: flex;
+  gap: 12px;
+}
+
+.step-number {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--color-control);
+  border-radius: 50%;
+  color: var(--color-text-soft);
+  font-size: 12px;
+}
+
+.step-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.code-box {
+  padding: 6px 10px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 6px;
+  background: var(--color-bg);
+  font-family: var(--font-mono);
   font-size: 13px;
+  overflow-wrap: anywhere;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* A state of the whole screen that needs attention. */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px 10px 16px;
+  border: 1px solid var(--color-danger);
+  border-radius: 10px;
+  background: var(--color-danger-soft);
+}
+
+.banner > .icon {
+  color: var(--color-danger);
+}
+
+.banner-text {
+  flex: 1;
+}
+
+/* Waiting for something outside the window, such as a browser. */
+.spinner {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--color-border-strong);
+  border-top-color: var(--color-accent-ink);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Read by screen readers only. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Settings grouped in one framed list, one line each. */
+.boxed-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+
+.boxed-list > .setting-row {
+  padding: 10px 16px;
+}
+
+.boxed-list > .setting-row + .setting-row {
+  border-top: 1px solid var(--color-border);
+}
+
+.setting-row.setting-row-stack {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+/* A choice among a few, all in sight: one click each. */
+.segmented {
+  display: flex;
+  flex: none;
+  border: 1px solid var(--color-control);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.segment {
+  min-height: 36px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
+}
+
+.segment + .segment {
+  border-left: 1px solid var(--color-control);
+}
+
+.segment[aria-checked="true"] {
+  background: var(--color-hover);
+  color: var(--color-accent-ink);
+  font-weight: 500;
+}
+
+/* The help window of the keyboard shortcuts. */
+.dialog {
+  width: min(640px, calc(100vw - 32px));
+  max-height: calc(100vh - 64px);
+  padding: 24px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 14px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.dialog::backdrop {
+  background: rgb(0 0 0 / 0.6);
+}
+
+.dialog-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
 }
 
 .path {
@@ -1412,6 +1698,29 @@ kbd {
   min-width: 0;
 }
 
+.player-source {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+/* A Spotify track that plays in the official application. */
+.player-route {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--color-text-soft);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.player-route .icon {
+  width: 12px;
+  height: 12px;
+}
+
 .cover {
   position: relative;
   flex: none;
@@ -1698,7 +2007,8 @@ kbd {
     flex-basis: 150px;
   }
 
-  .player-media .badge {
+  .player-media .badge,
+  .player-route {
     display: none;
   }
 

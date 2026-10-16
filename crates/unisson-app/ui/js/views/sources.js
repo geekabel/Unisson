@@ -1,6 +1,10 @@
 /**
- * The "Sources and settings" view: which sources are used, in which order,
- * where the local music is, and how the player behaves.
+ * The "Sources" view: which sources are used, their accounts, and in which
+ * order.
+ *
+ * The Spotify card follows where Spotify plays: inside Unisson, through the
+ * official application as a backup, or not at all. Its states are drawn in
+ * the design canvas "Unisson, écran Sources et bascule Spotify".
  */
 
 import * as api from "../api.js";
@@ -9,16 +13,34 @@ import { element, icon } from "../dom.js";
 import { displayPath, moved, sourceName } from "../format.js";
 import { plural, t } from "../i18n.js";
 import { hideNotice, showNotice } from "../notice.js";
-import { SHORTCUT_GROUPS } from "../shortcut-list.js";
+import { apply, settingRow, toggle } from "../setting-controls.js";
 import { currentSettings, onSettingsChange, useSettings } from "../settings.js";
 
 const SOURCE_ICONS = { radio: "radio", local: "folder", youtube: "video", spotify: "note" };
 
+/** Where the developer site of Spotify is, shown as text too. */
+const SPOTIFY_DASHBOARD = "developer.spotify.com/dashboard";
+
 /** The area redrawn when the settings change. */
 let area = element("div");
+/** Where moves in the order list are announced to screen readers. */
+let announcer = element("p");
 
-/** The Spotify form, kept across redraws: what was typed, and whether the browser is open. */
-const spotifyForm = { clientId: "", waiting: false };
+/**
+ * What the Spotify card remembers across redraws: a sign-in waiting for
+ * the browser, the link of its page, the backup section opened or not, and
+ * what was typed.
+ */
+const spotifyUi = {
+  waiting: false,
+  link: /** @type {?string} */ (null),
+  backupOpen: false,
+  savingBackup: false,
+  clientId: "",
+};
+
+/** @param {() => Promise<import("../api.js").Settings>} change */
+const save = (change) => apply(change, t("sources.settingNotSaved"));
 
 /**
  * Builds the view.
@@ -27,26 +49,16 @@ const spotifyForm = { clientId: "", waiting: false };
  */
 export async function render() {
   area = element("div", { class: "settings" });
+  announcer = element("p", { class: "visually-hidden", role: "status", "aria-live": "polite" });
   draw();
-  return [element("h1", { class: "view-title" }, [t("sources.title")]), area];
-}
-
-/**
- * Runs a change of settings, then shows the settings the backend returns.
- *
- * @param {() => Promise<import("../api.js").Settings>} change
- */
-async function apply(change) {
-  try {
-    useSettings(await change());
-  } catch {
-    showNotice({
-      owner: "settings",
-      tone: "error",
-      text: t("sources.settingNotSaved"),
-      duration: 8000,
-    });
-  }
+  return [
+    element("div", { class: "view-head" }, [
+      element("h1", { class: "view-title" }, [t("sources.title")]),
+      element("p", { class: "hint" }, [t("sources.intro")]),
+    ]),
+    area,
+    announcer,
+  ];
 }
 
 function draw() {
@@ -56,242 +68,19 @@ function draw() {
   }
   // Keep the focus on the same control across the redraw.
   const focused = document.activeElement?.dataset?.focusKey;
-  area.replaceChildren(
-    section(t("sources.sectionSources"), [
-      element("div", { class: "source-cards" }, settings.sources.map((source) => {
-        return sourceCard(source, settings);
-      })),
-    ]),
+  const parts = [
+    spotifyBanner(settings),
+    element("div", { class: "source-cards" }, settings.sources.map((source) => sourceCard(source, settings))),
     section(t("sources.sectionPriority"), [
       element("p", { class: "hint" }, [t("sources.priorityHint")]),
-      element("ol", { class: "priority" }, settings.sources.map((source, index) => {
-        return priorityRow(source, index, settings);
-      })),
+      priorityList(settings),
     ]),
-    section(t("sources.sectionBehavior"), [
-      settingRow({
-        key: "resume-radio",
-        label: t("sources.resumeRadio"),
-        checked: settings.resumeRadio,
-        onChange: async (checked) => {
-          await api.queueSetResumeRadio(checked);
-          return api.settingsGet();
-        },
-      }),
-      settingRow({
-        key: "keep-in-tray",
-        label: t("sources.keepInTray"),
-        detail: t("sources.keepInTrayDetail"),
-        checked: settings.keepInTray,
-        onChange: (checked) => api.settingsSetKeepInTray(checked),
-      }),
-      settingRow({
-        key: "notifications",
-        label: t("sources.notifications"),
-        detail: t("sources.notificationsDetail"),
-        checked: settings.notifications,
-        onChange: (checked) => api.settingsSetNotifications(checked),
-      }),
-    ]),
-    section(t("sources.sectionAppearance"), [
-      themeSetting(settings.theme),
-      languageSetting(settings.language),
-    ]),
-    section(t("sources.sectionLauncher"), shortcutSettings(settings.shortcut)),
-    section(t("sources.sectionShortcuts"), shortcutHelp()),
-    // Only worth a line when something is wrong.
-    ...(settings.configPath
-      ? []
-      : [element("p", { class: "section-note" }, [t("sources.settingsNotSavable")])]),
-  );
+  ];
+  // `replaceChildren` would write a missing banner as the text "null".
+  area.replaceChildren(...parts.filter(Boolean));
   if (focused) {
     area.querySelector(`[data-focus-key="${focused}"]`)?.focus();
   }
-}
-
-/** Builds the list of the keyboard shortcuts of the main window. */
-function shortcutHelp() {
-  return SHORTCUT_GROUPS.map((group) => {
-    return element("div", { class: "shortcut-group" }, [
-      element("h3", { class: "group-title" }, [group.title]),
-      element("dl", { class: "shortcut-list" }, group.items.flatMap((item) => [
-        element("dt", {}, item.keys.flatMap((keys, index) => [
-          index > 0 ? " " : null,
-          element("kbd", {}, [keys.join(" ")]),
-        ])),
-        element("dd", {}, [item.text]),
-      ])),
-    ]);
-  });
-}
-
-/** The themes offered, with their name for the user. */
-const THEMES = [
-  ["system", t("sources.sameAsSystem")],
-  ["dark", t("sources.themeDark")],
-  ["light", t("sources.themeLight")],
-];
-
-/**
- * Builds the choice of the colors of the interface.
- *
- * @param {string} theme The current choice.
- */
-function themeSetting(theme) {
-  const select = /** @type {HTMLSelectElement} */ (
-    element("select", { class: "field field-compact", "aria-labelledby": "theme-label", "data-focus-key": "theme" },
-      THEMES.map(([id, name]) => element("option", { value: id }, [name])))
-  );
-  select.value = THEMES.some(([id]) => id === theme) ? theme : "system";
-  select.addEventListener("change", () => apply(() => api.settingsSetTheme(select.value)));
-  return element("div", { class: "setting-row" }, [
-    element("span", { class: "station-text" }, [
-      element("span", { class: "setting-label", id: "theme-label" }, [t("sources.theme")]),
-      element("span", { class: "station-detail" }, [t("sources.themeDetail")]),
-    ]),
-    select,
-  ]);
-}
-
-/** The languages offered. Each language keeps its own name, whatever the language in use. */
-const LANGUAGES = [
-  ["system", t("sources.sameAsSystem")],
-  ["fr", "Français"],
-  ["en", "English"],
-];
-
-/**
- * Builds the choice of the language of the interface.
- *
- * @param {string} language The current choice.
- */
-function languageSetting(language) {
-  const select = /** @type {HTMLSelectElement} */ (
-    element(
-      "select",
-      { class: "field field-compact", "aria-labelledby": "language-label", "data-focus-key": "language" },
-      LANGUAGES.map(([id, name]) => element("option", { value: id }, [name])),
-    )
-  );
-  select.value = LANGUAGES.some(([id]) => id === language) ? language : "system";
-  select.addEventListener("change", () => apply(() => api.settingsSetLanguage(select.value)));
-  return element("div", { class: "setting-row" }, [
-    element("span", { class: "station-text" }, [
-      element("span", { class: "setting-label", id: "language-label" }, [t("sources.language")]),
-      element("span", { class: "station-detail" }, [t("sources.languageDetail")]),
-    ]),
-    select,
-  ]);
-}
-
-/**
- * Builds the settings of the keyboard shortcut that opens the launcher.
- *
- * @param {import("../api.js").Settings["shortcut"]} shortcut
- * @returns {Node[]}
- */
-function shortcutSettings(shortcut) {
-  const intro = element("p", { class: "hint" }, [t("sources.launcherIntro")]);
-  const open = element("button", { class: "text-button", type: "button", "data-focus-key": "open-launcher" }, [
-    t("sources.openLauncher"),
-  ]);
-  open.addEventListener("click", () => api.windowShowLauncher());
-
-  if (!shortcut.supported) {
-    // Not GNOME: the user binds the command in the settings of their desktop.
-    return [
-      intro,
-      element("p", { class: "station-detail" }, [t("sources.shortcutManual")]),
-      element("p", { class: "path" }, [shortcut.command]),
-      element("div", { class: "inline-form" }, [open]),
-    ];
-  }
-
-  const select = /** @type {HTMLSelectElement} */ (
-    element(
-      "select",
-      { class: "field", "aria-label": t("sources.shortcutChoice"), "data-focus-key": "shortcut-choice" },
-      shortcut.choices.map(([binding, name]) => element("option", { value: binding }, [name])),
-    )
-  );
-  if (shortcut.binding && shortcut.choices.some(([binding]) => binding === shortcut.binding)) {
-    select.value = shortcut.binding;
-  }
-  const install = element(
-    "button",
-    { class: "text-button text-button-strong", type: "button", "data-focus-key": "install-shortcut" },
-    [shortcut.binding ? t("sources.changeShortcut") : t("sources.installShortcut")],
-  );
-  install.addEventListener("click", () => apply(() => api.settingsInstallShortcut(select.value)));
-  const controls = [select, install];
-  if (shortcut.binding) {
-    const remove = element("button", { class: "text-button", type: "button", "data-focus-key": "remove-shortcut" }, [
-      t("sources.removeShortcut"),
-    ]);
-    remove.addEventListener("click", () => apply(api.settingsRemoveShortcut));
-    controls.push(remove);
-  }
-  controls.push(open);
-
-  const name = shortcut.choices.find(([binding]) => binding === shortcut.binding)?.[1] ?? shortcut.binding;
-  return [
-    intro,
-    element("p", { class: "station-detail" }, [
-      shortcut.binding
-        ? t("sources.shortcutInPlace", { name })
-        : t("sources.noShortcut"),
-    ]),
-    element("div", { class: "inline-form" }, controls),
-  ];
-}
-
-/**
- * Builds one line of the behavior settings: a label and its switch.
- *
- * @param {object} options
- * @param {string} options.key
- * @param {string} options.label
- * @param {string} [options.detail] A second line, to explain.
- * @param {boolean} options.checked
- * @param {(checked: boolean) => Promise<import("../api.js").Settings>} options.onChange
- */
-function settingRow({ key, label, detail, checked, onChange }) {
-  return element("div", { class: "setting-row" }, [
-    element("span", { class: "station-text" }, [
-      element("span", { class: "setting-label", id: `${key}-label` }, [label]),
-      detail ? element("span", { class: "station-detail" }, [detail]) : null,
-    ]),
-    toggle({ key, checked, labelledBy: `${key}-label`, onChange }),
-  ]);
-}
-
-/**
- * Builds a switch.
- *
- * @param {object} options
- * @param {string} options.key Identifies the switch, to give it the focus
- *   back after a redraw.
- * @param {boolean} options.checked
- * @param {string} [options.label]
- * @param {string} [options.labelledBy] Id of the element that names it.
- * @param {(checked: boolean) => Promise<import("../api.js").Settings>} options.onChange
- */
-function toggle({ key, checked, label, labelledBy, onChange }) {
-  const button = element(
-    "button",
-    {
-      class: "switch",
-      type: "button",
-      role: "switch",
-      "aria-checked": String(checked),
-      "aria-label": label,
-      "aria-labelledby": labelledBy,
-      "data-focus-key": key,
-    },
-    [element("span", { class: "switch-knob" })],
-  );
-  button.addEventListener("click", () => apply(() => onChange(!checked)));
-  return button;
 }
 
 /**
@@ -299,128 +88,443 @@ function toggle({ key, checked, label, labelledBy, onChange }) {
  * @param {import("../api.js").Settings} settings
  */
 function sourceCard(source, settings) {
-  const missingTool = source.id === "youtube" && !settings.ytDlpVersion;
-  let status = t("sources.statusOn");
-  if (!source.enabled) {
-    status = t("sources.statusOff");
-  } else if (missingTool) {
-    status = t("sources.statusMissingTool");
-  } else if (source.id === "spotify") {
-    status = settings.spotify.connected ? t("sources.spotifyStatusOn") : t("sources.spotifyStatusOff");
-  }
-  return element("div", { class: "source-card", "data-enabled": String(source.enabled) }, [
+  return element("section", { class: "source-card", id: `source-${source.id}`, "data-enabled": String(source.enabled) }, [
     element("div", { class: "source-card-head" }, [
       element("span", { class: "cover", "data-source": source.id }, [icon(SOURCE_ICONS[source.id] ?? "note")]),
       element("span", { class: "station-text" }, [
         element("span", { class: "source-name" }, [sourceName(source.id)]),
-        element("span", { class: "station-detail" }, [status]),
+        element("span", { class: "station-detail" }, [sourceStatus(source, settings)]),
       ]),
       toggle({
         key: `source-${source.id}`,
         checked: source.enabled,
         label: t("sources.enableSource", { name: sourceName(source.id) }),
-        onChange: (checked) => api.settingsSetSourceEnabled(source.id, checked),
+        onChange: (checked) => save(() => api.settingsSetSourceEnabled(source.id, checked)),
       }),
     ]),
-    source.id === "local" ? localDetails(settings) : null,
-    source.id === "youtube" ? youtubeDetails(settings) : null,
-    source.id === "spotify" ? spotifyDetails(settings.spotify) : null,
+    {
+      local: () => localDetails(settings),
+      youtube: () => youtubeDetails(settings),
+      spotify: () => spotifyDetails(settings.spotify),
+    }[source.id]?.() ?? null,
   ]);
 }
 
-/** Where a Spotify app is created. It is shown as text, to copy. */
-const SPOTIFY_DASHBOARD = "developer.spotify.com/dashboard";
+/**
+ * The line under the name of a source.
+ *
+ * @param {{id: string, enabled: boolean}} source
+ * @param {import("../api.js").Settings} settings
+ */
+function sourceStatus(source, settings) {
+  if (!source.enabled) {
+    return t("sources.statusOff");
+  }
+  if (source.id === "youtube" && !settings.ytDlpVersion) {
+    return t("sources.statusMissingTool");
+  }
+  if (source.id === "spotify") {
+    const { signedIn, backup, status } = settings.spotify;
+    if (!signedIn && !backup.ready) {
+      return t("sources.spotifySignedOut");
+    }
+    if (status.route === "builtin") {
+      return t("sources.spotifyInUnisson");
+    }
+    if (status.route === "app") {
+      return status.problem ? t("sources.spotifyViaApp") : t("sources.spotifyInApp");
+    }
+    return t("sources.spotifyStopped");
+  }
+  return t("sources.statusOn");
+}
 
-/** @param {import("../api.js").Settings["spotify"]} spotify */
+// ---------- Spotify ----------
+
+/**
+ * The banner at the top of the screen, only while Spotify cannot play at
+ * all: a working backup is not worth one.
+ *
+ * @param {import("../api.js").Settings} settings
+ */
+function spotifyBanner(settings) {
+  const enabled = settings.sources.find((source) => source.id === "spotify")?.enabled;
+  const { status } = settings.spotify;
+  const text = {
+    limited: "sources.bannerStopped",
+    offline: "sources.bannerStopped",
+    accountRefused: "sources.bannerRefused",
+    premiumRequired: "sources.bannerPremium",
+  }[status.problem ?? ""];
+  if (!enabled || status.route || !text) {
+    return null;
+  }
+  const show = element("button", { class: "text-button", type: "button", "data-focus-key": "banner-spotify" }, [
+    t("sources.bannerShow"),
+  ]);
+  show.addEventListener("click", () => {
+    const card = area.querySelector("#source-spotify");
+    card?.scrollIntoView({ block: "start" });
+    /** @type {?HTMLElement} */ (card?.querySelector(".card-row-actions button"))?.focus();
+  });
+  return element("div", { class: "banner", "data-tone": "error", role: "status" }, [
+    icon("alert"),
+    element("span", { class: "banner-text" }, [t(text)]),
+    show,
+  ]);
+}
+
+/**
+ * A line of the Spotify card: a label, what it says, and its actions.
+ *
+ * @param {string} label
+ * @param {(Node|string|null)[]} value
+ * @param {(Node|null)[]} [actions]
+ */
+function cardRow(label, value, actions = []) {
+  return element("div", { class: "card-row" }, [
+    element("span", { class: "card-row-label" }, [label]),
+    element("span", { class: "card-row-value" }, value),
+    actions.some(Boolean) ? element("span", { class: "card-row-actions" }, actions) : null,
+  ]);
+}
+
+/**
+ * @param {string} key
+ * @param {string} label
+ * @param {() => void} run
+ * @param {{strong?: boolean, iconName?: string, disabled?: boolean}} [options]
+ */
+function button(key, label, run, { strong = false, iconName, disabled = false } = {}) {
+  const node = element(
+    "button",
+    { class: strong ? "text-button text-button-strong" : "text-button", type: "button", "data-focus-key": key },
+    [iconName ? icon(iconName) : null, label],
+  );
+  node.disabled = disabled;
+  node.addEventListener("click", run);
+  return node;
+}
+
+/**
+ * A short label with a state: `ok`, `info` or `error`. The icon and the
+ * words carry the meaning, not the color alone.
+ *
+ * @param {"ok"|"info"|"error"} tone
+ * @param {string} text
+ */
+function chip(tone, text) {
+  const iconName = { ok: "check", info: "swap", error: "alert" }[tone];
+  return element("span", { class: "status-chip", "data-tone": tone }, [icon(iconName), text]);
+}
+
+/** Copies a text, and says so. */
+async function copyText(text) {
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    // An older engine: copy through a selected field.
+    const field = element("textarea", { class: "visually-hidden" }, [text]);
+    document.body.append(field);
+    field.select();
+    document.execCommand("copy");
+    field.remove();
+  }
+  showNotice({ owner: "settings", text: t("sources.copied"), duration: 3000 });
+}
+
+/**
+ * Tells when the built-in playback is tried again.
+ *
+ * @param {?number} retryAtMs
+ */
+function retryWhen(retryAtMs) {
+  const minutes = Math.ceil(((retryAtMs ?? 0) - Date.now()) / 60_000);
+  return minutes > 0 ? plural(minutes, "sources.retryIn") : t("sources.retrySoon");
+}
+
+/** Tells what went wrong, from the error of a command. */
+function spotifyErrorText(error, fallback) {
+  if (error?.kind === "invalid") {
+    return t("sources.spotifyInvalidId");
+  }
+  if (error?.kind === "network") {
+    return t("sources.spotifyNetwork");
+  }
+  return t(fallback);
+}
+
+/** A sign-in the user cancelled needs no message. */
+function wasCancelled(error) {
+  return String(error?.detail ?? "").includes("sign-in cancelled");
+}
+
+async function signIn() {
+  hideNotice("settings");
+  spotifyUi.waiting = true;
+  spotifyUi.link = null;
+  draw();
+  try {
+    const settings = await api.spotifySignIn();
+    spotifyUi.waiting = false;
+    useSettings(settings);
+  } catch (error) {
+    spotifyUi.waiting = false;
+    draw();
+    if (!wasCancelled(error)) {
+      showNotice({ owner: "settings", tone: "error", text: spotifyErrorText(error, "sources.spotifySignInFailed"), duration: 10000 });
+    }
+  }
+}
+
+async function setUpBackup() {
+  hideNotice("settings");
+  spotifyUi.savingBackup = true;
+  draw();
+  try {
+    const settings = await api.spotifySetUpBackup(spotifyUi.clientId.trim());
+    spotifyUi.savingBackup = false;
+    useSettings(settings);
+  } catch (error) {
+    spotifyUi.savingBackup = false;
+    draw();
+    if (!wasCancelled(error)) {
+      showNotice({ owner: "settings", tone: "error", text: spotifyErrorText(error, "sources.backupFailed"), duration: 12000 });
+    }
+  }
+}
+
+/** Opens the backup section, and brings it into view. */
+function openBackup() {
+  spotifyUi.backupOpen = true;
+  draw();
+  const backup = area.querySelector("#spotify-backup");
+  backup?.scrollIntoView({ block: "nearest" });
+  /** @type {?HTMLElement} */ (backup?.querySelector("button"))?.focus();
+}
+
+/** @param {import("../api.js").Spotify} spotify */
 function spotifyDetails(spotify) {
-  if (spotify.connected) {
-    const disconnect = element(
-      "button",
-      { class: "text-button", type: "button", "data-focus-key": "spotify-disconnect" },
-      [t("sources.spotifyDisconnect")],
-    );
-    disconnect.addEventListener("click", async () => {
-      try {
-        useSettings(await api.spotifyDisconnect());
-      } catch {
-        showNotice({ owner: "settings", tone: "error", text: t("sources.spotifyDisconnectFailed"), duration: 8000 });
-      }
-    });
-    return element("div", { class: "source-card-details" }, [
-      element("p", { class: "station-detail" }, [t("sources.spotifyConnected")]),
-      element("div", { class: "inline-form" }, [disconnect]),
+  const connected = spotify.signedIn || spotify.backup.ready;
+  return element("div", { class: "source-card-details" }, [
+    accountRow(spotify),
+    connected ? playbackRow(spotify) : element("p", { class: "station-detail" }, [t("sources.spotifyAbout")]),
+    connected ? backupSection(spotify) : null,
+  ]);
+}
+
+/** @param {import("../api.js").Spotify} spotify */
+function accountRow(spotify) {
+  const label = t("sources.spotifyAccount");
+  if (spotifyUi.waiting) {
+    const actions = [
+      spotifyUi.link
+        ? button("spotify-copy-link", t("sources.spotifyCopyLink"), () => copyText(spotifyUi.link ?? ""), { iconName: "copy" })
+        : null,
+      button("spotify-cancel", t("sources.cancel"), () => api.spotifyCancelSignIn()),
+    ];
+    return cardRow(label, [
+      element("span", { class: "card-row-title", role: "status" }, [
+        element("span", { class: "spinner", "aria-hidden": "true" }),
+        t("sources.spotifyWaiting"),
+      ]),
+      element("span", { class: "station-detail" }, [t("sources.spotifyWaitingHint")]),
+    ], actions);
+  }
+  if (!spotify.signedIn) {
+    return cardRow(label, [
+      element("span", { class: "card-row-title" }, [t("sources.spotifyNoAccount")]),
+      element("span", { class: "station-detail" }, [t("sources.spotifyPremiumNeeded")]),
+    ], [button("spotify-sign-in", t("sources.spotifySignIn"), signIn, { strong: true })]);
+  }
+  return cardRow(label, [
+    element("span", { class: "card-row-title" }, [t("sources.spotifySignedIn")]),
+    element("span", { class: "station-detail" }, [t("sources.spotifySignedInHint")]),
+  ], [button("spotify-sign-out", t("sources.spotifySignOut"), () => save(api.spotifySignOut))]);
+}
+
+/** @param {import("../api.js").Spotify} spotify */
+function playbackRow(spotify) {
+  const { status, backup } = spotify;
+  const label = t("sources.spotifyPlayback");
+  const retry = (key, text) => button(key, text, () => save(api.spotifyRetry));
+  const setUp = backup.ready ? null : button("spotify-set-up", t("sources.spotifySetUpBackup"), openBackup, { strong: true });
+  const lines = (...nodes) => nodes.map((node) => (typeof node === "string" ? element("span", { class: "card-row-text" }, [node]) : node));
+
+  if (status.route === "builtin") {
+    return cardRow(label, lines(chip("ok", t("sources.chipInUnisson")), t("sources.spotifyOkHint")));
+  }
+  if (status.route === "app") {
+    if (status.problem === "accountRefused") {
+      return cardRow(label, lines(chip("info", t("sources.chipViaApp")), t("sources.spotifyRefusedViaApp")), [
+        retry("spotify-retry", t("sources.spotifyRetry")),
+      ]);
+    }
+    if (status.problem) {
+      return cardRow(
+        label,
+        lines(chip("info", t("sources.chipViaApp")), t("sources.spotifyLimitedViaApp", { when: retryWhen(status.retryAtMs) })),
+        [retry("spotify-retry", t("sources.spotifyRetryNow"))],
+      );
+    }
+    return cardRow(label, lines(chip("info", t("sources.chipViaApp")), t("sources.spotifyAppOnlyHint")));
+  }
+  if (status.problem === "accountRefused") {
+    return cardRow(label, lines(chip("error", t("sources.chipRefused")), t("sources.spotifyRefusedStopped")), [
+      setUp,
+      retry("spotify-retry", t("sources.spotifyRetry")),
     ]);
   }
-
-  if (!spotifyForm.clientId && spotify.clientId) {
-    spotifyForm.clientId = spotify.clientId;
+  if (status.problem === "premiumRequired") {
+    return cardRow(label, lines(chip("error", t("sources.chipPremium")), t("sources.spotifyPremiumStopped")), [
+      retry("spotify-retry", t("sources.spotifyRetry")),
+    ]);
   }
-  const input = /** @type {HTMLInputElement} */ (element("input", {
-    class: "field field-wide",
-    type: "text",
-    required: true,
-    spellcheck: "false",
-    autocomplete: "off",
-    placeholder: t("sources.spotifyClientId"),
-    "aria-label": t("sources.spotifyClientId"),
-    "data-focus-key": "spotify-client-id",
-  }));
-  input.value = spotifyForm.clientId;
-  input.disabled = spotifyForm.waiting;
-  input.addEventListener("input", () => {
-    spotifyForm.clientId = input.value;
-  });
-  const connect = element(
-    "button",
-    { class: "text-button text-button-strong", type: "submit", "data-focus-key": "spotify-connect" },
-    [spotifyForm.waiting ? t("sources.spotifyWaiting") : t("sources.spotifyConnect")],
+  return cardRow(
+    label,
+    lines(chip("error", t("sources.chipStopped")), t("sources.spotifyLimitedStopped", { when: retryWhen(status.retryAtMs) })),
+    [retry("spotify-retry", t("sources.spotifyRetry")), setUp],
   );
-  connect.disabled = spotifyForm.waiting;
-  const form = element("form", { class: "inline-form" }, [input, connect]);
-  form.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    // The message of a previous attempt is out of date.
-    hideNotice("settings");
-    spotifyForm.waiting = true;
-    draw();
-    try {
-      const settings = await api.spotifyConnect(spotifyForm.clientId.trim());
-      spotifyForm.waiting = false;
-      useSettings(settings);
-    } catch (error) {
-      spotifyForm.waiting = false;
-      draw();
-      const text = {
-        invalid: t("sources.spotifyInvalidId"),
-        network: t("sources.spotifyNetwork"),
-      }[error?.kind] ?? t("sources.spotifyFailed");
-      showNotice({ owner: "settings", tone: "error", text, duration: 10000 });
-    }
-  });
+}
 
-  return element("div", { class: "source-card-details" }, [
-    element("p", { class: "station-detail" }, [t("sources.spotifyIntro")]),
-    element("ol", { class: "steps" }, [
-      element("li", {}, [t("sources.spotifyStep1"), element("span", { class: "path" }, [SPOTIFY_DASHBOARD])]),
-      element("li", {}, [t("sources.spotifyStep2"), element("span", { class: "path" }, [spotify.redirectUri])]),
-      element("li", {}, [t("sources.spotifyStep3")]),
-      element("li", {}, [t("sources.spotifyStep4")]),
-    ]),
-    form,
+/** @param {import("../api.js").Spotify} spotify */
+function backupSection(spotify) {
+  const { backup, status } = spotify;
+  const subtitle = !backup.ready
+    ? t("sources.backupNone")
+    : status.route === "app"
+      ? t("sources.backupInUse")
+      : t("sources.backupReady");
+  const head = element(
+    "button",
+    {
+      class: "expander-head",
+      type: "button",
+      "aria-expanded": String(spotifyUi.backupOpen),
+      "aria-controls": "spotify-backup-body",
+      "data-focus-key": "spotify-backup",
+    },
+    [
+      icon(spotifyUi.backupOpen ? "down" : "right"),
+      element("span", { class: "station-text" }, [
+        element("span", { class: "setting-label" }, [t("sources.backupTitle")]),
+        element("span", { class: "station-detail", "data-tone": backup.ready ? "ok" : null }, [subtitle]),
+      ]),
+    ],
+  );
+  head.addEventListener("click", () => {
+    spotifyUi.backupOpen = !spotifyUi.backupOpen;
+    draw();
+  });
+  return element("div", { class: "expander", id: "spotify-backup" }, [
+    head,
+    spotifyUi.backupOpen
+      ? element("div", { class: "expander-body", id: "spotify-backup-body" }, backup.ready ? backupReady(backup) : backupSteps(backup))
+      : null,
   ]);
 }
+
+/** @param {import("../api.js").Spotify["backup"]} backup */
+function autoSwitchRow(backup) {
+  return settingRow({
+    key: "spotify-auto-switch",
+    label: t("sources.autoSwitch"),
+    detail: backup.ready ? t("sources.autoSwitchDetail") : t("sources.autoSwitchUnavailable"),
+    control: toggle({
+      key: "spotify-auto-switch",
+      checked: backup.ready && backup.autoSwitch,
+      labelledBy: "spotify-auto-switch-label",
+      disabled: !backup.ready,
+      onChange: (checked) => save(() => api.spotifySetAutoSwitch(checked)),
+    }),
+  });
+}
+
+/** @param {import("../api.js").Spotify["backup"]} backup */
+function backupReady(backup) {
+  const hidden = backup.clientId ? `Client ID ••••${backup.clientId.slice(-4)}` : "";
+  return [
+    element("p", { class: "station-detail" }, [t("sources.backupReadyIntro")]),
+    element("div", { class: "setting-row" }, [
+      element("span", { class: "station-text" }, [
+        element("span", { class: "setting-label" }, [t("sources.backupApp")]),
+        element("span", { class: "path" }, [hidden]),
+      ]),
+      button("spotify-remove-backup", t("sources.backupRemove"), () => save(api.spotifyRemoveBackup)),
+    ]),
+    autoSwitchRow(backup),
+  ];
+}
+
+/** @param {import("../api.js").Spotify["backup"]} backup */
+function backupSteps(backup) {
+  if (!spotifyUi.clientId && backup.clientId) {
+    spotifyUi.clientId = backup.clientId;
+  }
+  const step = (number, title, content) =>
+    element("li", { class: "step" }, [
+      element("span", { class: "step-number", "aria-hidden": "true" }, [String(number)]),
+      element("span", { class: "step-content" }, [element("span", { class: "setting-label" }, [title]), ...content]),
+    ]);
+  const input = /** @type {HTMLInputElement} */ (
+    element("input", {
+      class: "field field-wide",
+      id: "spotify-client-id",
+      type: "text",
+      spellcheck: "false",
+      autocomplete: "off",
+      "aria-label": t("sources.backupStep4"),
+      placeholder: t("sources.backupClientIdPlaceholder"),
+      "data-focus-key": "spotify-client-id",
+    })
+  );
+  input.value = spotifyUi.clientId;
+  input.disabled = spotifyUi.savingBackup;
+  input.addEventListener("input", () => {
+    spotifyUi.clientId = input.value;
+  });
+  const saveButton = element(
+    "button",
+    { class: "text-button text-button-strong", type: "submit", "data-focus-key": "spotify-save-backup" },
+    [spotifyUi.savingBackup ? t("sources.spotifyWaiting") : t("sources.backupSave")],
+  );
+  saveButton.disabled = spotifyUi.savingBackup;
+  const form = element("form", { class: "inline-form" }, [input, saveButton]);
+  form.addEventListener("submit", (event) => {
+    event.preventDefault();
+    setUpBackup();
+  });
+  return [
+    element("p", { class: "station-detail" }, [t("sources.backupIntro")]),
+    element("ol", { class: "steps" }, [
+      step(1, t("sources.backupStep1"), [
+        element("span", { class: "station-detail" }, [t("sources.backupStep1Detail")]),
+        element("span", { class: "inline-form" }, [
+          button("spotify-dashboard", t("sources.backupOpenDashboard"), () => api.spotifyOpenDashboard(), { iconName: "external" }),
+          element("span", { class: "path" }, [SPOTIFY_DASHBOARD]),
+        ]),
+      ]),
+      step(2, t("sources.backupStep2"), [
+        element("span", { class: "inline-form" }, [
+          element("code", { class: "code-box" }, [backup.redirectUri]),
+          button("spotify-copy-redirect", t("sources.copy"), () => copyText(backup.redirectUri), { iconName: "copy" }),
+        ]),
+      ]),
+      step(3, t("sources.backupStep3"), [element("span", { class: "station-detail" }, [t("sources.backupStep3Detail")])]),
+      step(4, t("sources.backupStep4"), [form]),
+    ]),
+    element("p", { class: "station-detail" }, [t("sources.backupKeep")]),
+    autoSwitchRow(backup),
+  ];
+}
+
+// ---------- YouTube and local files ----------
 
 /** Where the installation guide is. It is shown as text, to copy. */
 const INSTALL_GUIDE = "github.com/geekabel/Unisson#youtube";
 
 /** @param {import("../api.js").Settings} settings */
 function youtubeDetails(settings) {
-  const check = element(
-    "button",
-    { class: "text-button", type: "button", "data-focus-key": "check-yt-dlp" },
-    [t("sources.checkAgain")],
-  );
-  check.addEventListener("click", () => apply(api.settingsCheckYtDlp));
   if (settings.ytDlpVersion) {
     return element("div", { class: "source-card-details" }, [
       element("p", { class: "station-detail" }, [
@@ -434,17 +538,14 @@ function youtubeDetails(settings) {
       t("sources.installGuide"),
       element("span", { class: "path" }, [INSTALL_GUIDE]),
     ]),
-    element("div", { class: "inline-form" }, [check]),
+    element("div", { class: "inline-form" }, [
+      button("check-yt-dlp", t("sources.checkAgain"), () => save(api.settingsCheckYtDlp)),
+    ]),
   ]);
 }
 
 /** @param {import("../api.js").Settings} settings */
 function localDetails(settings) {
-  const button = (key, label, run) => {
-    const node = element("button", { class: "text-button", type: "button", "data-focus-key": key }, [label]);
-    node.addEventListener("click", run);
-    return node;
-  };
   const path = settings.musicFolder ? displayPath(settings.musicFolder) : "";
   const folder = !settings.musicFolder
     ? t("sources.noFolder")
@@ -460,10 +561,10 @@ function localDetails(settings) {
       ? element("p", { class: "search-error", role: "alert" }, [t("sources.folderMissing")])
       : element("p", { class: "station-detail" }, [plural(settings.libraryTotal, "sources.tracksInLibrary")]),
     element("div", { class: "inline-form" }, [
-      button("pick-folder", t("sources.changeFolder"), () => apply(api.settingsPickMusicFolder)),
+      button("pick-folder", t("sources.changeFolder"), () => save(api.settingsPickMusicFolder)),
       settings.musicFolderIsDefault
         ? null
-        : button("reset-folder", t("sources.resetFolder"), () => apply(api.settingsResetMusicFolder)),
+        : button("reset-folder", t("sources.resetFolder"), () => save(api.settingsResetMusicFolder)),
       button("rescan", t("sources.rescan"), async () => {
         await api.settingsRescanLibrary();
         showNotice({ owner: "settings", text: t("sources.rescanStarted"), duration: 3000 });
@@ -472,34 +573,70 @@ function localDetails(settings) {
   ]);
 }
 
+// ---------- Order of preference ----------
+
 /**
- * @param {{id: string, enabled: boolean}} source
+ * Moves a source in the order, and says where it went.
+ *
+ * @param {string[]} ids
  * @param {number} index
- * @param {import("../api.js").Settings} settings
+ * @param {number} step
+ * @param {boolean} [fromKeyboard] Whether Alt+Up or Alt+Down asked.
  */
-function priorityRow(source, index, settings) {
-  const ids = settings.sources.map((other) => other.id);
-  const name = sourceName(source.id);
-  const move = (step, label, iconName) => {
-    const button = iconButton({
-      icon: iconName,
-      label,
-      onClick: () => apply(() => api.settingsSetPriority(moved(ids, index, step))),
-    });
-    button.dataset.focusKey = `priority-${source.id}-${step}`;
-    button.disabled = moved(ids, index, step) === ids;
-    return button;
-  };
-  return element("li", { class: "priority-row", "data-enabled": String(source.enabled) }, [
-    element("span", { class: "queue-number" }, [String(index + 1)]),
-    element("span", { class: "priority-name" }, [
-      sourceName(source.id),
-      source.enabled ? null : element("span", { class: "station-detail" }, [t("sources.sourceOff")]),
-    ]),
-    move(-1, t("sources.moveUp", { name }), "up"),
-    move(1, t("sources.moveDown", { name }), "down"),
-  ]);
+async function move(ids, index, step, fromKeyboard = false) {
+  const order = moved(ids, index, step);
+  if (order === ids) {
+    return;
+  }
+  const id = ids[index];
+  await save(() => api.settingsSetPriority(order));
+  announcer.textContent = t("sources.moved", { name: sourceName(id), position: String(index + step + 1) });
+  if (fromKeyboard) {
+    // The keyboard stays on the row that moved.
+    const row = area.querySelector(`[data-source-row="${id}"]`);
+    /** @type {?HTMLElement} */ (row?.querySelector("button:not(:disabled)"))?.focus();
+  }
 }
+
+/** @param {import("../api.js").Settings} settings */
+function priorityList(settings) {
+  const ids = settings.sources.map((source) => source.id);
+  const list = element("ol", { class: "priority" }, settings.sources.map((source, index) => {
+    const name = sourceName(source.id);
+    const arrow = (step, label, iconName) => {
+      const node = iconButton({ icon: iconName, label, onClick: () => move(ids, index, step) });
+      node.dataset.focusKey = `priority-${source.id}-${step}`;
+      node.disabled = moved(ids, index, step) === ids;
+      return node;
+    };
+    return element("li", { class: "priority-row", "data-enabled": String(source.enabled), "data-source-row": source.id }, [
+      element("span", { class: "queue-number" }, [String(index + 1)]),
+      element("span", { class: "priority-name" }, [
+        name,
+        source.enabled ? null : element("span", { class: "station-detail" }, [t("sources.sourceOff")]),
+      ]),
+      arrow(-1, t("sources.moveUp", { name }), "up"),
+      arrow(1, t("sources.moveDown", { name }), "down"),
+    ]);
+  }));
+  list.addEventListener("keydown", (event) => {
+    const step = event.altKey ? { ArrowUp: -1, ArrowDown: 1 }[event.key] : undefined;
+    const row = event.target instanceof Element ? event.target.closest("[data-source-row]") : null;
+    if (!step || !(row instanceof HTMLElement)) {
+      return;
+    }
+    event.preventDefault();
+    move(ids, ids.indexOf(row.dataset.sourceRow ?? ""), step, true);
+  });
+  return list;
+}
+
+api.onSpotifySignInLink((address) => {
+  spotifyUi.link = address;
+  if (area.isConnected) {
+    draw();
+  }
+});
 
 onSettingsChange(() => {
   if (area.isConnected) {

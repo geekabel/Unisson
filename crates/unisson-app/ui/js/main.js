@@ -11,7 +11,7 @@ import { drawPlaylistsSidebar, loadPlaylists } from "./playlists.js";
 import { refreshQueue } from "./queue.js";
 import "./search-box.js";
 import "./shortcuts.js";
-import { loadSettings } from "./settings.js";
+import { currentSettings, loadSettings, useSpotify } from "./settings.js";
 import { loadStations } from "./stations.js";
 import { onViewChange, refreshView, setPlayerState, showView } from "./views.js";
 
@@ -23,6 +23,29 @@ function onPlayerChanged(snapshot) {
 
 // The sidebar highlights the playlist on screen.
 onViewChange(drawPlaylistsSidebar);
+
+/**
+ * Takes a new state of Spotify. A move between Unisson and the official
+ * application is told once, as it happens: the card and the player bar
+ * keep showing where Spotify plays.
+ *
+ * @param {import("./api.js").Spotify} spotify
+ */
+function onSpotifyChanged(spotify) {
+  const before = currentSettings()?.spotify?.status;
+  useSpotify(spotify);
+  const after = spotify.status;
+  if (before?.route === "builtin" && after.route === "app" && after.problem) {
+    showNotice({
+      owner: "spotify",
+      text: after.problem === "accountRefused" ? t("shell.spotifySwitchedRefused") : t("shell.spotifySwitched"),
+      action: { label: t("shell.details"), run: () => showView("sources") },
+      duration: 12000,
+    });
+  } else if (before?.route === "app" && before.problem && after.route === "builtin") {
+    showNotice({ owner: "spotify", text: t("shell.spotifyBack"), duration: 6000 });
+  }
+}
 
 async function start() {
   // Listen first, ask second: no change can slip in between.
@@ -53,6 +76,7 @@ async function start() {
       await loadSettings();
       refreshQueue();
     }),
+    api.onSpotifyChanged(onSpotifyChanged),
     api.onStationsChanged(async () => {
       await loadStations();
       refreshView("home", "favorites");

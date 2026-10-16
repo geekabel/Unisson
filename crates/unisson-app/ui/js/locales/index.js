@@ -13,10 +13,11 @@ import home from "./home.js";
 import radios from "./radios.js";
 import search from "./search.js";
 import sources from "./sources.js";
+import settings from "./settings.js";
 import launcher from "./launcher.js";
 import mini from "./mini.js";
 
-const AREAS = [common, shell, format, home, radios, search, sources, launcher, mini];
+const AREAS = [common, shell, format, home, radios, search, sources, settings, launcher, mini];
 
 /** @type {Record<string, Record<string, string>>} */
 export const CATALOGS = { fr: {}, en: {} };

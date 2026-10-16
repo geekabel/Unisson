@@ -343,20 +343,36 @@ export function resolveTheme(choice, desktopIsLight) {
  *
  * @param {{kind: string}} error
  * @param {?{source?: string, kind?: string}} [media] What was playing.
+ * @param {?{route: ?string, problem: ?string}} [spotify] Where Spotify plays,
+ *   for a Spotify track.
  * @returns {{text: string, action: "retry"|"sources"}} `retry` offers to
  *   try again, `sources` leads to the screen where a source is repaired.
  */
-export function playbackProblem(error, media) {
+export function playbackProblem(error, media, spotify = null) {
   const station = media?.kind === "station";
   const youtube = media?.source === "youtube";
   if (media?.source === "spotify") {
-    // Spotify plays in its own application: most failures mean it is not
-    // open, or the account cannot be driven.
+    // The status of the connection tells why better than the error does.
+    switch (spotify?.problem) {
+      case "accountRefused":
+        return { text: t("format.spotifyRefused"), action: "sources" };
+      case "premiumRequired":
+        return { text: t("format.spotifyPremium"), action: "sources" };
+      case "limited":
+        if (!spotify.route) {
+          return { text: t("format.spotifyLimited"), action: "sources" };
+        }
+        break;
+      default:
+        break;
+    }
     switch (error?.kind) {
       case "network":
         return { text: t("format.networkDown"), action: "retry" };
       case "unavailable":
-        return { text: t("format.spotifyUnavailable"), action: "sources" };
+        return spotify?.route === "app"
+          ? { text: t("format.spotifyAppClosed"), action: "retry" }
+          : { text: t("format.spotifyUnavailable"), action: "sources" };
       case "notFound":
         return { text: t("format.trackNotFound"), action: "retry" };
       default:
