@@ -27,8 +27,9 @@ labels differ, the behavior does not.
 3. Log out, change session, and run the list again for the other column.
 
 Steps that need the network are marked **net**. Steps that need yt-dlp are
-marked **yt**. Steps that need a Spotify Premium account, with an app
-registered as the README says, are marked **sp**.
+marked **yt**. Steps that need a Spotify Premium account are marked **sp**.
+Steps that also need the backup app registered, as the README says, are
+marked **sp+**.
 
 ## 1. Installation and start
 
@@ -107,14 +108,14 @@ registered as the README says, are marked **sp**.
 | 7.6 | Choose "Ouvrir Unisson" in that menu | The window comes back. | | |
 | 7.7 | Click the mini-player button of the player bar | A small window replaces the large one. Its buttons work. It can be dragged. | | |
 | 7.8 | Check that the mini-player stays above other windows | Under X11, yes. Under Wayland, GNOME decides: click the mini-player, press Alt+Space, then choose "Always on Top". | | |
-| 7.9 | In *Sources*, install the launcher shortcut. Click in another application, press the shortcut | The launcher opens and the cursor blinks in its field. | | |
+| 7.9 | In *Réglages*, install the launcher shortcut. Click in another application, press the shortcut | The launcher opens and the cursor blinks in its field. | | |
 | 7.10 | Type a few letters, press Enter | Playback starts. The launcher closes. The other application has the keyboard again. | | |
 | 7.11 | Repeat 7.9 and 7.10 ten times, with a few seconds between each | It works every time. | | |
 | 7.12 | Open the launcher, click outside it | It closes. | | |
-| 7.13 | Change the shortcut for another one in *Sources* | The new keys open the launcher. The old keys do nothing. | | |
+| 7.13 | Change the shortcut for another one in *Réglages* | The new keys open the launcher. The old keys do nothing. | | |
 | 7.14 | With another application in front, let the track change | A notification shows the new title, without sound. | | |
 | 7.15 | With Unisson in front, let the track change | No notification. | | |
-| 7.16 | Turn notifications off in *Sources*, repeat 7.14 | No notification. | | |
+| 7.16 | Turn notifications off in *Réglages*, repeat 7.14 | No notification. | | |
 
 ## 8. When things go wrong
 
@@ -134,10 +135,12 @@ registered as the README says, are marked **sp**.
 | --- | --- | --- | --- | --- |
 | 9.1 | Put the mouse aside. Press Tab many times | Every control is reached, in a logical order. A ring always shows where the keyboard is. | | |
 | 9.2 | Press F6 several times | The keyboard jumps from zone to zone: menu, search, content, queue, player. | | |
-| 9.3 | Press Alt+2, Alt+5, Alt+1 | Radios, Sources, Home. | | |
+| 9.3 | Press Alt+2, Alt+5, Alt+6, Alt+1 | Radios, Sources, Réglages, Home. | | |
+| 9.3b | Press F1, then Escape | The list of the shortcuts opens over the window, then closes. The keyboard comes back where it was. | | |
+| 9.3c | In *Sources*, Tab to a row of the order list, press Alt+Down | The source moves down one place, and keeps the keyboard. | | |
 | 9.4 | Press Ctrl+Right, Ctrl+Left, Ctrl+Up, Ctrl+Down | Next, previous, volume up, volume down. | | |
 | 9.5 | Play a track with Enter on its line, then press Tab | The keyboard is still on that line, not back at the top. | | |
-| 9.6 | In *Sources*, choose the light theme, then the dark one | The whole window changes at once. Every text stays easy to read. | | |
+| 9.6 | In *Réglages*, choose the light theme, then the dark one | The whole window changes at once. Every text stays easy to read. | | |
 | 9.7 | Choose "Comme le système". In the settings of Ubuntu, switch between the light and dark styles | Unisson follows. | | |
 | 9.8 | Press Ctrl++ three times, then Ctrl+0 | The display grows, nothing is cut off, then it comes back. | | |
 
@@ -145,7 +148,7 @@ registered as the README says, are marked **sp**.
 
 | # | Step | Expected | Wayland | X11 |
 | --- | --- | --- | --- | --- |
-| 10.1 | In *Sources*, choose English as the language | The window reloads in English. Playback is not interrupted. | | |
+| 10.1 | In *Réglages*, choose English as the language | The window reloads in English. Playback is not interrupted. | | |
 | 10.2 | Open the tray menu, the mini-player and the launcher | They are in English too. | | |
 | 10.3 | Choose "Same as system" | The interface follows the language of the desktop again. | | |
 
@@ -158,22 +161,23 @@ registered as the README says, are marked **sp**.
 
 ## 12. Spotify
 
-Open the Spotify application before steps 12.4 to 12.10.
-
 | # | Step | Expected | Wayland | X11 |
 | --- | --- | --- | --- | --- |
-| 12.1 | Open *Sources* | The Spotify card says that no account is connected, lists the steps, and shows `http://127.0.0.1/callback`. | | |
-| 12.2 | Type `abc` as the Client ID, choose *Se connecter* | A message says the Client ID is not valid. No browser opens. | | |
-| 12.3 | **net sp** Paste the real Client ID, choose *Se connecter*, accept in the browser | The browser page says Unisson is connected. The card says *Compte connecté*. | | |
+| 12.1 | Open *Sources* | The Spotify card says that no account is connected, with *Se connecter avec Spotify…*. | | |
+| 12.2 | **net sp** Choose *Se connecter avec Spotify…*, then *Annuler* | The browser opened. The card comes back, with no error message. | | |
+| 12.3 | **net sp** Choose *Se connecter avec Spotify…* again, accept in the browser | The browser page says Unisson is connected. The card says *Compte connecté* and *Dans Unisson*. | | |
 | 12.4 | **net sp** Search a song by name | Results from Spotify appear with the others, with their cover. | | |
-| 12.5 | **net sp** Press Enter on a Spotify result | The Spotify application plays it. The player bar of Unisson shows the title, the badge Spotify, and the time moving. | | |
-| 12.6 | **net sp** Pause, play, seek, change the volume in Unisson | The Spotify application follows each order within a second or two. | | |
-| 12.7 | **net sp** Queue a local file after a Spotify track, and let the track end | Spotify stops, then the local file plays in Unisson. | | |
-| 12.8 | **net sp** During a Spotify track, choose another song in the Spotify application | Unisson stops, and leaves the Spotify application alone. | | |
-| 12.9 | **net sp** Paste a link `https://open.spotify.com/track/...`, press Enter | The track plays in the Spotify application. | | |
-| 12.10 | **net sp** Quit Unisson and start it again | The card still says *Compte connecté*: no new consent. | | |
-| 12.11 | **net sp** Close the Spotify application, press Enter on a Spotify result | A message asks to open the Spotify application, with a way to *Sources*. | | |
-| 12.12 | Choose *Se déconnecter* | The card shows the form again, with the Client ID filled in. `~/.config/unisson/spotify.json` is gone. | | |
+| 12.5 | **net sp** With the Spotify application closed, press Enter on a Spotify result | Sound starts in Unisson. The player bar shows the badge Spotify and the time moving. | | |
+| 12.6 | **net sp** Pause, play, seek, change the volume | Each works at once, like a local file. | | |
+| 12.7 | **net sp** Queue a local file after a Spotify track, and let the track end | The local file follows without a gap of more than a second or two. | | |
+| 12.8 | **net sp** Paste a link `https://open.spotify.com/track/...`, press Enter | The track plays. | | |
+| 12.9 | **net sp** Quit Unisson and start it again, play a Spotify track | It plays: no new consent. | | |
+| 12.10 | **net sp** If a track does not play: open *Sources* | The card says why: *Interrompue* (Spotify limits it for now), *Pas avec ce compte*, or *Premium requis*. Write which one in the notes. | | |
+| 12.11 | **net sp+** Open *Lecture de secours*, follow the four steps, choose *Tester et enregistrer* | The browser asks for consent. The section says *Prête. Utilisée seulement si besoin.* | | |
+| 12.12 | **sp+** Turn *Basculer automatiquement* off, then on again | The switch follows. | | |
+| 12.13 | **net sp+** Search a song | Results come as before (through your own app now). | | |
+| 12.14 | **net sp+** Only if 12.10 found a problem: open the Spotify application, play a Spotify track | A message says Spotify goes through its application. The player bar shows *par l'appli Spotify*, and the Spotify application plays. | | |
+| 12.15 | Choose *Se déconnecter* | The card shows *Se connecter avec Spotify…* again. `~/.config/unisson/spotify.json` no longer holds a sign-in. | | |
 
 ## Known differences between the two sessions
 

@@ -124,39 +124,46 @@ Without yt-dlp, Unisson works the same, minus YouTube.
 
 ### Spotify
 
-Unisson searches the Spotify catalog and plays its tracks **in the official
-Spotify application**, which it drives through the
-[Spotify Web API](https://developer.spotify.com/documentation/web-api). The
-sound comes from the Spotify application, not from Unisson. You need:
+Spotify needs a **Spotify Premium** account. There are two ways to play it.
 
-- a **Spotify Premium** account: Spotify only lets Premium accounts be driven;
-- the **Spotify application** open on this computer, or on another device of
-  the same account.
+**Inside Unisson, by default.** Open *Sources* and choose *Sign in with
+Spotify*. Your browser opens the consent page of Spotify: accept, and come
+back. That is all. The sound comes from Unisson, through
+[librespot](https://github.com/librespot-org/librespot), an open-source
+Spotify client that signs in like the Spotify desktop application.
 
-Spotify asks each user of its API to register an app. It takes two minutes,
-once:
+Spotify does not endorse librespot. It may refuse it for some accounts (often
+accounts created since late 2024), or limit it for a while. For those cases
+there is a backup.
+
+**Through the official Spotify application, as a backup (optional).** Unisson
+then drives the Spotify application, open on this computer, through the
+[Spotify Web API](https://developer.spotify.com/documentation/web-api). It
+needs an app that you register once, in about five minutes:
 
 1. Open the [Spotify developer dashboard](https://developer.spotify.com/dashboard),
    log in, and create an app. Any name works. Tick **Web API**.
 2. Add this **Redirect URI**, exactly: `http://127.0.0.1/callback`.
-3. In **User Management**, add the name and email of each Spotify account
-   that will use Unisson. An app in development mode accepts up to five, and
-   its owner needs Premium too.
-4. Copy the **Client ID** of the app. In Unisson, open *Sources*, paste it in
-   the Spotify card, and choose *Connect*. Your browser opens on the consent
-   page of Spotify: accept, then come back to Unisson.
+3. In **User Management**, add the email of the Spotify account that listens.
+   An app in development mode accepts up to five accounts, and its owner
+   needs Premium too.
+4. In Unisson, open *Sources*, then *Backup playback* in the Spotify card.
+   Paste the **Client ID** of the app and choose *Test and save*. Your browser
+   asks for your consent once more.
 
-Unisson keeps a token in `~/.config/unisson/spotify.json`, readable by you
-only. *Disconnect* deletes it. To revoke the access on the side of Spotify,
-remove the app from [your account](https://www.spotify.com/account/apps/).
+With *Switch automatically* on, Unisson moves a track to the Spotify
+application only when Spotify limits or refuses the playback inside Unisson.
+It tells you each time, shows *through the Spotify app* in the player bar,
+and comes back inside Unisson on its own after a while. When the backup is set
+up, search also goes through your own app, which Spotify limits less often.
 
 Good to know:
 
 - A Spotify track takes its place in the queue of Unisson, among radio, files
-  and YouTube. When it ends, Unisson plays what comes next.
-- Choose something else in the Spotify application, and Unisson steps back.
-- The volume of Unisson moves the volume of the Spotify application, when that
-  device allows it.
+  and YouTube.
+- Unisson keeps its sign-ins in `~/.config/unisson/spotify.json`, readable by
+  you only. *Sign out* deletes them. To revoke the access on the side of
+  Spotify, remove the apps from [your account](https://www.spotify.com/account/apps/).
 
 ## Use
 
@@ -171,11 +178,12 @@ rest in a few minutes.
 | Enter, Shift+Enter, Ctrl+Enter | Play now, add to the queue, play next |
 | Ctrl+Right, Ctrl+Left | Next track, previous track |
 | Ctrl+Up, Ctrl+Down | Volume up, volume down |
-| Alt+1 to Alt+5 | Home, Radios, Favorites, History, Sources |
+| Alt+1 to Alt+6 | Home, Radios, Favorites, History, Sources, Settings |
 | F6, Shift+F6 | Jump to the next or previous zone of the window |
 | Ctrl++, Ctrl+-, Ctrl+0 | Larger display, smaller display, normal size |
+| F1 | All the keyboard shortcuts |
 
-The quick launcher opens with `unisson --launcher`. *Sources* can bind that
+The quick launcher opens with `unisson --launcher`. *Settings* can bind that
 command to a GNOME keyboard shortcut for you.
 
 ## Privacy
@@ -186,9 +194,10 @@ computer is what playing music needs:
 - **Search text** goes to a Radio Browser server, to Spotify if an account is
   connected, and to YouTube through yt-dlp if YouTube is on. Turn a source off
   in *Sources* and it is no longer asked.
-- **Spotify**, once connected, receives the orders of playback (play, pause,
-  seek, volume) and is asked every second what plays, while one of its tracks
-  plays.
+- **Spotify**, once you sign in, streams the tracks you play, like any
+  Spotify application. With the backup in use, Unisson also sends the
+  orders of playback (play, pause, seek, volume) to the Spotify application,
+  and asks every second what plays.
 - **Playing a station** tells the Radio Browser directory that the station was
   chosen, which is how the directory ranks stations. It also connects you to
   the server of the station, like any radio player.
@@ -245,7 +254,7 @@ its own:
 | `unisson-radio` | Internet radio, backed by the Radio Browser directory |
 | `unisson-local` | Local files: scan, tags, folder watching |
 | `unisson-youtube` | YouTube, through yt-dlp |
-| `unisson-spotify` | Spotify, through its Web API and the official application |
+| `unisson-spotify` | Spotify, inside Unisson through librespot, or through the official application |
 | `unisson-store` | Local storage, in SQLite |
 | `unisson-playback` | The playback session: queue, sources and engine together |
 | `unisson-app` | The desktop application, with [Tauri 2](https://v2.tauri.app) |
@@ -262,6 +271,7 @@ version are in [CHANGELOG.md](CHANGELOG.md).
 Unisson stands on the work of others: [Radio Browser](https://www.radio-browser.info)
 and the people who keep its directory, [GStreamer](https://gstreamer.freedesktop.org),
 [Tauri](https://tauri.app), [yt-dlp](https://github.com/yt-dlp/yt-dlp),
+[librespot](https://github.com/librespot-org/librespot),
 [lofty](https://github.com/Serial-ATA/lofty-rs) and the Rust community.
 
 ## Legal

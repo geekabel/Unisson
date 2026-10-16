@@ -11,10 +11,21 @@ patch version (0.x.y) only fixes.
 
 ### Added
 
-- **Spotify.** Connect a Spotify Premium account with your own app client ID
-  (Authorization Code with PKCE, no secret). Its tracks appear in the search
-  and play in the official Spotify application, driven by Unisson, inside the
-  same queue as the other sources. Pasted Spotify track links play too.
+- **Spotify.** Sign in once with a Spotify Premium account, and its tracks
+  play inside Unisson, through librespot, in the same queue as the other
+  sources. Pasted Spotify track links play too.
+- **Spotify backup.** An optional app registered on the Spotify developer
+  site lets Unisson drive the official Spotify application. When Spotify
+  limits or refuses the playback inside Unisson, the track moves there on its
+  own, and Unisson tells you. Search then goes through your own app.
+- **Settings screen** (Alt+6), apart from *Sources*. The theme is three
+  buttons. The keyboard shortcuts open with F1.
+
+### Changed
+
+- *Sources* holds only the sources and their order. The order can also be
+  changed with Alt+Up and Alt+Down.
+- Upcoming tracks in the queue name their source.
 
 ## [0.1.0] - 2026-10-11
 

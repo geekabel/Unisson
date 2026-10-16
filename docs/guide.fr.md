@@ -22,8 +22,9 @@ Ouvrez ensuite le menu des applications et lancez **Unisson**.
 
 La radio et vos fichiers marchent tout de suite. YouTube a besoin d'un petit
 programme en plus : le [README](../README.md#youtube) explique comment
-l'ajouter. Spotify demande un compte Premium et quelques minutes de
-préparation : le [README](../README.md#spotify) les détaille.
+l'ajouter. Spotify demande un compte Premium : ouvrez **Sources** et choisissez
+**Se connecter avec Spotify**. Le [README](../README.md#spotify) en dit plus,
+et explique la lecture de secours.
 
 ## 2. Écouter quelque chose
 
@@ -79,18 +80,20 @@ L'interrupteur en bas du panneau coupe ce comportement.
 - **Le mini-lecteur** : le bouton en bas à droite réduit Unisson à une petite
   barre.
 - **Le lanceur rapide** : une petite fenêtre de recherche qui s'ouvre
-  par-dessus votre travail. Dans **Sources**, choisissez un raccourci et
-  cliquez sur **Installer le raccourci**. Ensuite, depuis n'importe où : le
+  par-dessus votre travail. Dans **Réglages**, choisissez un raccourci et
+  cliquez sur **Installer**. Ensuite, depuis n'importe où : le
   raccourci, quelques lettres, Entrée.
 
 ## 8. Régler à votre goût
 
-Dans **Sources** :
+Dans **Réglages** :
 
 - **Thème** : sombre, clair, ou comme votre système.
 - **Langue** : français, anglais, ou comme votre système.
-- Coupez une source que vous n'utilisez pas.
 - Coupez les notifications.
+
+Dans **Sources**, coupez une source que vous n'utilisez pas, ou changez leur
+ordre.
 
 Le texte est trop petit ? Appuyez sur **Ctrl** et **+**. **Ctrl+0** revient à
 la taille normale.
@@ -103,7 +106,8 @@ la taille normale.
 | Ctrl+K | Rechercher |
 | Ctrl+Droite, Ctrl+Gauche | Suivant, précédent |
 | Ctrl+Haut, Ctrl+Bas | Plus fort, moins fort |
-| Alt+1 à Alt+5 | Accueil, Radios, Favoris, Historique, Sources |
+| Alt+1 à Alt+6 | Accueil, Radios, Favoris, Historique, Sources, Réglages |
+| F1 | Tous les raccourcis clavier |
 
 ## Si quelque chose ne marche pas
 
@@ -114,13 +118,14 @@ la taille normale.
 - **YouTube ne donne aucun résultat.** Ouvrez **Sources** et regardez la carte
   YouTube. Si son composant manque ou est trop ancien, le
   [README](../README.md#youtube) dit quoi faire.
-- **Un titre Spotify ne se lance pas.** Ouvrez d'abord l'application
-  Spotify : Unisson lit Spotify à travers elle, et seulement avec un compte
-  Premium.
+- **Un titre Spotify ne se lance pas.** Ouvrez **Sources** et regardez la
+  carte Spotify : elle dit pourquoi. Spotify demande un compte Premium. Quand
+  Spotify refuse la lecture dans Unisson, la lecture de secours par
+  l'application Spotify règle le problème.
 - **Un titre de mon dossier manque.** Ouvrez **Sources** et cliquez sur
   **Analyser à nouveau**.
 - **Le raccourci du lanceur ne fait rien.** Un autre programme utilise
-  peut-être les mêmes touches. Choisissez un autre raccourci dans **Sources**.
+  peut-être les mêmes touches. Choisissez un autre raccourci dans **Réglages**.
 
 Toujours bloqué ? [Dites-le-nous](https://github.com/geekabel/Unisson/issues).
 Laissez la souris sur le message apparu : une petite bulle affiche un détail

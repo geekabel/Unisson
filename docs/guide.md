@@ -20,8 +20,8 @@ Then open the application menu and start **Unisson**.
 
 Radio and your own files work at once. YouTube needs one more small program:
 the [README](../README.md#youtube) says how to add it. Spotify needs a Premium
-account and a few minutes of setup: the [README](../README.md#spotify) walks
-through it.
+account: open **Sources** and choose **Sign in with Spotify**. The
+[README](../README.md#spotify) tells more, and how to set up a backup.
 
 ## 2. Play something
 
@@ -74,17 +74,18 @@ at the bottom of the panel turns this off.
 - **The mini-player**: the button at the bottom right shrinks Unisson to a
   small bar.
 - **The quick launcher**: a small search window that opens over your work. In
-  **Sources**, choose a shortcut and click **Install the shortcut**. Then, from
+  **Settings**, choose a shortcut and click **Install**. Then, from
   anywhere: the shortcut, a few letters, Enter.
 
 ## 8. Make it yours
 
-In **Sources**:
+In **Settings**:
 
 - **Theme**: dark, light, or like your system.
 - **Language**: English, French, or like your system.
-- Turn a source off if you do not use it.
 - Turn the notifications off.
+
+In **Sources**, turn a source off if you do not use it, or change their order.
 
 Is the text too small? Press **Ctrl** and **+**. **Ctrl+0** comes back to the
 normal size.
@@ -97,7 +98,8 @@ normal size.
 | Ctrl+K | Search |
 | Ctrl+Right, Ctrl+Left | Next, previous |
 | Ctrl+Up, Ctrl+Down | Louder, quieter |
-| Alt+1 to Alt+5 | Home, Radios, Favorites, History, Sources |
+| Alt+1 to Alt+6 | Home, Radios, Favorites, History, Sources, Settings |
+| F1 | All the keyboard shortcuts |
 
 ## If something does not work
 
@@ -108,12 +110,13 @@ normal size.
 - **YouTube gives no result.** Open **Sources** and look at the YouTube card.
   If its component is missing or old, the [README](../README.md#youtube) says
   what to do.
-- **A Spotify track does not play.** Open the Spotify application first:
-  Unisson plays Spotify through it, and only with a Premium account.
+- **A Spotify track does not play.** Open **Sources** and look at the Spotify
+  card: it says why. Spotify needs a Premium account. When Spotify refuses to
+  play inside Unisson, the backup through the Spotify application solves it.
 - **A song of my folder is missing.** Open **Sources** and click
   **Scan again**.
 - **The launcher shortcut does nothing.** Another program may use the same
-  keys. Choose another shortcut in **Sources**.
+  keys. Choose another shortcut in **Settings**.
 
 Still stuck? [Tell us](https://github.com/geekabel/Unisson/issues). Leave the
 pointer on the message that appeared: a small box shows a technical detail
