@@ -11,6 +11,8 @@ export default {
     // Source cards.
     "sources.statusOff": "Coupée. Ses résultats n'apparaissent pas dans la recherche.",
     "sources.statusMissingTool": "Active, mais son composant n'est pas installé.",
+    "sources.statusPreparing": "Active. Préparation en cours.",
+    "sources.statusComponentFailed": "Active, mais son composant n'a pas pu être téléchargé.",
     "sources.statusOn": "Active. Aucun compte requis.",
     "sources.enableSource": "Activer la source {name}",
     "sources.copy": "Copier",
@@ -21,6 +23,13 @@ export default {
     "sources.checkAgain": "Vérifier à nouveau",
     "sources.componentInstalled": "Composant YouTube installé, version {version}.",
     "sources.componentMissing": "YouTube a besoin d'un composant qui n'est pas installé sur cet ordinateur.",
+    "sources.componentAuto": "Mis à jour automatiquement.",
+    "sources.componentAbsent": "Rien à installer : le composant YouTube se télécharge à la première recherche, environ 80 Mo.",
+    "sources.componentDownloadNow": "Télécharger maintenant",
+    "sources.componentInstalling": "Téléchargement du composant YouTube…",
+    "sources.componentInstallingPercent": "Téléchargement du composant YouTube : {percent} %",
+    "sources.componentFailed": "Le composant YouTube n'a pas pu être téléchargé. Vérifiez la connexion à Internet, puis réessayez.",
+    "sources.componentRetry": "Réessayer",
     "sources.installGuide": "Le guide d'installation explique comment l'ajouter : ",
 
     // Spotify: the head of the card.
@@ -129,6 +138,8 @@ export default {
     // Source cards.
     "sources.statusOff": "Off. Its results do not appear in search.",
     "sources.statusMissingTool": "On, but its component is not installed.",
+    "sources.statusPreparing": "On. Getting ready.",
+    "sources.statusComponentFailed": "On, but its component could not be downloaded.",
     "sources.statusOn": "On. No account needed.",
     "sources.enableSource": "Enable the {name} source",
     "sources.copy": "Copy",
@@ -139,6 +150,13 @@ export default {
     "sources.checkAgain": "Check again",
     "sources.componentInstalled": "YouTube component installed, version {version}.",
     "sources.componentMissing": "YouTube needs a component that is not installed on this computer.",
+    "sources.componentAuto": "Updated automatically.",
+    "sources.componentAbsent": "Nothing to install: the YouTube component downloads at the first search, about 80 MB.",
+    "sources.componentDownloadNow": "Download now",
+    "sources.componentInstalling": "Downloading the YouTube component…",
+    "sources.componentInstallingPercent": "Downloading the YouTube component: {percent}%",
+    "sources.componentFailed": "The YouTube component could not be downloaded. Check the Internet connection, then try again.",
+    "sources.componentRetry": "Try again",
     "sources.installGuide": "The installation guide explains how to add it: ",
 
     // Spotify: the head of the card.

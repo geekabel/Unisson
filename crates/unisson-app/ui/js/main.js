@@ -11,7 +11,7 @@ import { drawPlaylistsSidebar, loadPlaylists } from "./playlists.js";
 import { refreshQueue } from "./queue.js";
 import "./search-box.js";
 import "./shortcuts.js";
-import { currentSettings, loadSettings, useSpotify } from "./settings.js";
+import { currentSettings, loadSettings, useSpotify, useYoutube } from "./settings.js";
 import { loadStations } from "./stations.js";
 import { onViewChange, refreshView, setPlayerState, showView } from "./views.js";
 
@@ -77,6 +77,7 @@ async function start() {
       refreshQueue();
     }),
     api.onSpotifyChanged(onSpotifyChanged),
+    api.onYoutubeChanged(useYoutube),
     api.onStationsChanged(async () => {
       await loadStations();
       refreshView("home", "favorites");

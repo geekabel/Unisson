@@ -71,6 +71,7 @@ pub fn run() {
             let store = Arc::clone(&state.store);
             let music_folder = state.music_folder();
             commands::spotify::watch(app.handle().clone(), &state.spotify);
+            commands::youtube::watch(app.handle().clone(), &state);
             app.manage(state);
             windows::apply_theme(app.handle());
 
@@ -184,6 +185,7 @@ pub fn run() {
             commands::settings::settings_reset_music_folder,
             commands::settings::settings_rescan_library,
             commands::settings::settings_check_yt_dlp,
+            commands::youtube::youtube_install,
             commands::settings::settings_set_keep_in_tray,
             commands::settings::settings_set_notifications,
             commands::settings::settings_language,

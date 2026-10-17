@@ -12,7 +12,7 @@ use unisson_playback::{Router, Session, SessionEvent, Snapshot};
 use unisson_radio::{Favorites, RadioBrowser, RadioSource, Station};
 use unisson_spotify::{Spotify, SpotifyPlayer, SpotifySource};
 use unisson_store::{LocalSource, Store, StoreError};
-use unisson_youtube::YouTubeSource;
+use unisson_youtube::{Component, Platform, Web, YouTubeSource, YtDlp};
 
 use crate::dto::SnapshotDto;
 use crate::settings::{Settings, SettingsError};
@@ -36,8 +36,8 @@ pub struct AppState {
     /// The radio source, kept apart for what only it can do: exploring the
     /// directory, and learning stations added by address.
     pub radio: Arc<RadioSource>,
-    /// The YouTube source, kept apart to play pasted links and to tell
-    /// whether yt-dlp is installed.
+    /// The YouTube source, kept apart to play pasted links, to tell
+    /// whether yt-dlp is installed, and to follow its download.
     pub youtube: Arc<YouTubeSource>,
     /// The connection to Spotify, shared by its source and its player.
     pub spotify: Arc<Spotify>,
@@ -87,7 +87,7 @@ impl AppState {
         let mut sources = SourceRegistry::new();
         sources.register(Box::new(LocalSource::new(Arc::clone(&store))));
         sources.register(Box::new(Arc::clone(&radio)));
-        let youtube = Arc::new(YouTubeSource::new());
+        let youtube = Arc::new(youtube_source());
         sources.register(Box::new(Arc::clone(&youtube)));
         // The tokens sit beside the settings, readable by the user only.
         let spotify = Arc::new(Spotify::open(
@@ -385,6 +385,21 @@ impl AppState {
         };
         self.session.play_list(media, start);
         true
+    }
+}
+
+/// Creates the YouTube source. Where Unisson can download its component,
+/// the source runs the downloaded yt-dlp, and the one of the `PATH` until
+/// then.
+fn youtube_source() -> YouTubeSource {
+    let tool = YtDlp::new();
+    match (crate::settings::user_data_dir(), Platform::current()) {
+        (Some(data), Some(platform)) => {
+            let dir = data.join("unisson").join("youtube");
+            let component = Component::new(dir, platform, tool.clone(), Box::new(Web::new()));
+            YouTubeSource::with_component(tool, component)
+        }
+        _ => YouTubeSource::with_tool(tool),
     }
 }
 

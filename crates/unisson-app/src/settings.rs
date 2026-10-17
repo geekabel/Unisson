@@ -323,6 +323,28 @@ fn user_config_dir() -> Option<PathBuf> {
         .filter(|path| path.is_absolute())
 }
 
+/// Returns the folder where the programs of the user keep their data: the
+/// XDG one on Linux, `%LOCALAPPDATA%` on Windows.
+#[cfg(not(windows))]
+pub fn user_data_dir() -> Option<PathBuf> {
+    data_dir(std::env::var_os("XDG_DATA_HOME"), std::env::var_os("HOME"))
+}
+
+#[cfg(windows)]
+pub fn user_data_dir() -> Option<PathBuf> {
+    std::env::var_os("LOCALAPPDATA")
+        .map(PathBuf::from)
+        .filter(|path| path.is_absolute())
+}
+
+#[cfg_attr(windows, allow(dead_code))]
+fn data_dir(xdg_data_home: Option<OsString>, home: Option<OsString>) -> Option<PathBuf> {
+    // The specification says a relative path is invalid and must be ignored.
+    let absolute =
+        |value: Option<OsString>| value.map(PathBuf::from).filter(|path| path.is_absolute());
+    absolute(xdg_data_home).or_else(|| absolute(home).map(|home| home.join(".local/share")))
+}
+
 #[cfg_attr(windows, allow(dead_code))]
 fn config_dir(xdg_config_home: Option<OsString>, home: Option<OsString>) -> Option<PathBuf> {
     // The specification says a relative path is invalid and must be ignored.
@@ -514,6 +536,22 @@ disabled = ["radio", "minidisc"]
         assert_eq!(
             dir(Some("relative"), Some("/home/me")),
             Some(PathBuf::from("/home/me/.config"))
+        );
+        assert_eq!(dir(None, None), None);
+    }
+
+    #[test]
+    fn the_data_is_under_the_xdg_data_folder() {
+        let dir = |xdg: Option<&str>, home: Option<&str>| {
+            data_dir(xdg.map(OsString::from), home.map(OsString::from))
+        };
+        assert_eq!(
+            dir(Some("/data"), Some("/home/me")),
+            Some(PathBuf::from("/data"))
+        );
+        assert_eq!(
+            dir(Some("relative"), Some("/home/me")),
+            Some(PathBuf::from("/home/me/.local/share"))
         );
         assert_eq!(dir(None, None), None);
     }

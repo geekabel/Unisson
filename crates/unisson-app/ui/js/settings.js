@@ -46,6 +46,18 @@ export function useSpotify(spotify) {
   }
 }
 
+/**
+ * Takes a new state of the YouTube component, sent by the backend while
+ * it is downloaded.
+ *
+ * @param {import("./api.js").Youtube} youtube
+ */
+export function useYoutube(youtube) {
+  if (settings) {
+    useSettings({ ...settings, youtube, ytDlpVersion: youtube.version });
+  }
+}
+
 /** Returns the settings, or `null` before they were first loaded. */
 export function currentSettings() {
   return settings;

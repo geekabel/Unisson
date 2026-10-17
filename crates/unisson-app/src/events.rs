@@ -50,6 +50,9 @@ pub const HISTORY_CHANGED: &str = "history:changed";
 /// Where Spotify plays changed, or its connection. Payload:
 /// [`SpotifyDto`](crate::commands::spotify::SpotifyDto).
 pub const SPOTIFY_CHANGED: &str = "spotify:changed";
+/// The YouTube component changed: downloaded, failed, or a step further.
+/// Payload: [`YoutubeDto`](crate::commands::youtube::YoutubeDto).
+pub const YOUTUBE_CHANGED: &str = "youtube:changed";
 /// A Spotify sign-in opened its page in the browser. Payload: the address
 /// of the page, to copy when no browser appeared.
 pub const SPOTIFY_SIGN_IN_LINK: &str = "spotify:sign-in-link";

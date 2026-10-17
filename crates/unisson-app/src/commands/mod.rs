@@ -17,3 +17,4 @@ pub mod search;
 pub mod settings;
 pub mod spotify;
 pub mod window;
+pub mod youtube;

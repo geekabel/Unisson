@@ -121,7 +121,12 @@ function sourceStatus(source, settings) {
     return t("sources.statusOff");
   }
   if (source.id === "youtube" && !settings.ytDlpVersion) {
-    return t("sources.statusMissingTool");
+    // Until it is downloaded, YouTube is on: the first search gets it.
+    return {
+      absent: t("sources.statusOn"),
+      installing: t("sources.statusPreparing"),
+      failed: t("sources.statusComponentFailed"),
+    }[settings.youtube?.state] ?? t("sources.statusMissingTool");
   }
   if (source.id === "spotify") {
     const { signedIn, backup, status } = settings.spotify;
@@ -525,12 +530,46 @@ const INSTALL_GUIDE = "github.com/geekabel/Unisson#youtube";
 
 /** @param {import("../api.js").Settings} settings */
 function youtubeDetails(settings) {
+  const youtube = settings.youtube ?? { state: "manual", percent: null, version: null, detail: null };
+  const details = (...parts) => element("div", { class: "source-card-details" }, parts);
+  if (youtube.state === "installing") {
+    const percent = youtube.percent;
+    const bar = element("progress", { class: "download-bar", max: "100", "aria-label": t("sources.componentInstalling") });
+    if (percent != null) {
+      bar.value = percent;
+    }
+    return details(
+      element("p", { class: "station-detail", role: "status" }, [
+        percent == null
+          ? t("sources.componentInstalling")
+          : t("sources.componentInstallingPercent", { percent }),
+      ]),
+      bar,
+    );
+  }
+  if (youtube.state === "failed") {
+    return details(
+      element("p", { class: "search-error", role: "alert", title: youtube.detail }, [t("sources.componentFailed")]),
+      element("div", { class: "inline-form" }, [
+        button("youtube-install", t("sources.componentRetry"), () => api.youtubeInstall(), { strong: true }),
+      ]),
+    );
+  }
   if (settings.ytDlpVersion) {
-    return element("div", { class: "source-card-details" }, [
+    return details(
       element("p", { class: "station-detail" }, [
         t("sources.componentInstalled", { version: settings.ytDlpVersion }),
+        youtube.state === "ready" ? ` ${t("sources.componentAuto")}` : "",
       ]),
-    ]);
+    );
+  }
+  if (youtube.state === "absent") {
+    return details(
+      element("p", { class: "station-detail" }, [t("sources.componentAbsent")]),
+      element("div", { class: "inline-form" }, [
+        button("youtube-install", t("sources.componentDownloadNow"), () => api.youtubeInstall()),
+      ]),
+    );
   }
   return element("div", { class: "source-card-details" }, [
     element("p", { class: "search-error", role: "alert" }, [t("sources.componentMissing")]),

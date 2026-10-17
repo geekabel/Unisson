@@ -46,6 +46,9 @@ pub struct SearchUpdateDto {
     pub pending: Vec<String>,
     /// The sources that failed.
     pub errors: Vec<SearchErrorDto>,
+    /// The sources that get ready before they can be asked, as
+    /// [`SourceKind::id`]: YouTube while its component is downloaded.
+    pub preparing: Vec<String>,
     /// Whether every source has answered.
     pub done: bool,
 }
@@ -88,7 +91,17 @@ impl SearchUpdateDto {
             done: pending.is_empty(),
             pending,
             errors,
+            preparing: Vec::new(),
         }
+    }
+
+    /// Adds the sources that get ready before they can be asked.
+    pub fn with_preparing(mut self, sources: &[SourceKind]) -> Self {
+        self.preparing = sources
+            .iter()
+            .map(|source| source.id().to_owned())
+            .collect();
+        self
     }
 }
 

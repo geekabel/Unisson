@@ -65,7 +65,10 @@ pub fn player_enqueue(state: State<'_, AppState>, media: MediaDto) -> Result<(),
 #[tauri::command(async)]
 pub fn player_open(state: State<'_, AppState>, target: String) -> Result<(), CommandError> {
     let media = match Target::parse(&target)? {
-        Target::YouTube(link) => state.youtube.tool().lookup(&link).map_err(source_error)?,
+        Target::YouTube(link) => {
+            state.youtube.prepare();
+            state.youtube.tool().lookup(&link).map_err(source_error)?
+        }
         Target::Spotify(link) => vec![state.spotify_source.lookup(&link).map_err(source_error)?],
         Target::Stream(address) => {
             let station = Station::custom(&stream_name(&address), &address)

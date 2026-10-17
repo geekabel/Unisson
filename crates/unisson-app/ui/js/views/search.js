@@ -19,6 +19,7 @@ import {
 import { plural, t } from "../i18n.js";
 import { showNotice } from "../notice.js";
 import { allPlaylists } from "../playlists.js";
+import { currentSettings, onSettingsChange } from "../settings.js";
 import { showView } from "../views.js";
 
 /** Shortest text that is searched. */
@@ -45,7 +46,7 @@ const SOURCE_ERRORS = {
 
 const state = {
   text: "",
-  /** @type {?{hits: Hit[], pending: string[], errors: {source: string, kind: string}[], done: boolean}} */
+  /** @type {?{hits: Hit[], pending: string[], errors: {source: string, kind: string}[], done: boolean, preparing?: string[]}} */
   update: null,
   /** `all`, `track`, `station` or `playlist`. */
   kind: "all",
@@ -140,6 +141,25 @@ function retrySearch() {
   // The button is about to disappear: the keyboard goes back to the box.
   document.getElementById("search-input")?.focus();
 }
+
+/**
+ * YouTube was left out of the search while its component was downloaded:
+ * once it is in place, the same text is searched again, YouTube included.
+ * Otherwise the progress of the download is drawn again.
+ */
+onSettingsChange(() => {
+  if (!state.update?.preparing?.includes("youtube")) {
+    return;
+  }
+  const youtube = currentSettings()?.youtube;
+  if (youtube?.state === "ready" || youtube?.version) {
+    const text = state.text;
+    state.text = "";
+    setQuery(text);
+  } else {
+    drawResults();
+  }
+});
 
 /** Forgets the search. */
 export function clearQuery() {
@@ -372,6 +392,17 @@ function drawResults() {
   summaryArea.textContent = searchSummary(state.text, update, count, MIN_LENGTH);
 
   const content = [];
+  if (update?.preparing?.includes("youtube")) {
+    const percent = currentSettings()?.youtube?.percent;
+    content.push(
+      element("p", { class: "search-notes search-preparing" }, [
+        element("span", { class: "spinner", "aria-hidden": "true" }),
+        element("span", {}, [
+          percent == null ? t("search.youtubePreparing") : t("search.youtubePreparingPercent", { percent }),
+        ]),
+      ]),
+    );
+  }
   const errors = update?.errors ?? [];
   if (errors.length > 0) {
     // A source that did not answer is a side note, not an alarm: the other

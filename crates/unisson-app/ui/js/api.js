@@ -81,6 +81,7 @@
  * @property {"system"|"fr"|"en"} language The language of the interface.
  * @property {?string} configPath
  * @property {?string} ytDlpVersion The yt-dlp program YouTube needs, if installed.
+ * @property {Youtube} youtube The component YouTube needs, downloaded by Unisson.
  * @property {{supported: boolean, binding: ?string, choices: [string, string][], command: string}} shortcut
  *   The keyboard shortcut of the quick launcher.
  * @property {Spotify} spotify The connection to Spotify.
@@ -92,11 +93,19 @@
  * @property {{route: ?("builtin"|"app"), problem: ?("limited"|"accountRefused"|"premiumRequired"|"offline"), retryAtMs: ?number}} status
  *   Where Spotify plays now, and why not inside Unisson.
  *
+ * @typedef {object} Youtube
+ * @property {"absent"|"installing"|"ready"|"failed"|"manual"} state `manual` when it
+ *   cannot be downloaded for this system, and is installed by hand.
+ * @property {?number} percent How far the download is, from 0 to 100.
+ * @property {?string} version The version of the program that answers now.
+ * @property {?string} detail Why the download failed, in English.
+ *
  * @typedef {object} SearchUpdate
  * @property {{media: Media, sources: string[]}[]} hits The best match first.
  * @property {string[]} pending Sources still searching.
  * @property {{source: string, kind: string}[]} errors Sources that failed.
  * @property {boolean} done Whether every source has answered.
+ * @property {string[]} preparing Sources that get ready before they can be asked.
  *
  * @typedef {object} Position
  * @property {number} positionMs
@@ -390,6 +399,9 @@ export const settingsSetNotifications = (enabled) => invoke("settings_set_notifi
  */
 export const settingsCheckYtDlp = () => invoke("settings_check_yt_dlp");
 
+/** Downloads the YouTube component now, also right after a failure. */
+export const youtubeInstall = () => invoke("youtube_install");
+
 /**
  * Signs in to Spotify, to play inside Unisson. The consent page opens in
  * the browser, and the promise ends once the user accepted, at most five
@@ -507,6 +519,9 @@ export const onStationsChanged = (handler) => on("stations:changed", handler);
 
 /** @param {() => void} handler */
 export const onHistoryChanged = (handler) => on("history:changed", handler);
+
+/** @param {(youtube: Youtube) => void} handler */
+export const onYoutubeChanged = (handler) => on("youtube:changed", handler);
 
 /** @param {(spotify: Spotify) => void} handler */
 export const onSpotifyChanged = (handler) => on("spotify:changed", handler);

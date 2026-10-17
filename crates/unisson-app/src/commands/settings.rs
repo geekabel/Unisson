@@ -55,6 +55,8 @@ pub struct SettingsDto {
     /// The version of the yt-dlp program, which YouTube needs. `None` when
     /// it is not installed.
     pub yt_dlp_version: Option<String>,
+    /// The component YouTube needs, downloaded by Unisson.
+    pub youtube: crate::commands::youtube::YoutubeDto,
     /// The keyboard shortcut of the quick launcher.
     pub shortcut: ShortcutDto,
     /// The connection to Spotify.
@@ -128,6 +130,7 @@ pub fn describe(state: &AppState) -> Result<SettingsDto, CommandError> {
             .settings_path()
             .map(|path| path.to_string_lossy().into_owned()),
         yt_dlp_version: state.yt_dlp_version(false),
+        youtube: crate::commands::youtube::YoutubeDto::read(state, state.yt_dlp_version(false)),
         shortcut: ShortcutDto::read(),
         spotify: crate::commands::spotify::SpotifyDto::read(&state.spotify),
     })
