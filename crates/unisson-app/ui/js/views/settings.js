@@ -41,7 +41,7 @@ function draw() {
       detail,
       control: toggle({ key, checked, labelledBy: `${key}-label`, onChange: (value) => save(() => change(value)) }),
     });
-  area.replaceChildren(
+  area.replaceChildren(...[
     section(t("settings.sectionPlayback"), [
       element("div", { class: "boxed-list" }, [
         switchRow("resume-radio", t("settings.resumeRadio"), null, settings.resumeRadio, async (checked) => {
@@ -64,13 +64,10 @@ function draw() {
     section(t("settings.sectionKeyboard"), [
       element("div", { class: "boxed-list" }, [launcherSetting(settings.shortcut), shortcutsRow()]),
     ]),
-    settings.configPath
-      ? element("p", { class: "section-note" }, [
-        t("settings.savedIn"),
-        element("span", { class: "path" }, [settings.configPath]),
-      ])
-      : element("p", { class: "section-note" }, [t("settings.settingsNotSavable")]),
-  );
+    // Where the file lives is no concern of the user. Only a setting that
+    // cannot be kept is worth a word.
+    settings.configPath ? null : element("p", { class: "section-note" }, [t("settings.settingsNotSavable")]),
+  ].filter((part) => part !== null));
   if (focused) {
     area.querySelector(`[data-focus-key="${focused}"]`)?.focus();
   }

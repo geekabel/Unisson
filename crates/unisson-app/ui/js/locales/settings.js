@@ -7,7 +7,6 @@ export default {
     "settings.title": "Réglages",
     "settings.settingNotSaved": "Ce réglage n'a pas pu être enregistré.",
     "settings.settingsNotSavable": "Les réglages ne peuvent pas être enregistrés.",
-    "settings.savedIn": "Réglages enregistrés dans ",
 
     // Playback.
     "settings.sectionPlayback": "Lecture",
@@ -47,7 +46,6 @@ export default {
     "settings.title": "Settings",
     "settings.settingNotSaved": "This setting could not be saved.",
     "settings.settingsNotSavable": "Settings cannot be saved.",
-    "settings.savedIn": "Settings saved in ",
 
     // Playback.
     "settings.sectionPlayback": "Playback",
