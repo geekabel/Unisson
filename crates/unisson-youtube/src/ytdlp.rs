@@ -18,11 +18,12 @@
 //! `-O/--print`, `--no-warnings`, `--socket-timeout`, and the `ytsearchN:`
 //! prefix of the YouTube search.
 
+use std::ffi::OsString;
 use std::io::Read;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -39,10 +40,22 @@ const POLL_INTERVAL: Duration = Duration::from_millis(15);
 ///
 /// The settings yt-dlp reads from its own configuration files still apply:
 /// that is where a user sets cookies or a proxy, when YouTube asks for them.
+///
+/// The clones of a `YtDlp` share their program: after
+/// [`use_program`](Self::use_program) on one of them, every clone runs the
+/// new one. This is how a [`Component`](crate::Component) that has just
+/// been downloaded takes over from the program of the `PATH`.
 #[derive(Debug, Clone)]
 pub struct YtDlp {
-    program: PathBuf,
+    launch: Arc<RwLock<Launch>>,
     timeout: Duration,
+}
+
+/// What starts the program: its place, and the arguments that come first.
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Launch {
+    program: PathBuf,
+    arguments: Vec<OsString>,
 }
 
 impl Default for YtDlp {
@@ -67,9 +80,44 @@ impl YtDlp {
     /// to stand a script in for the real program.
     pub fn with_program(program: impl Into<PathBuf>) -> Self {
         Self {
-            program: program.into(),
+            launch: Arc::new(RwLock::new(Launch {
+                program: program.into(),
+                arguments: Vec::new(),
+            })),
             timeout: Self::DEFAULT_TIMEOUT,
         }
+    }
+
+    /// Runs another program from now on, in this `YtDlp` and its clones.
+    ///
+    /// `deno` is the JavaScript runtime yt-dlp needs to read YouTube, when
+    /// it is not the `deno` of the `PATH`. It is given with the option
+    /// `--js-runtimes deno:PATH`, which old versions of yt-dlp lack: give it
+    /// only to a recent program.
+    pub fn use_program(&self, program: impl Into<PathBuf>, deno: Option<&Path>) {
+        let mut arguments = Vec::new();
+        if let Some(deno) = deno {
+            arguments.push(OsString::from("--js-runtimes"));
+            let mut runtime = OsString::from("deno:");
+            runtime.push(deno);
+            arguments.push(runtime);
+        }
+        *self
+            .launch
+            .write()
+            .unwrap_or_else(|poisoned| poisoned.into_inner()) = Launch {
+            program: program.into(),
+            arguments,
+        };
+    }
+
+    /// Returns the program that runs now.
+    pub fn program(&self) -> PathBuf {
+        self.launch
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .program
+            .clone()
     }
 
     /// Sets the longest a run may take.
@@ -189,8 +237,14 @@ impl YtDlp {
 
     /// Starts the program with some arguments.
     fn start(&self, arguments: &[&str]) -> Result<Arc<Run>, SourceError> {
-        let mut command = Command::new(&self.program);
+        let launch = self
+            .launch
+            .read()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .clone();
+        let mut command = Command::new(&launch.program);
         command
+            .args(&launch.arguments)
             .args(arguments)
             .stdin(Stdio::null())
             .stdout(Stdio::piped())
@@ -487,6 +541,24 @@ mod tests {
         assert!(
             matches!(silent, SourceError::Unavailable(message) if message.contains("without a message"))
         );
+    }
+
+    #[test]
+    fn clones_share_the_program_and_the_runtime_comes_first() {
+        let tool = YtDlp::with_program("yt-dlp");
+        let clone = tool.clone().with_timeout(Duration::from_secs(1));
+        tool.use_program("/data/yt-dlp", Some(Path::new("/data/deno")));
+        assert_eq!(clone.program(), PathBuf::from("/data/yt-dlp"));
+        let launch = clone.launch.read().unwrap().clone();
+        assert_eq!(
+            launch.arguments,
+            [
+                OsString::from("--js-runtimes"),
+                OsString::from("deno:/data/deno")
+            ]
+        );
+        tool.use_program("yt-dlp", None);
+        assert!(clone.launch.read().unwrap().arguments.is_empty());
     }
 
     #[test]

@@ -38,6 +38,11 @@ unisson-youtube = { path = "crates/unisson-youtube", version = "0.1.0" }
 gst = { package = "gstreamer", version = "0.25" }
 # Blocking HTTP client. It fits the blocking `Source` trait, with no async runtime.
 ureq = { version = "3", features = ["json"] }
+# Checks the files Unisson downloads, such as the YouTube component.
+sha2 = "0.10"
+# Unpacks Deno, which is only published as a zip archive. Only the deflate
+# method is needed, through flate2.
+zip = { version = "9", default-features = false, features = ["deflate-flate2"] }
 # The appsrc element, to push sound made in Rust into GStreamer.
 gst-app = { package = "gstreamer-app", version = "0.25" }
 # librespot plays Spotify inside Unisson. Taken from its `dev` branch at a

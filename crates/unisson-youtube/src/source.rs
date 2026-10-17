@@ -6,6 +6,7 @@ use std::time::{Duration, Instant};
 
 use unisson_core::{Media, MediaId, SearchQuery, Source, SourceError, SourceKind, StreamUri};
 
+use crate::component::Component;
 use crate::ytdlp::{Run, YtDlp};
 
 /// How long the address of an audio stream is reused. YouTube keeps an
@@ -32,6 +33,8 @@ const MAX_ADDRESSES: usize = 100;
 #[derive(Debug)]
 pub struct YouTubeSource {
     tool: YtDlp,
+    /// The downloaded yt-dlp, when Unisson manages it.
+    component: Option<Arc<Component>>,
     /// The search in progress, to cancel it when a newer one starts.
     search: Mutex<Option<Arc<Run>>>,
     /// The audio addresses found lately, by video identifier.
@@ -54,8 +57,19 @@ impl YouTubeSource {
     pub fn with_tool(tool: YtDlp) -> Self {
         Self {
             tool,
+            component: None,
             search: Mutex::new(None),
             addresses: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Creates the source on top of a downloaded yt-dlp. Each use of the
+    /// source gets the component ready: see [`Component::prepare`]. Until
+    /// it is, the yt-dlp of the `PATH` answers, if there is one.
+    pub fn with_component(tool: YtDlp, component: Arc<Component>) -> Self {
+        Self {
+            component: Some(component),
+            ..Self::with_tool(tool)
         }
     }
 
@@ -63,6 +77,19 @@ impl YouTubeSource {
     /// a link.
     pub fn tool(&self) -> &YtDlp {
         &self.tool
+    }
+
+    /// Returns the downloaded yt-dlp, when Unisson manages it.
+    pub fn component(&self) -> Option<&Arc<Component>> {
+        self.component.as_ref()
+    }
+
+    /// Gets the component ready, in the background. Does nothing without
+    /// one.
+    pub fn prepare(&self) {
+        if let Some(component) = &self.component {
+            component.prepare();
+        }
     }
 }
 
@@ -88,6 +115,7 @@ impl Source for YouTubeSource {
         if query.is_empty() {
             return Ok(Vec::new());
         }
+        self.prepare();
         let run = self.tool.start_search(query.text(), query.limit())?;
         if let Some(previous) = lock(&self.search).replace(Arc::clone(&run)) {
             previous.cancel();
@@ -115,6 +143,7 @@ impl Source for YouTubeSource {
                 id.source
             )));
         }
+        self.prepare();
         if let Some((address, found_at)) = lock(&self.addresses).get(&id.key)
             && found_at.elapsed() < ADDRESS_LIFETIME
         {
