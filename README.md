@@ -103,24 +103,29 @@ shortcut of the quick launcher.
 
 ### YouTube
 
-Radio and local files work out of the box. YouTube needs one more program,
-[yt-dlp](https://github.com/yt-dlp/yt-dlp), which Unisson runs to search
-YouTube and to find the audio of a video. Install a recent version:
+Radio and local files work out of the box. YouTube works too, with nothing to
+install: the first time you search, Unisson downloads its component, about
+80 MB, once. The search says so, and YouTube results follow when it is done.
+*Sources* shows the progress, and has *Download now* to get it sooner.
 
-```sh
-# Ubuntu and Debian. The version packaged by Ubuntu 22.04 is too old.
-sudo apt install pipx
-pipx install "yt-dlp[default]"
+The component is two programs, put in `~/.local/share/unisson/youtube`
+(`%LOCALAPPDATA%\unisson\youtube` on Windows):
 
-# Windows
-winget install yt-dlp.yt-dlp
-```
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp), which searches YouTube and finds
+  the audio of a video. Unisson takes the standalone build of the latest
+  release, and checks it against the `SHA2-256SUMS` list of that release.
+- [Deno](https://deno.com), the JavaScript runtime yt-dlp needs to read
+  YouTube. It is skipped when a Deno 2.3 or newer is already installed.
+  Unisson checks its archive against the checksum published next to it.
 
-Then open *Sources* in Unisson and choose *Check again*. When YouTube stops
-answering, update it: `pipx upgrade yt-dlp`. yt-dlp may also ask for a
-JavaScript runtime such as [Deno](https://deno.com): see its documentation.
+YouTube changes often, and yt-dlp follows. While YouTube is used, Unisson looks
+for a new yt-dlp once a day, and for a new Deno once a month, and replaces them
+in the background.
 
-Without yt-dlp, Unisson works the same, minus YouTube.
+On a system with no build of the component (Linux on 32-bit ARM, for
+instance), install yt-dlp yourself, for example with
+`pipx install "yt-dlp[default]"`, then choose *Check again* in *Sources*.
+While the component downloads, a yt-dlp found in the `PATH` answers.
 
 ### Spotify
 
@@ -188,12 +193,16 @@ command to a GNOME keyboard shortcut for you.
 
 ## Privacy
 
-Unisson has no account, no telemetry and no update check. What leaves your
-computer is what playing music needs:
+Unisson has no account, no telemetry and no update check of its own. What
+leaves your computer is what playing music needs:
 
 - **Search text** goes to a Radio Browser server, to Spotify if an account is
   connected, and to YouTube through yt-dlp if YouTube is on. Turn a source off
   in *Sources* and it is no longer asked.
+- **The YouTube component** comes from the GitHub releases of yt-dlp and
+  Deno. While YouTube is on and used, Unisson asks GitHub once a day whether
+  yt-dlp has a new release, and once a month for Deno. Nothing about you is
+  sent, only the request for the file.
 - **Spotify**, once you sign in, streams the tracks you play, like any
   Spotify application. With the backup in use, Unisson also sends the
   orders of playback (play, pause, seek, volume) to the Spotify application,

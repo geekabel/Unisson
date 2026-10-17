@@ -18,8 +18,9 @@ sudo apt install ./Unisson_0.1.0_amd64.deb
 
 Then open the application menu and start **Unisson**.
 
-Radio and your own files work at once. YouTube needs one more small program:
-the [README](../README.md#youtube) says how to add it. Spotify needs a Premium
+Radio and your own files work at once. So does YouTube: the first time you
+search, Unisson downloads what YouTube needs, about 80 MB, once. Its results
+follow when the download ends. Spotify needs a Premium
 account: open **Sources** and choose **Sign in with Spotify**. The
 [README](../README.md#spotify) tells more, and how to set up a backup.
 
@@ -108,8 +109,8 @@ normal size.
 - **"The network does not answer."** Check your connection, then click
   **Try again**.
 - **YouTube gives no result.** Open **Sources** and look at the YouTube card.
-  If its component is missing or old, the [README](../README.md#youtube) says
-  what to do.
+  If its component could not be downloaded, check your connection and click
+  **Try again**. The [README](../README.md#youtube) tells more.
 - **A Spotify track does not play.** Open **Sources** and look at the Spotify
   card: it says why. Spotify needs a Premium account. When Spotify refuses to
   play inside Unisson, the backup through the Spotify application solves it.

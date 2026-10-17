@@ -20,12 +20,22 @@ patch version (0.x.y) only fixes.
   own, and Unisson tells you. Search then goes through your own app.
 - **Settings screen** (Alt+6), apart from *Sources*. The theme is three
   buttons. The keyboard shortcuts open with F1.
+- **YouTube with nothing to install.** The first search downloads the YouTube
+  component (yt-dlp, and Deno when needed) into the data folder of the user,
+  checks each file against its published checksum, then keeps yt-dlp up to
+  date once a day. The search and *Sources* show the progress.
 
 ### Changed
 
 - *Sources* holds only the sources and their order. The order can also be
   changed with Alt+Up and Alt+Down.
 - Upcoming tracks in the queue name their source.
+- The settings screen no longer shows where the settings file is.
+
+### Fixed
+
+- The spinner of the Spotify sign-in was hidden by the one of the play
+  button.
 
 ## [0.1.0] - 2026-10-11
 

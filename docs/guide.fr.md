@@ -20,9 +20,9 @@ sudo apt install ./Unisson_0.1.0_amd64.deb
 
 Ouvrez ensuite le menu des applications et lancez **Unisson**.
 
-La radio et vos fichiers marchent tout de suite. YouTube a besoin d'un petit
-programme en plus : le [README](../README.md#youtube) explique comment
-l'ajouter. Spotify demande un compte Premium : ouvrez **Sources** et choisissez
+La radio et vos fichiers marchent tout de suite. YouTube aussi : à la première
+recherche, Unisson télécharge ce dont YouTube a besoin, environ 80 Mo, une
+seule fois. Ses résultats arrivent à la fin du téléchargement. Spotify demande un compte Premium : ouvrez **Sources** et choisissez
 **Se connecter avec Spotify**. Le [README](../README.md#spotify) en dit plus,
 et explique la lecture de secours.
 
@@ -116,8 +116,8 @@ la taille normale.
 - **« Le réseau ne répond pas. »** Vérifiez votre connexion, puis cliquez sur
   **Réessayer**.
 - **YouTube ne donne aucun résultat.** Ouvrez **Sources** et regardez la carte
-  YouTube. Si son composant manque ou est trop ancien, le
-  [README](../README.md#youtube) dit quoi faire.
+  YouTube. Si son composant n'a pas pu être téléchargé, vérifiez la connexion
+  et cliquez sur **Réessayer**. Le [README](../README.md#youtube) en dit plus.
 - **Un titre Spotify ne se lance pas.** Ouvrez **Sources** et regardez la
   carte Spotify : elle dit pourquoi. Spotify demande un compte Premium. Quand
   Spotify refuse la lecture dans Unisson, la lecture de secours par

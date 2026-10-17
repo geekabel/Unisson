@@ -26,8 +26,8 @@ labels differ, the behavior does not.
 
 3. Log out, change session, and run the list again for the other column.
 
-Steps that need the network are marked **net**. Steps that need yt-dlp are
-marked **yt**. Steps that need a Spotify Premium account are marked **sp**.
+Steps that need the network are marked **net**. Steps that need the YouTube
+component in place (after 4.3) are marked **yt**. Steps that need a Spotify Premium account are marked **sp**.
 Steps that also need the backup app registered, as the README says, are
 marked **sp+**.
 
@@ -68,11 +68,15 @@ marked **sp+**.
 
 | # | Step | Expected | Wayland | X11 |
 | --- | --- | --- | --- | --- |
-| 4.1 | Open *Sources* | The YouTube card says that its component is installed, with a version, or that it is missing. | | |
-| 4.2 | **net yt** Search a song by name | Results from YouTube appear with the others, a moment later. | | |
-| 4.3 | **net yt** Press Enter on a YouTube result | Sound starts. The duration is right. | | |
+| 4.0 | Before the first start, move `~/.local/share/unisson/youtube` away if it exists, and rename any `yt-dlp` of the `PATH` for this section | Nothing yet. | | |
+| 4.1 | Open *Sources* | The YouTube card says *Active. Aucun compte requis.* and that its component downloads at the first search, with *Télécharger maintenant*. | | |
+| 4.2 | **net** Search a song by name | The other sources answer. A note with a spinner says *Préparation de YouTube, une seule fois* with a percentage that grows. | | |
+| 4.3 | **net** Wait for the end of the download | The note goes away and YouTube results join the list by themselves. In *Sources*: *version …, Mis à jour automatiquement.* The folder `~/.local/share/unisson/youtube` holds `yt-dlp` and, without a Deno 2.3 or newer installed, `deno`. | | |
+| 4.3b | **net yt** Press Enter on a YouTube result | Sound starts. The duration is right. | | |
 | 4.4 | **net yt** Paste a YouTube link in the search field, press Enter | The video plays. | | |
 | 4.5 | **net yt** Paste the link of a YouTube playlist | Its videos fill the queue. | | |
+| 4.6 | Move the folder away again, turn the Wi-Fi off, choose *Télécharger maintenant* | The card says the component could not be downloaded, with *Réessayer*. Searching shows *Vérifier YouTube*. | | |
+| 4.7 | **net** Turn the Wi-Fi on, choose *Réessayer* | The progress shows, then the version. Put back the `yt-dlp` renamed in 4.0. | | |
 
 ## 5. Search and queue
 
@@ -126,7 +130,7 @@ marked **sp+**.
 | 8.3 | With the Wi-Fi off, search something | Local results appear. A quiet note says which sources did not answer. | | |
 | 8.4 | Queue three local tracks. Delete the file of the second one while the first plays | The second is skipped with a short message. The third plays. | | |
 | 8.5 | Paste `http://example.invalid/stream` in the search field, press Enter | A clear message. Nothing plays. Unisson does not close. | | |
-| 8.6 | Rename the yt-dlp program for a moment, then search | YouTube is noted as unavailable, with "Vérifier YouTube". The other sources still answer. | | |
+| 8.6 | Replace `~/.local/share/unisson/youtube/yt-dlp` with an empty file for a moment, restart Unisson, then search | YouTube is noted as unavailable, with "Vérifier YouTube". The other sources still answer. Put the file back. | | |
 | 8.7 | Close the window, then make a station fail (Wi-Fi off) | A notification says that playback stopped. | | |
 
 ## 9. Keyboard, colors, text size
@@ -157,7 +161,7 @@ marked **sp+**.
 | # | Step | Expected | Wayland | X11 |
 | --- | --- | --- | --- | --- |
 | 11.1 | `sudo apt remove unisson` | Unisson leaves the application menu. | | |
-| 11.2 | Look at `~/.config/unisson` and `~/.local/share/unisson` | Settings and library are kept, for a later installation. | | |
+| 11.2 | Look at `~/.config/unisson` and `~/.local/share/unisson` | Settings, library and the YouTube component are kept, for a later installation. | | |
 
 ## 12. Spotify
 

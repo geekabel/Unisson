@@ -45,7 +45,9 @@ desktop, once under Wayland and once under X11.
   the tags of each file, and watches the folder for changes.
 - `crates/unisson-youtube`: the YouTube source. It runs
   [yt-dlp](https://github.com/yt-dlp/yt-dlp) to search and to find the audio
-  address of a video.
+  address of a video. It also downloads yt-dlp, and Deno when needed, checks
+  them, and keeps yt-dlp up to date. `cargo run -p unisson-youtube --example
+  install -- /tmp/yt` does that download alone.
 - `crates/unisson-store`: the local storage, an SQLite database. It holds the
   favorite stations, the library, the listening history, the favorite media
   and the playlists.
