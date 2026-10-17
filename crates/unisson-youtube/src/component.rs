@@ -355,12 +355,19 @@ impl Component {
     fn install(&self) -> Result<(), String> {
         fs::create_dir_all(&self.dir)
             .map_err(|error| format!("cannot create {}: {error}", self.dir.display()))?;
+        // yt-dlp may be in place already, when Deno failed the last time.
+        let yt_dlp = !self.yt_dlp_path().is_file();
         let deno = !self.deno_path().is_file() && !system_deno_is_recent();
         // Both files weigh about the same: each one is half of the way.
-        let share = if deno { 50 } else { 100 };
-        self.download_yt_dlp(&mut |received, size| self.progress(0, share, received, size))?;
+        let deno_start = if yt_dlp { 50 } else { 0 };
+        if yt_dlp {
+            let share = if deno { 50 } else { 100 };
+            self.download_yt_dlp(&mut |received, size| self.progress(0, share, received, size))?;
+        }
         if deno {
-            self.download_deno(&mut |received, size| self.progress(50, 50, received, size))?;
+            self.download_deno(&mut |received, size| {
+                self.progress(deno_start, 100 - deno_start, received, size);
+            })?;
         }
         self.use_downloaded();
         Ok(())
@@ -376,7 +383,13 @@ impl Component {
         if current.as_deref() != Some(latest.as_str()) {
             self.download_yt_dlp(&mut |_, _| {})?;
         }
-        if self.deno_path().is_file() && is_older_than(&self.deno_stamp_path(), DENO_CHECK_EVERY) {
+        if !self.deno_path().is_file() {
+            // Missing since a failed download: yt-dlp cannot read YouTube
+            // without it.
+            if !system_deno_is_recent() {
+                self.download_deno(&mut |_, _| {})?;
+            }
+        } else if is_older_than(&self.deno_stamp_path(), DENO_CHECK_EVERY) {
             let latest = self.deno_hash()?;
             let current = fs::read_to_string(self.deno_stamp_path()).unwrap_or_default();
             if current.trim() == latest {
@@ -947,6 +960,41 @@ mod tests {
         wait_idle(&component);
         assert_eq!(component.status(), Status::Ready);
         assert_eq!(fs::read(dir.join("yt-dlp")).unwrap(), b"yt-dlp v1");
+    }
+
+    #[test]
+    fn deno_comes_after_yt_dlp_when_it_failed_first() {
+        if system_deno_is_recent() {
+            // Deno is never downloaded on this computer.
+            return;
+        }
+        let files = Files::default();
+        files.release(b"yt-dlp v1");
+        let dir = folder("deno-later");
+        let tool = YtDlp::with_program("yt-dlp");
+        let component =
+            Component::new(dir.clone(), PLATFORM, tool.clone(), Box::new(files.clone()));
+        let status = settle(&component, |c| c.prepare());
+        assert!(
+            matches!(&status, Status::Failed(reason) if reason.contains("sha256sum")),
+            "{status:?}"
+        );
+        assert!(dir.join("yt-dlp").is_file() && !dir.join("deno").exists());
+
+        // The retry only fetches Deno.
+        files.deno(b"deno v1");
+        let downloads = files.count("/yt-dlp_linux");
+        assert_eq!(settle(&component, |c| c.install_now()), Status::Ready);
+        assert_eq!(files.count("/yt-dlp_linux"), downloads);
+        assert!(dir.join("deno").is_file());
+
+        // At the next start with Deno missing, the first check fetches it.
+        fs::remove_file(dir.join("deno")).unwrap();
+        let again = Component::new(dir.clone(), PLATFORM, tool, Box::new(files.clone()));
+        assert_eq!(again.status(), Status::Ready);
+        again.prepare();
+        wait_idle(&again);
+        assert!(dir.join("deno").is_file());
     }
 
     #[test]
